@@ -66,9 +66,13 @@ function exportRows() {
         <h1 class="text-lg font-bold">{{ tenant.current?.name || 'Laboratory' }} — Test Analytics</h1>
       </div>
 
-      <!-- Volume trend + Category mix -->
-      <div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div class="card lg:col-span-2">
+      <!-- Volume trend + Category mix.
+           `print:grid-cols-3` / `print:col-span-2` keep the two charts
+           side-by-side when printing. A4 portrait resolves below the lg
+           breakpoint, so without the print variant the charts would
+           stack and eat an extra ~230px of vertical space. -->
+      <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 print:grid-cols-3">
+        <div class="card lg:col-span-2 print:col-span-2">
           <div class="card-header">
             <div class="text-sm font-semibold text-slate-800">Test Volume Trend</div>
             <span class="text-xs text-slate-500">Daily test quantity billed</span>

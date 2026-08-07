@@ -83,4 +83,24 @@ body {
   .card-header, .card-body { padding: 0.5rem !important; }
   /* Let charts render at their natural width */
   .print-area { max-width: 100% !important; }
+
+  /* Force responsive show-in-table columns to always render when printing.
+     Reports use `class="hidden sm:table-cell"` etc. to hide detail columns
+     on narrow phones. Chrome's print media usually resolves above the sm
+     breakpoint (A4 at 96dpi ≈ 794px), but mobile Safari and some tenant
+     machines can print below sm — silently dropping columns from the
+     printout. Scoped to .print-area so it only affects report views, not
+     other places in the app that print. */
+  .print-area .sm\:table-cell,
+  .print-area .md\:table-cell,
+  .print-area .lg\:table-cell,
+  .print-area .xl\:table-cell {
+    display: table-cell !important;
+  }
+  .print-area .sm\:table-row,
+  .print-area .md\:table-row,
+  .print-area .lg\:table-row,
+  .print-area .xl\:table-row {
+    display: table-row !important;
+  }
 }

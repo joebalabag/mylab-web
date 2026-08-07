@@ -32,6 +32,15 @@ export function exportCsv(filename, rows, columns) {
   setTimeout(() => URL.revokeObjectURL(url), 500)
 }
 
-export function printReport() {
+// Chart.js resizes its <canvas> when the container reflows, and the
+// @media print rules in style.css hide chrome + widen .print-area — so
+// the very first paint AFTER print() is triggered can catch a canvas
+// mid-resize and rasterize a blank/half-drawn chart. This preflight
+// gives the browser two rAFs (roughly 32ms) to settle after any
+// pending style/layout work, and waits on document.fonts.ready so text
+// isn't drawn with invisible fallback glyphs.
+export async function printReport() {
+  try { await document.fonts?.ready } catch (_) { /* older browsers */ }
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
   window.print()
 }
