@@ -106,7 +106,7 @@ guide is deep-linked from there.
 
 Give MyLab your lab details so reports and receipts look right.
 
-Open **Store Settings** from the sidebar and fill in:
+Open **Company Settings** from the sidebar and fill in:
 
 - **Lab identity** — Lab name, legal name, owner name, branch, currency.
   This is what appears at the top of every printed report and receipt.
@@ -425,7 +425,7 @@ Click **Subscription** in the overlay and submit a renewal payment.
 Your lab owner or manager can reset it from **Users → Change password**.
 
 **My logo isn't appearing on receipts / reports.**
-Open **Store Settings**, upload the logo, and confirm the receipt and
+Open **Company Settings**, upload the logo, and confirm the receipt and
 report header settings are on. Save.
 
 **The QR code on the printed report doesn't work.**

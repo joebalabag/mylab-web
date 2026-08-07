@@ -35,7 +35,7 @@ use it every day:
   - [1.13 Expenses](#113-expenses)
   - [1.14 Users](#114-users)
   - [1.15 Doctors](#115-doctors)
-  - [1.16 Store Settings (branding + templates)](#116-store-settings-branding--templates)
+  - [1.16 Company Settings (branding + templates)](#116-company-settings-branding--templates)
   - [1.17 Subscription](#117-subscription)
   - [1.18 Reports](#118-reports)
   - [1.19 Change your own password](#119-change-your-own-password)
@@ -238,7 +238,7 @@ Payment collection lives here. Two entry points:
 
 - After a successful payment, MyLab renders a receipt in the browser you
   can print or save.
-- Receipt copy comes from **Store Settings** — either the auto-generated
+- Receipt copy comes from **Company Settings** — either the auto-generated
   block plus your header/footer text, or fully custom multi-line copy.
 
 ---
@@ -413,7 +413,7 @@ Registry of pathologists and medtechs who can sign reports.
 
 ---
 
-### 1.16 Store Settings (branding + templates)
+### 1.16 Company Settings (branding + templates)
 
 Everything that decides what your reports and receipts *look* like.
 

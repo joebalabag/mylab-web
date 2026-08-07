@@ -1017,7 +1017,7 @@ async function doDelete() {
             </div>
             <div class="sm:col-span-2">
               <label class="label">Receipt footer text</label>
-              <textarea v-model="form.receipt_footer" rows="2" class="input" placeholder="Thank you for shopping with us!"></textarea>
+              <textarea v-model="form.receipt_footer" rows="2" class="input" placeholder="Thank you for choosing us!"></textarea>
             </div>
           </div>
         </section>
@@ -1050,12 +1050,12 @@ async function doDelete() {
             <line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
           <div>
-            This is the <b>only time</b> the password is shown. Copy it now and share it with the store admin securely.
+            This is the <b>only time</b> the password is shown. Copy it now and share it with the tenant admin securely.
           </div>
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Store</div>
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Tenant</div>
           <div class="text-sm font-semibold text-slate-800">
             {{ credentials.tenant.display_name }}
             <span class="ml-1 font-mono text-xs text-slate-500">({{ credentials.tenant.store_code }})</span>

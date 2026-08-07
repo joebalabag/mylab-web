@@ -368,7 +368,7 @@ Smoke tests after deploy:
 - Open a public lab-report link (`/lab/view?uuid=…&t=…`) in an incognito
   window and confirm the read-only report renders.
 - If you reverse-proxied `/api/`, verify a POST works (e.g. save a minor
-  Store Settings change or create a discount).
+  Company Settings change or create a discount).
 - Install as a PWA: browser install prompt should appear (Chrome/Edge on
   desktop, Add-to-Home-Screen on mobile). Installed app should open at
   `/login` in standalone mode.

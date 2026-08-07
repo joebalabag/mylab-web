@@ -23,7 +23,7 @@ const error      = ref('')
 // Server returns just the fields we need to render the card: uuid, code, name,
 // price (always 0 — free-only rule), days_duration, features, allowed_modules,
 // max_terminals. Labels here mirror the backend PLAN_MODULE_KEYS constant.
-const MODULE_LABELS = { order_pos: 'Order POS', terminal_pos: 'Terminal POS', kds: 'KDS + Kitchen Display' }
+const MODULE_LABELS = {}
 const trialPlans = ref([])
 const trialsLoading = ref(false)
 const trialsLoadError = ref('')
@@ -66,7 +66,7 @@ function planTerminalsLabel(plan) {
 
 function validate() {
   if (!selectedPlanUuid.value)            return 'Pick a trial plan to continue'
-  if (!form.value.store_name.trim())     return 'Store name is required'
+  if (!form.value.store_name.trim())     return 'Lab name is required'
   const email = form.value.contact_email.trim()
   if (!email)                             return 'Contact email is required'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -124,14 +124,14 @@ async function submit() {
         <img :src="MyLabLogo" alt="MyLab" class="h-10 w-10 rounded-lg bg-white/10 object-contain p-1" />
         <div>
           <div class="text-lg font-bold">MyLab</div>
-          <div class="text-xs text-white/70">Point of Sale for growing stores</div>
+          <div class="text-xs text-white/70">Laboratory management for growing labs</div>
         </div>
       </div>
 
       <div class="my-auto max-w-md">
-        <h2 class="text-4xl font-extrabold leading-tight">Register your store</h2>
+        <h2 class="text-4xl font-extrabold leading-tight">Register your lab</h2>
         <p class="mt-4 text-white/85">
-          Tell us about your business and we'll set up your MyLab workspace.
+          Tell us about your lab and we'll set up your MyLab workspace.
           Once verified, you'll get an owner account with full access.
         </p>
         <ul class="mt-8 space-y-2 text-sm text-white/90">
@@ -141,7 +141,7 @@ async function submit() {
           </li>
           <li class="flex items-center gap-2">
             <span class="inline-block h-1.5 w-1.5 rounded-full bg-white/80"></span>
-            Cashier terminal, inventory, and reports out of the box
+            Patients, cases, requisitions, cashier, and signed reports out of the box
           </li>
           <li class="flex items-center gap-2">
             <span class="inline-block h-1.5 w-1.5 rounded-full bg-white/80"></span>
@@ -160,7 +160,7 @@ async function submit() {
           <img :src="MyLabLogo" alt="MyLab" class="h-10 w-10 rounded-lg object-contain" />
           <div>
             <div class="text-base font-bold text-slate-800">MyLab</div>
-            <div class="text-xs text-slate-500">Register your store</div>
+            <div class="text-xs text-slate-500">Register your lab</div>
           </div>
         </div>
 
@@ -216,7 +216,7 @@ async function submit() {
                   </span>
                   <span v-if="!planModuleLabels(p).length"
                         class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
-                    Non-POS modules only
+                    All modules included
                   </span>
                 </div>
               </button>
@@ -224,8 +224,8 @@ async function submit() {
           </div>
 
           <div>
-            <label class="label">Store name *</label>
-            <input v-model="form.store_name" required class="input" placeholder="e.g. Corner Store" />
+            <label class="label">Lab name *</label>
+            <input v-model="form.store_name" required class="input" placeholder="e.g. MnD Diagnostic Lab" />
           </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">

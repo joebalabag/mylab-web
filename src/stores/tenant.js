@@ -9,8 +9,8 @@ const KNOWN_KEY   = 'pos_tenants'
 const DEFAULT_TENANT = {
   uuid: DEMO_TENANT_UUID,
   code: 'MAIN',
-  name: 'Grocery Store',
-  legalName: 'Grocery Store Corp.',
+  name: 'Sample Lab',
+  legalName: 'Sample Diagnostics Corp.',
   ownerName: '',
   logo: '',                                     // base64 data URL
   tin: '000-000-000-000',
@@ -26,14 +26,14 @@ const DEFAULT_TENANT = {
   country: 'Philippines',
 
   phone: '+63 917 000 0000',
-  email: 'hello@grocery.local',
-  website: 'grocery.local',
+  email: 'hello@lab.local',
+  website: 'lab.local',
 
   currency: 'PHP',
   currencySymbol: '₱',
 
   receiptHeader: 'OFFICIAL RECEIPT',
-  receiptFooter: 'Thank you for shopping with us!\nPlease come again.',
+  receiptFooter: 'Thank you for choosing us!\nPlease come again.',
   showLogoOnReceipt: true,
   showTinOnReceipt: true,
   // Whole-body custom overrides. Off by default so a fresh tenant keeps

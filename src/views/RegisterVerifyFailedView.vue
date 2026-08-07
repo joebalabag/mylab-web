@@ -35,7 +35,7 @@ const explain = computed(() => {
         <img :src="MyLabLogo" alt="MyLab" class="h-10 w-10 rounded-lg bg-white/10 object-contain p-1" />
         <div>
           <div class="text-lg font-bold">MyLab</div>
-          <div class="text-xs text-white/70">Point of Sale for growing stores</div>
+          <div class="text-xs text-white/70">Laboratory management for growing labs</div>
         </div>
       </div>
 
