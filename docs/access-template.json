@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "template_version": 3,
+  "generated_at": "2026-07-04",
+  "notes": [
+    "Flat-table shape ready for a relational store — each row in `navigations[]` is one grantable access.",
+    "`navigation_id` is the immutable primary key. Users record which IDs they've been granted (see `samples.user_access`).",
+    "`catalog_id` is the position of the row inside its `catalog` group (1-based). Useful for stable ordering when rendering.",
+    "`sub_navigation = \"all-access\"` means the main navigation has no fine-grained sub-actions — checking that one row grants the whole page.",
+    "When a `main_navigation` has multiple rows (e.g. User Management), each `sub_navigation` is an independent grantable action.",
+    "A main navigation's menu is IMPLICITLY visible in the sidebar when the user holds ANY row that belongs to it.",
+    "Adding a new row: append to `navigations[]` with a fresh `navigation_id` (never reuse), then bump `template_version`.",
+    "Deprecating: set `\"deprecated\": true` on the row — keep it so existing user grants stay decodable, but hide it in new admin UIs.",
+    "Keys are case-insensitive on the wire but stored lowercase in this template for consistency."
+  ],
+  "columns": {
+    "navigation_id":  "int, primary key, immutable",
+    "catalog_id":     "int, position within the catalog group (ordering)",
+    "catalog":        "string, top-level bucket the row belongs to",
+    "main_navigation":"string, the module/page label",
+    "sub_navigation": "string, the specific action (or \"all-access\" for whole-module toggles)",
+    "route":          "optional, Vue Router path the navigation opens",
+    "deprecated":     "optional boolean, hides the row in new UIs but keeps grants decodable"
+  },
+  "navigations": [
+    { "navigation_id": 1,  "catalog_id": 1, "catalog": "sales / pos",    "main_navigation": "order pos",         "sub_navigation": "all-access",              "route": "/order-pos"       },
+    { "navigation_id": 2,  "catalog_id": 2, "catalog": "sales / pos",    "main_navigation": "terminal pos",      "sub_navigation": "all-access",              "route": "/terminal-pos"    },
+
+    { "navigation_id": 3,  "catalog_id": 1, "catalog": "catalog",        "main_navigation": "products",          "sub_navigation": "all-access",              "route": "/products"        },
+    { "navigation_id": 4,  "catalog_id": 2, "catalog": "catalog",        "main_navigation": "categories",        "sub_navigation": "all-access",              "route": "/categories"      },
+    { "navigation_id": 5,  "catalog_id": 3, "catalog": "catalog",        "main_navigation": "generics",          "sub_navigation": "all-access",              "route": "/generics"        },
+    { "navigation_id": 6,  "catalog_id": 4, "catalog": "catalog",        "main_navigation": "discounts",         "sub_navigation": "all-access",              "route": "/discounts"       },
+
+    { "navigation_id": 7,  "catalog_id": 1, "catalog": "inventory",      "main_navigation": "stocks",            "sub_navigation": "all-access",              "route": "/stock"           },
+
+    { "navigation_id": 8,  "catalog_id": 1, "catalog": "reports",        "main_navigation": "myreports",         "sub_navigation": "all-access",              "route": "/my-reports"      },
+    { "navigation_id": 9,  "catalog_id": 2, "catalog": "reports",        "main_navigation": "reports",           "sub_navigation": "all-access",              "route": "/reports"         },
+
+    { "navigation_id": 10, "catalog_id": 1, "catalog": "administrative", "main_navigation": "user management",   "sub_navigation": "add user",                "route": "/users"           },
+    { "navigation_id": 11, "catalog_id": 2, "catalog": "administrative", "main_navigation": "user management",   "sub_navigation": "edit user",               "route": "/users"           },
+    { "navigation_id": 12, "catalog_id": 3, "catalog": "administrative", "main_navigation": "user management",   "sub_navigation": "change password",         "route": "/users"           },
+    { "navigation_id": 13, "catalog_id": 4, "catalog": "administrative", "main_navigation": "user management",   "sub_navigation": "assign access",           "route": "/users"           },
+    { "navigation_id": 14, "catalog_id": 5, "catalog": "administrative", "main_navigation": "user management",   "sub_navigation": "activate/deactivate user","route": "/users"           },
+    { "navigation_id": 15, "catalog_id": 6, "catalog": "administrative", "main_navigation": "user management",   "sub_navigation": "delete user",             "route": "/users"           },
+    { "navigation_id": 16, "catalog_id": 7, "catalog": "administrative", "main_navigation": "subscription",      "sub_navigation": "all-access",              "route": "/subscription"    },
+    { "navigation_id": 17, "catalog_id": 8, "catalog": "administrative", "main_navigation": "store settings",    "sub_navigation": "all-access",              "route": "/settings/tenant" },
+    { "navigation_id": 18, "catalog_id": 9, "catalog": "administrative", "main_navigation": "terminal",          "sub_navigation": "all-access",              "route": "/terminals"       },
+    { "navigation_id": 19, "catalog_id": 10,"catalog": "administrative", "main_navigation": "terminal settings", "sub_navigation": "all-access",              "route": "/terminals/settings" }
+  ],
+  "samples": {
+    "empty_user_access": {
+      "user_uuid": "00000000-0000-0000-0000-000000000000",
+      "navigation_ids": []
+    },
+    "cashier_user_access": {
+      "user_uuid": "11111111-1111-1111-1111-111111111111",
+      "navigation_ids": [1, 2, 8]
+    },
+    "stock_clerk_user_access": {
+      "user_uuid": "22222222-2222-2222-2222-222222222222",
+      "navigation_ids": [3, 4, 5, 6, 7, 9]
+    },
+    "manager_user_access": {
+      "user_uuid": "33333333-3333-3333-3333-333333333333",
+      "navigation_ids": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    }
+  },
+  "example_extensibility": {
+    "adding_a_new_menu": {
+      "when": "App adds a Loyalty Program page.",
+      "how": "Append { \"navigation_id\": 18, \"catalog_id\": 9, \"catalog\": \"administrative\", \"main_navigation\": \"loyalty program\", \"sub_navigation\": \"all-access\", \"route\": \"/loyalty\" } and bump template_version. Existing users don't need a migration — they simply won't have ID 18 until an admin grants it.",
+      "note": "Backend should return the full template on GET /access-template so the admin UI can render new rows without a front-end release."
+    },
+    "adding_a_new_sub_action": {
+      "when": "User Management adds a Bulk Import action.",
+      "how": "Append { \"navigation_id\": 19, \"catalog_id\": 7, \"catalog\": \"administrative\", \"main_navigation\": \"user management\", \"sub_navigation\": \"bulk import\", \"route\": \"/users\" }. Because the sidebar visibility rule fires when ANY user-management row is present, existing user-management admins keep their menu without needing an update to their granted list.",
+      "note": "Shift the catalog_id of subscription/store settings +1 if you want to keep dense ordering, or just leave gaps — either works because catalog_id is a display hint, not a key."
+    },
+    "deprecating_an_item": {
+      "when": "Reports gets replaced by an analytics module.",
+      "how": "Mark the row `\"deprecated\": true`. Admin UIs should hide it by default; the backend keeps interpreting the ID so historical grants still resolve. Only after a clean-up migration on every user should the row be physically deleted.",
+      "note": "Never re-use a deprecated navigation_id — pick the next unused integer."
+    }
+  }
+}

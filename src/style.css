@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-100 text-slate-800 antialiased;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition
+           focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-1 disabled:opacity-50
+           disabled:cursor-not-allowed;
+  }
+  .btn-primary  { @apply btn bg-brand-600 text-white hover:bg-brand-700; }
+  .btn-secondary{ @apply btn bg-white text-slate-700 border border-slate-200 hover:bg-slate-50; }
+  .btn-danger   { @apply btn bg-rose-600 text-white hover:bg-rose-700; }
+  .btn-ghost    { @apply btn bg-transparent text-slate-600 hover:bg-slate-100; }
+  .btn-icon     { @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500
+                       hover:bg-slate-100 hover:text-slate-800; }
+
+  .input {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800
+           placeholder:text-slate-400 focus:border-brand-400 focus:outline-none focus:ring-2
+           focus:ring-brand-100;
+  }
+  .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500; }
+
+  .card {
+    @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200/60;
+  }
+  .card-header {
+    @apply flex flex-col gap-2 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between;
+  }
+  .card-body { @apply p-4; }
+
+  .table       { @apply w-full text-left text-sm; }
+  .table thead { @apply bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  /* Tighter default padding — MyLab tables run long, so trimming from
+     px-4 py-3 → px-3 py-1.5 fits ~40% more rows above the fold. */
+  .table th, .table td { @apply px-3 py-1.5 align-middle; }
+  .table tbody tr { @apply border-t border-slate-100 hover:bg-slate-50/60; }
+  .table-wrap  { @apply -mx-4 overflow-x-auto sm:mx-0; }
+
+  .badge          { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold; }
+  .badge-success  { @apply badge bg-emerald-100 text-emerald-700; }
+  .badge-warn     { @apply badge bg-amber-100 text-amber-700; }
+  .badge-danger   { @apply badge bg-rose-100 text-rose-700; }
+  .badge-info     { @apply badge bg-brand-100 text-brand-700; }
+  .badge-muted    { @apply badge bg-slate-100 text-slate-600; }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs
+           font-medium text-slate-700;
+  }
+}
+
+/* smooth transitions */
+.fade-enter-active, .fade-leave-active { transition: opacity .15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* scrollbar polish */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { @apply rounded bg-slate-300; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+
+/* Print stylesheet for /reports/* views. Hides chrome (sidebar, topbar,
+   filters, buttons) and prints only the .print-area block on the current
+   page. Individual report views can add their own header inside the print
+   area using `hidden print:block`. */
+@media print {
+  @page { size: A4 portrait; margin: 0.5in; }
+  html, body { background: white !important; }
+  aside, nav, header, .no-print, .no-print-hide { display: none !important; }
+  .card { box-shadow: none !important; border-color: #e2e8f0 !important; }
+  .card-header, .card-body { padding: 0.5rem !important; }
+  /* Let charts render at their natural width */
+  .print-area { max-width: 100% !important; }
+}
