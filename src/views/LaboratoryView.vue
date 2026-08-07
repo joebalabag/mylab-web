@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useLaboratoryStore } from '../stores/laboratory'
 import { useItemCategoriesStore } from '../stores/itemCategories'
 import { useItemGroupsStore } from '../stores/itemGroups'
@@ -543,6 +543,61 @@ const PAPER_PX = {
   half_letter_crosswise: { w: 816,  h: 528  },
   half_legal_crosswise:  { w: 816,  h: 672  },
 }
+
+// ─── Scaled on-screen preview ─────────────────────────────────────────
+// The preview renders LabReportPrintable at true paper width (e.g. 816px
+// for letter) so it matches the printed layout exactly. On narrow modal
+// widths (phones) we shrink it with CSS transform: scale() so the whole
+// page is visible without horizontal scrolling — and, crucially, without
+// letting the responsive flex/grid classes reflow into a mobile layout.
+// Two ResizeObservers: one for the outer frame width (drives scale),
+// one for the inner content height (drives the frame's scaled height so
+// multi-page reports don't get clipped and the modal still scrolls
+// naturally).
+const previewFrameWidth   = ref(0)
+const previewContentHeight = ref(0)
+let previewWidthObs  = null
+let previewHeightObs = null
+function setPreviewFrame(el) {
+  if (previewWidthObs) { previewWidthObs.disconnect(); previewWidthObs = null }
+  if (!el) { previewFrameWidth.value = 0; return }
+  previewFrameWidth.value = el.clientWidth
+  if (typeof ResizeObserver !== 'undefined') {
+    previewWidthObs = new ResizeObserver((entries) => {
+      for (const e of entries) previewFrameWidth.value = e.contentRect.width
+    })
+    previewWidthObs.observe(el)
+  }
+}
+function setPreviewContent(el) {
+  if (previewHeightObs) { previewHeightObs.disconnect(); previewHeightObs = null }
+  if (!el) { previewContentHeight.value = 0; return }
+  previewContentHeight.value = el.getBoundingClientRect().height
+  if (typeof ResizeObserver !== 'undefined') {
+    previewHeightObs = new ResizeObserver((entries) => {
+      for (const e of entries) previewContentHeight.value = e.contentRect.height
+    })
+    previewHeightObs.observe(el)
+  }
+}
+onBeforeUnmount(() => {
+  if (previewWidthObs)  previewWidthObs.disconnect()
+  if (previewHeightObs) previewHeightObs.disconnect()
+})
+const previewPaperPx = computed(() => PAPER_PX[effectivePaperKey.value] || PAPER_PX.letter)
+const previewScale = computed(() => {
+  const w = previewFrameWidth.value
+  if (!w) return 1
+  return Math.min(1, w / previewPaperPx.value.w)
+})
+const previewFrameHeightPx = computed(() => {
+  const contentH = previewContentHeight.value || previewPaperPx.value.h
+  return Math.ceil(contentH * previewScale.value)
+})
+// Width of the visible scaled sheet — used to size the centering wrapper
+// so the paper sits in the middle of the modal instead of top-left with
+// dead space to the right on wide screens.
+const previewFrameWidthPx = computed(() => Math.ceil(previewPaperPx.value.w * previewScale.value))
 // The signature block is always pinned to the bottom of the last page —
 // short reports get a clean signature-at-page-bottom layout instead of
 // signatures floating awkwardly in the middle of the paper, and multi-page
@@ -894,6 +949,16 @@ function doPrint() {
       }))
     })
     await Promise.all([...linkWaits, ...imgWaits])
+    // Fonts — @font-face files referenced by the copied stylesheets load on
+    // the popup's own document, independent of the parent. Until they finish,
+    // text using them is rendered with invisible glyphs (font-display: block
+    // is Chrome's default when no override is set), which is the primary
+    // cause of "print preview came out white." document.fonts.ready resolves
+    // once every pending face is either loaded or errored. Guarded with a
+    // timeout so a single stuck font can't stall the whole print flow.
+    if (doc.fonts && typeof doc.fonts.ready?.then === 'function') {
+      await withTimeout(doc.fonts.ready)
+    }
     // One more frame so layout settles after the last resource lands —
     // otherwise Chrome can capture a mid-relayout snapshot for the print
     // rasterizer and blank out the page.
@@ -1767,10 +1832,28 @@ function patientDisplay(r) {
       <!-- Print block lives in a shared component so TestItemsView's "Print
            Preview" renders the identical template. The `lab-print-area` /
            `lab-print-header` / `lab-print-body` IDs live inside the component
-           and are still scraped by doPrint() below. -->
-      <LabReportPrintable :report="printReport" :tenant="tenant.current"
-                          :qr-data-url="qrDataUrl"
-                          :paper-height="(PAPER_PX[effectivePaperKey] || PAPER_PX.letter).h" />
+           and are still scraped by doPrint() below.
+           Wrapped in a scale frame: inner renders at true paper width so the
+           preview matches the printed page exactly; on narrow modal widths
+           (phones) CSS transform shrinks the whole page to fit — instead of
+           letting Tailwind flex/grid classes collapse into a mobile layout. -->
+      <div :ref="setPreviewFrame">
+        <!-- Middle box hugs the scaled sheet's real footprint so mx-auto
+             actually centers the paper — otherwise the outer container
+             stretches full modal-width and the transformed inner sits
+             pinned to top-left, leaving dead space on wide screens. -->
+        <div class="mx-auto overflow-hidden"
+             :style="`width: ${previewFrameWidthPx}px; height: ${previewFrameHeightPx}px;`">
+          <div :ref="setPreviewContent"
+               :style="`width: ${previewPaperPx.w}px;
+                        transform: scale(${previewScale});
+                        transform-origin: top left;`">
+            <LabReportPrintable :report="printReport" :tenant="tenant.current"
+                                :qr-data-url="qrDataUrl"
+                                :paper-height="previewPaperPx.h" />
+          </div>
+        </div>
+      </div>
       </template>
       <template #footer>
         <button class="btn-secondary" @click="showPrint = false">Close</button>

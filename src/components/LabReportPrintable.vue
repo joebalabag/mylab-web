@@ -46,17 +46,37 @@ const headerRestLines = computed(() => {
   return out.join('\n').trim()
 })
 
-// Whole-year age from a birthdate. Returns '' when unparseable so callers
-// can render "— y/o" without a NaN.
+// Detailed age from a birthdate — "11Y-5M-4D" style. Returns '' when
+// unparseable so callers can render '—' without a NaN. Day math borrows
+// from the previous month's length (matches how clinicians speak an
+// infant/child age, e.g. "0Y-2M-14D").
 function ageFromBirthdate(v) {
   if (!v) return ''
   const bd = v instanceof Date ? v : new Date(v)
   if (isNaN(bd.getTime())) return ''
   const now = new Date()
-  let age = now.getFullYear() - bd.getFullYear()
-  const m = now.getMonth() - bd.getMonth()
-  if (m < 0 || (m === 0 && now.getDate() < bd.getDate())) age--
-  return age
+  let years  = now.getFullYear() - bd.getFullYear()
+  let months = now.getMonth()    - bd.getMonth()
+  let days   = now.getDate()     - bd.getDate()
+  if (days < 0) {
+    months--
+    // Days in the calendar month just before `now` — day 0 of current
+    // month === last day of previous month.
+    const prevMonthLen = new Date(now.getFullYear(), now.getMonth(), 0).getDate()
+    days += prevMonthLen
+  }
+  if (months < 0) { years--; months += 12 }
+  return `${years}Y-${months}M-${days}D`
+}
+
+// Normalize 'm' / 'male' / 'MALE' → 'Male' so the header reads cleanly
+// regardless of how the patient record stores sex.
+function formatSex(v) {
+  if (!v) return ''
+  const s = String(v).trim().toLowerCase()
+  if (s === 'm' || s === 'male')   return 'Male'
+  if (s === 'f' || s === 'female') return 'Female'
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function anyUnit(it)      { return (it.values || []).some((v) => !!(v.unit_of_measure && String(v.unit_of_measure).trim())) }
@@ -136,48 +156,60 @@ function categoryHeaderStyle(report) {
           </div>
         </div>
 
-        <!-- Three-row patient/report info block. -->
+        <!-- Patient / report info block — 3 rows, left content + fixed
+             right column. Uses the same flex + w-64 pattern the rest of
+             this file uses; an earlier attempt with an arbitrary-value
+             grid (grid-cols-[minmax(0,1fr)_16rem]) rendered fine on
+             screen but blanked out the middle of the printed page when
+             the header block was pushed into the popup's thead/td
+             wrapper by doPrint(). Standard classes side-step whatever
+             the print-engine was choking on.
+             Row 1: Patient  Age | Sex             │ Laboratory #
+             Row 2: Address                         │ Time Taken
+             Row 3: Physician                       │ Status  Status Date -->
         <div class="mb-3 space-y-0.5 text-xs">
-          <div class="flex items-baseline justify-between gap-4">
-            <div class="min-w-0">
+          <!-- Row 1 -->
+          <div class="flex items-baseline gap-4">
+            <div class="min-w-0 flex-1">
               <span class="text-slate-500">Patient:</span>
               <span class="ml-1 font-medium">{{ [report.patient_first_name, report.patient_last_name].filter(Boolean).join(' ') || '—' }}</span>
-              <span v-if="ageFromBirthdate(report.patient_birthdate) !== '' || report.patient_sex"
-                    class="ml-1 text-slate-600">
-                - {{ ageFromBirthdate(report.patient_birthdate) !== '' ? `${ageFromBirthdate(report.patient_birthdate)} y/o` : '' }}
-                <span v-if="report.patient_sex" class="capitalize">{{ ageFromBirthdate(report.patient_birthdate) !== '' ? ' ' : '' }}{{ report.patient_sex }}</span>
+              <span class="ml-2 text-slate-700">
+                <template v-if="ageFromBirthdate(report.patient_birthdate)">{{ ageFromBirthdate(report.patient_birthdate) }}</template>
+                <template v-else>—</template>
+                <template v-if="formatSex(report.patient_sex)"> | {{ formatSex(report.patient_sex) }}</template>
               </span>
             </div>
             <div class="w-64 shrink-0 whitespace-nowrap text-left">
               <span class="text-slate-500">Laboratory #:</span>
-              <span class="ml-1 font-mono font-semibold">{{ report.lab_number }}</span>
+              <span class="ml-1 font-mono font-semibold">{{ report.lab_number || '—' }}</span>
             </div>
           </div>
-          <div class="flex items-baseline justify-between gap-4">
-            <div class="min-w-0">
-              <span class="text-slate-500">Case #:</span>
-              <span class="ml-1">{{ report.patient_case_number || '—' }}</span>
-              <span v-if="report.item_category_name" class="ml-2 text-slate-500">-
-                <span class="text-slate-700">{{ report.item_category_name }}</span>
-              </span>
+
+          <!-- Row 2 -->
+          <div class="flex items-baseline gap-4">
+            <div class="min-w-0 flex-1">
+              <span class="text-slate-500">Address:</span>
+              <span class="ml-1">{{ report.patient_address || '—' }}</span>
+            </div>
+            <div class="w-64 shrink-0 whitespace-nowrap text-left">
+              <span class="text-slate-500">Time Taken:</span>
+              <span class="ml-1">{{ report.specimen_collected_at ? formatDateTime(report.specimen_collected_at) : '—' }}</span>
+            </div>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="flex items-baseline gap-4">
+            <div class="min-w-0 flex-1">
+              <span class="text-slate-500">Physician:</span>
+              <span class="ml-1">{{ report.physician || '—' }}</span>
             </div>
             <div class="w-64 shrink-0 whitespace-nowrap text-left">
               <span class="text-slate-500">Status:</span>
               <span class="ml-1 font-semibold" :class="report.status === 'finalized' ? 'text-emerald-700' : 'text-amber-700'">
-                {{ (report.status || '').toUpperCase() }}
+                {{ (report.status || '').toUpperCase() || '—' }}
               </span>
-              <span v-if="report.finalized_at" class="ml-1 text-slate-500">
-                {{ formatDateTime(report.finalized_at) }}
-              </span>
+              <span v-if="report.finalized_at" class="ml-1 text-slate-500">| {{ formatDateTime(report.finalized_at) }}</span>
             </div>
-          </div>
-          <div class="flex items-baseline justify-between gap-4 text-[11px] text-slate-500">
-            <div class="min-w-0">
-              Patient #: <span class="ml-0.5 text-slate-700 font-mono">{{ report.patient_number || '—' }}</span>
-              <span class="ml-3">Requisition #: <span class="text-slate-700 font-mono">{{ report.requisition_number || '—' }}</span></span>
-              <span v-if="report.specimen_collected_at" class="ml-3">Time Taken: <span class="text-slate-700">{{ formatDateTime(report.specimen_collected_at) }}</span></span>
-            </div>
-            <div class="w-64 shrink-0 whitespace-nowrap text-left">Lab Created: <span class="text-slate-700">{{ formatDateTime(report.created_at) }}</span></div>
           </div>
         </div>
       </div><!-- /#lab-print-header -->
@@ -213,7 +245,7 @@ function categoryHeaderStyle(report) {
                   <th class="w-1/3 text-left font-semibold">Analyte</th>
                   <th class="text-left font-semibold">Result</th>
                   <th v-if="anyUnit(it)" class="w-16 text-left font-semibold">Unit</th>
-                  <th v-if="anyReference(it)" class="w-40 text-left font-semibold">Reference</th>
+                  <th v-if="anyReference(it)" class="w-56 whitespace-nowrap text-left font-semibold">Reference</th>
                 </tr>
               </thead>
               <tbody>
@@ -227,7 +259,7 @@ function categoryHeaderStyle(report) {
                     <td class="py-px">{{ v.component_name }}</td>
                     <td class="py-px">{{ v.value_text || '' }}</td>
                     <td v-if="anyUnit(it)" class="py-px text-slate-500">{{ v.unit_of_measure || '' }}</td>
-                    <td v-if="anyReference(it)" class="py-px text-slate-500">{{ v.reference_range || '' }}</td>
+                    <td v-if="anyReference(it)" class="whitespace-nowrap py-px text-slate-500">{{ v.reference_range || '' }}</td>
                   </tr>
                 </template>
               </tbody>
@@ -259,8 +291,12 @@ function categoryHeaderStyle(report) {
           <span class="font-semibold">Remarks:</span> {{ report.remarks }}
         </div>
 
-        <!-- Signature block. -->
-        <div class="lab-signature-block mt-16 grid grid-cols-2 gap-8">
+        <!-- Signature block. mt-16 gives on-screen breathing room; pt-10
+             is a *minimum* gap that survives the print popup's
+             `margin-top: auto` (which collapses to ~0 when the results
+             table already fills the page and leaves no free space for
+             the flex layout to distribute). -->
+        <div class="lab-signature-block mt-16 pt-10 grid grid-cols-2 gap-8">
           <div>
             <div class="border-b border-slate-400"></div>
             <div class="relative mt-1 text-center text-xs">

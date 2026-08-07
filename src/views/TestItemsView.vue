@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useTestItemsStore } from '../stores/testItems'
 import { useItemCategoriesStore } from '../stores/itemCategories'
 import { useItemGroupsStore } from '../stores/itemGroups'
@@ -650,8 +650,10 @@ const previewReport = computed(() => {
     patient_birthdate: '1990-04-12',
     patient_sex: 'male',
     patient_number: 'MRN-000123',
+    patient_address: '123 Rizal St., Barangay 1, Hinigaran, Negros Occidental',
     patient_case_number: 'C-2026-000456',
     requisition_number: 'R-2026-000789',
+    physician: 'Dra. Maria Santos, MD',
     specimen_collected_at: now,
     created_at: now,
     finalized_at: null,
@@ -681,6 +683,56 @@ async function doPrintPreview() {
   await nextTick()
   window.print()
 }
+
+// ─── Scaled on-screen preview ─────────────────────────────────────────
+// Same pattern as LaboratoryView: render LabReportPrintable at true paper
+// width (letter = 816px) so the preview matches the printout exactly,
+// then shrink with CSS transform on narrow modals (phones) instead of
+// letting Tailwind flex/grid classes collapse into a mobile layout.
+// The `lab-preview-scale-*` classes are reset by `@media print` below
+// so the transform doesn't get baked into the printed output.
+const PAPER_PREVIEW_W = 816
+const PAPER_PREVIEW_H = 1056
+const previewFrameWidth    = ref(0)
+const previewContentHeight = ref(0)
+let previewWidthObs  = null
+let previewHeightObs = null
+function setPreviewFrame(el) {
+  if (previewWidthObs) { previewWidthObs.disconnect(); previewWidthObs = null }
+  if (!el) { previewFrameWidth.value = 0; return }
+  previewFrameWidth.value = el.clientWidth
+  if (typeof ResizeObserver !== 'undefined') {
+    previewWidthObs = new ResizeObserver((entries) => {
+      for (const e of entries) previewFrameWidth.value = e.contentRect.width
+    })
+    previewWidthObs.observe(el)
+  }
+}
+function setPreviewContent(el) {
+  if (previewHeightObs) { previewHeightObs.disconnect(); previewHeightObs = null }
+  if (!el) { previewContentHeight.value = 0; return }
+  previewContentHeight.value = el.getBoundingClientRect().height
+  if (typeof ResizeObserver !== 'undefined') {
+    previewHeightObs = new ResizeObserver((entries) => {
+      for (const e of entries) previewContentHeight.value = e.contentRect.height
+    })
+    previewHeightObs.observe(el)
+  }
+}
+onBeforeUnmount(() => {
+  if (previewWidthObs)  previewWidthObs.disconnect()
+  if (previewHeightObs) previewHeightObs.disconnect()
+})
+const previewScale = computed(() => {
+  const w = previewFrameWidth.value
+  if (!w) return 1
+  return Math.min(1, w / PAPER_PREVIEW_W)
+})
+const previewFrameWidthPx = computed(() => Math.ceil(PAPER_PREVIEW_W * previewScale.value))
+const previewFrameHeightPx = computed(() => {
+  const contentH = previewContentHeight.value || PAPER_PREVIEW_H
+  return Math.ceil(contentH * previewScale.value)
+})
 
 function typeBadgeClass(t) {
   switch (t) {
@@ -1302,7 +1354,12 @@ function typeBadgeClass(t) {
       <!-- Sample lab report — SAME template LaboratoryView uses. The
            `print-preview-sheet` wrapper is what the @media print rule below
            surfaces; the LabReportPrintable inside carries the standard IDs
-           and full layout. -->
+           and full layout.
+           Wrapped in a scale frame so the mobile modal shows the true
+           printable layout shrunk to fit, instead of letting Tailwind
+           reflow into a narrow one-column mess. The `.lab-preview-scale-*`
+           classes are neutralized by `@media print` below so the transform
+           does NOT get baked into the printed output. -->
       <div v-if="printLoading" class="h-40 animate-pulse rounded bg-slate-50"></div>
       <div v-else-if="previewReport"
            class="print-preview-sheet mx-auto rounded border border-slate-200 bg-white"
@@ -1310,7 +1367,17 @@ function typeBadgeClass(t) {
         <div class="no-print bg-amber-50 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-widest text-amber-700">
           Sample · Preview only · Not a real lab report
         </div>
-        <LabReportPrintable :report="previewReport" :tenant="tenant.current" :paper-height="1056" />
+        <div :ref="setPreviewFrame" class="lab-preview-scale-frame">
+          <div class="lab-preview-scale-middle mx-auto overflow-hidden"
+               :style="`width: ${previewFrameWidthPx}px; height: ${previewFrameHeightPx}px;`">
+            <div :ref="setPreviewContent" class="lab-preview-scale-inner"
+                 :style="`width: ${PAPER_PREVIEW_W}px;
+                          transform: scale(${previewScale});
+                          transform-origin: top left;`">
+              <LabReportPrintable :report="previewReport" :tenant="tenant.current" :paper-height="PAPER_PREVIEW_H" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <template #footer>
@@ -1341,5 +1408,18 @@ function typeBadgeClass(t) {
     padding: 0.25in !important;
   }
   .no-print { display: none !important; }
+
+  /* Undo the on-screen scale wrapper for printing. Without this the
+     transform would rasterize the report at ~40% on mobile, and the
+     fixed pixel widths/heights on the middle box would clip content. */
+  .lab-preview-scale-middle {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .lab-preview-scale-inner {
+    width: auto !important;
+    transform: none !important;
+  }
 }
 </style>

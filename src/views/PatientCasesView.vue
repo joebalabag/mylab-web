@@ -451,7 +451,7 @@ async function reloadRequisitions() {
 // ═══════════════════════════════════════════════════════════════════════════
 const showReqForm = ref(false)
 const editingReq  = ref(null)
-const reqForm = ref({ requisition_date: toDateTimeInputValue(new Date()), notes: '' })
+const reqForm = ref({ requisition_date: toDateTimeInputValue(new Date()), notes: '', physician: '' })
 const reqLines = ref([])                // requested items (bottom table)
 const reqLinesLoading = ref(false)
 const reqError = ref('')
@@ -680,7 +680,8 @@ async function openEditRequisition(req) {
   editingReq.value = req
   reqForm.value = {
     requisition_date: toDateTimeInputValue(req.requisition_date),
-    notes: req.notes || ''
+    notes: req.notes || '',
+    physician: req.physician || '',
   }
   reqLines.value = []
   reqDiscount.value = {
@@ -770,12 +771,14 @@ async function submitRequisition({ finalize = false } = {}) {
       await updatePatientRequisition(editingReq.value.uuid, {
         requisition_date: reqForm.value.requisition_date || undefined,
         notes: reqForm.value.notes || undefined,
+        physician: reqForm.value.physician || undefined,
       })
     } else {
       const created = await createPatientRequisition({
         tenant_uuid: auth.tenantUuid || undefined,
         patient_case_uuid: viewing.value.uuid,
         notes: reqForm.value.notes || undefined,
+        physician: reqForm.value.physician || undefined,
       })
       targetUuid = created?.uuid
     }
@@ -1551,12 +1554,16 @@ function reqStatusBadge(s) {
         </div>
 
         <!-- Metadata row — requisition date only editable on Edit -->
-        <div class="grid grid-cols-1 gap-3" :class="editingReq ? 'sm:grid-cols-3' : ''">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div v-if="editingReq">
             <label class="label">Requisition date</label>
             <input type="datetime-local" v-model="reqForm.requisition_date" class="input" />
           </div>
-          <div :class="editingReq ? 'sm:col-span-2' : ''">
+          <div>
+            <label class="label">Physician</label>
+            <input v-model="reqForm.physician" maxlength="255" placeholder="Referring physician — prints on the report" class="input" />
+          </div>
+          <div :class="editingReq ? '' : 'sm:col-span-2'">
             <label class="label">Notes</label>
             <input v-model="reqForm.notes" maxlength="2000" placeholder="Optional — instructions or reason" class="input" />
             <p v-if="!editingReq" class="mt-1 text-[11px] text-slate-500">
