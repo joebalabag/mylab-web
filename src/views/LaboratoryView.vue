@@ -38,10 +38,26 @@ const search         = ref(persisted.keywords || '')
 const statusFilter   = ref((persisted.status && persisted.status[0]) || '')  // '' | 'draft' | 'finalized' | 'voided'
 const groupFilter    = ref(persisted.item_group_uuid || '')                  // '' | item_group_uuid — narrows the category dropdown too
 const categoryFilter = ref(persisted.item_category_uuid || '')               // '' | item_category_uuid
-// Dates default to last 30 days ONLY when there's no persisted filter set
-// yet — otherwise honor whatever the user last selected (including empty).
-const dateFrom       = ref(hadPersisted ? (persisted.date_from || '') : daysAgoISO(30))
-const dateTo         = ref(hadPersisted ? (persisted.date_to   || '') : todayISO())
+// Dates default to a 2-day window ending today ONLY when there's no
+// persisted filter set yet — otherwise honor whatever the user last
+// selected (including empty). Special-case for date_to: if a persisted
+// upper bound has fallen behind today's date (e.g. user opened the page
+// yesterday and left the filter pinned to yesterday), slide the window
+// forward to today on load so newly created reports show up without the
+// operator having to touch the filter. When we slide date_to we also
+// slide date_from to keep the 2-day window intact. An explicitly-cleared
+// upper bound (empty string) is left alone — that means "no ceiling"
+// and is a valid choice we shouldn't override.
+const _todayStr      = todayISO()
+const _twoDaysAgo    = daysAgoISO(2)
+const _persistedTo   = persisted.date_to || ''
+const _shouldSlide   = hadPersisted && _persistedTo && _persistedTo < _todayStr
+const dateFrom       = ref(hadPersisted
+  ? (_shouldSlide ? _twoDaysAgo : (persisted.date_from || ''))
+  : _twoDaysAgo)
+const dateTo         = ref(hadPersisted
+  ? (_shouldSlide ? _todayStr : _persistedTo)
+  : _todayStr)
 const listError      = ref('')
 
 async function loadReports() {
@@ -119,7 +135,7 @@ function clearFilters() {
   // Group is required — reset to the first active group instead of clearing.
   const firstGroup = groups.items.find((g) => g.status === 'active')
   if (firstGroup) groupFilter.value = firstGroup.uuid
-  dateFrom.value = daysAgoISO(30)
+  dateFrom.value = daysAgoISO(2)
   dateTo.value   = todayISO()
   loadReports()
 }
@@ -316,7 +332,12 @@ async function openEditor(uuid) {
     // Deep clone so edits don't mutate the store copy until save succeeds.
     editorReport.value = JSON.parse(JSON.stringify(row))
     // Populate a local ISO-datetime-local string for the <input type=datetime-local>.
-    editorReport.value.specimen_collected_at_local = toDatetimeLocal(editorReport.value.specimen_collected_at)
+    // Prefill "now" when a draft has no saved value yet — operator can still
+    // change it before saving; finalized/voided reports keep an empty field
+    // if the value is missing (the input is disabled in that state anyway).
+    editorReport.value.specimen_collected_at_local =
+      toDatetimeLocal(editorReport.value.specimen_collected_at)
+      || (editorReport.value.status === 'draft' ? toDatetimeLocal(new Date()) : '')
     if (editorReport.value?.items) {
       for (const it of editorReport.value.items) {
         if (it.values) {
@@ -370,7 +391,9 @@ async function saveResults(silent = false) {
     // timestamps and normalized values.
     if (lab.current) {
       editorReport.value = JSON.parse(JSON.stringify(lab.current))
-      editorReport.value.specimen_collected_at_local = toDatetimeLocal(editorReport.value.specimen_collected_at)
+      editorReport.value.specimen_collected_at_local =
+        toDatetimeLocal(editorReport.value.specimen_collected_at)
+        || (editorReport.value.status === 'draft' ? toDatetimeLocal(new Date()) : '')
       for (const it of (editorReport.value.items || [])) {
         it.narrative_text = it.narrative_text ?? ''
         if (it.values) for (const v of it.values) {
@@ -401,6 +424,10 @@ async function saveAndAskFinal() {
 }
 
 // ─── Set final ───
+// `signatoryUsername` / `signatoryPassword` are populated only when the
+// tenant runs with tester_signatory_count = 2 — the finalize modal shows
+// a credential prompt that the server verifies to fill medtech2_*. Same
+// user as slot 1 → collapses to a single printed signature (not an error).
 const confirmFinal = ref({
   show: false,
   report: null,
@@ -408,7 +435,23 @@ const confirmFinal = ref({
   doctorUuid: '',      // '' = manual name entry, otherwise a doctor uuid
   defaultDoctor: null, // the item_group's default signatory doctor (may be null)
   loadingDoctor: false,
+  signatoryUsername: '',
+  signatoryPassword: '',
+  authError: '',
+  submitting: false,
 })
+function resetConfirmFinal() {
+  confirmFinal.value = {
+    show: false, report: null, pathologist: '', doctorUuid: '',
+    defaultDoctor: null, loadingDoctor: false,
+    signatoryUsername: '', signatoryPassword: '', authError: '', submitting: false,
+  }
+}
+// True when the tenant is configured for two tester signatories — drives
+// the credential prompt inside the Tag-as-Final modal.
+const twoTesterSignatories = computed(() =>
+  Number(tenant.current?.testerSignatoryCount) === 2
+)
 async function askSetFinal(r) {
   confirmFinal.value = {
     show: true,
@@ -417,6 +460,10 @@ async function askSetFinal(r) {
     doctorUuid: '',
     defaultDoctor: null,
     loadingDoctor: true,
+    signatoryUsername: '',
+    signatoryPassword: '',
+    authError: '',
+    submitting: false,
   }
   // Preload the item group's default signatory doctor so we can pre-select
   // it on open. If the group has one configured, it becomes the default
@@ -432,13 +479,24 @@ async function askSetFinal(r) {
   finally { confirmFinal.value.loadingDoctor = false }
 }
 async function doSetFinal() {
-  const { report, pathologist, doctorUuid } = confirmFinal.value
-  confirmFinal.value = { show: false, report: null, pathologist: '', doctorUuid: '', defaultDoctor: null, loadingDoctor: false }
+  const state = confirmFinal.value
+  const { report, pathologist, doctorUuid, signatoryUsername, signatoryPassword } = state
+  if (twoTesterSignatories.value && (!signatoryUsername || !signatoryPassword)) {
+    state.authError = 'Second signatory credentials are required to finalize this report.'
+    return
+  }
+  state.authError = ''
+  state.submitting = true
   try {
     await lab.setFinal(report.uuid, {
       pathologist_name: pathologist.trim() || undefined,
       pathologist_doctor_uuid: doctorUuid || undefined,
+      // Sent only when count = 2. Backend ignores them for count = 1
+      // tenants — but suppressing them client-side keeps the payload tidy.
+      signatory_username: twoTesterSignatories.value ? signatoryUsername.trim() : undefined,
+      signatory_password: twoTesterSignatories.value ? signatoryPassword       : undefined,
     })
+    resetConfirmFinal()
     flash(`Report ${report.lab_number} finalized`)
     if (showEditor.value && editorReport.value?.uuid === report.uuid) {
       await openEditor(report.uuid)
@@ -448,7 +506,10 @@ async function doSetFinal() {
     // finalized report without hunting for the row-action menu.
     await openPrint(report)
   } catch (e) {
-    flashError(e, 'Failed to finalize lab report')
+    // 401 / 400 messages from the server surface inline so the operator
+    // can re-enter credentials without losing the rest of the modal state.
+    state.submitting = false
+    state.authError = e?.message || 'Failed to finalize lab report'
   }
 }
 
@@ -558,9 +619,20 @@ const previewFrameWidth   = ref(0)
 const previewContentHeight = ref(0)
 let previewWidthObs  = null
 let previewHeightObs = null
+// Element handles kept around so we can force a re-measure after images
+// finish loading — the initial ref-callback measurement runs before the
+// tenant logo / QR code have contributed their real height, and if a
+// stale/small height leaks into previewFrameHeightPx the outer
+// `overflow-hidden` wrapper clips the preview to a blank strip that only
+// unwedges after a browser refresh.
+let previewFrameEl   = null
+let previewContentEl = null
 function setPreviewFrame(el) {
   if (previewWidthObs) { previewWidthObs.disconnect(); previewWidthObs = null }
+  previewFrameEl = el || null
   if (!el) { previewFrameWidth.value = 0; return }
+  // clientWidth is a layout measurement (unaffected by any parent transform),
+  // so it's safe to read synchronously here.
   previewFrameWidth.value = el.clientWidth
   if (typeof ResizeObserver !== 'undefined') {
     previewWidthObs = new ResizeObserver((entries) => {
@@ -571,14 +643,29 @@ function setPreviewFrame(el) {
 }
 function setPreviewContent(el) {
   if (previewHeightObs) { previewHeightObs.disconnect(); previewHeightObs = null }
+  previewContentEl = el || null
   if (!el) { previewContentHeight.value = 0; return }
-  previewContentHeight.value = el.getBoundingClientRect().height
+  // NOTE: this element carries `transform: scale(previewScale)`, so
+  // getBoundingClientRect() would return the POST-transform (scaled)
+  // height and understate the natural content size when the modal is
+  // narrower than the paper. `offsetHeight` returns the layout size
+  // pre-transform — that's the value we want.
+  previewContentHeight.value = el.offsetHeight
   if (typeof ResizeObserver !== 'undefined') {
     previewHeightObs = new ResizeObserver((entries) => {
       for (const e of entries) previewContentHeight.value = e.contentRect.height
     })
     previewHeightObs.observe(el)
   }
+}
+// Force a fresh, direct read of the preview's layout dims. Called after
+// nextTick + rAF + waitForImages so the DOM has fully settled — the ref
+// callbacks fire during initial mount when the QR data-URL is still
+// loading, and if their captured height sticks the preview stays blank
+// until the user refreshes.
+function remeasurePreview() {
+  if (previewFrameEl)   previewFrameWidth.value    = previewFrameEl.clientWidth
+  if (previewContentEl) previewContentHeight.value = previewContentEl.offsetHeight
 }
 onBeforeUnmount(() => {
   if (previewWidthObs)  previewWidthObs.disconnect()
@@ -634,18 +721,23 @@ async function openPrint(r) {
         errorCorrectionLevel: 'M',
       })
     }
-    // Let Vue commit the update, wait a frame for the browser to lay out,
-    // and let images (logo, QR) finish loading before we measure — otherwise
-    // scrollHeight comes back too small and the auto-upgrade misses.
-    await nextTick()
-    await new Promise((r) => requestAnimationFrame(r))
-    await waitForImages(document.getElementById('lab-print-area'))
-    computeEffectivePaper()
   } catch (e) {
     flashError(e, 'Failed to load lab report')
+    return
   } finally {
     printLoading.value = false
   }
+  // Preview DOM is only mounted once `printLoading` flips to false, so all
+  // measurement / image-settling work has to happen AFTER the finally block.
+  // Doing it inside the try (as before) meant #lab-print-area didn't exist
+  // yet, waitForImages was a no-op, and the initial ref-callback measurement
+  // captured a pre-image layout — occasionally leaving the preview stuck at
+  // a too-small height that read as a blank white panel until refresh.
+  await nextTick()
+  await new Promise((r) => requestAnimationFrame(r))
+  await waitForImages(document.getElementById('lab-print-area'))
+  computeEffectivePaper()
+  remeasurePreview()
 }
 
 // Wait until every <img> inside `root` has either loaded or errored. Prevents
@@ -1553,6 +1645,16 @@ function patientDisplay(r) {
           This report is <b>{{ editorReport.status }}</b> and is read-only. To correct results, void it and re-issue.
         </div>
 
+        <!-- Specimen collection timestamp sits above the test items so the
+             operator sets it before working through results — it's the
+             first piece of data on the report and gets forgotten if
+             buried at the bottom. -->
+        <div>
+          <label class="label">Specimen collected at (Time Taken)</label>
+          <input type="datetime-local" v-model="editorReport.specimen_collected_at_local"
+                 :disabled="editorReport.status !== 'draft'" class="input w-full sm:w-64" />
+        </div>
+
         <div v-for="it in editorReport.items" :key="it.uuid" class="rounded-md border border-slate-200">
           <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
             <div>
@@ -1642,17 +1744,10 @@ function patientDisplay(r) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label class="label">Specimen collected at (Time Taken)</label>
-            <input type="datetime-local" v-model="editorReport.specimen_collected_at_local"
-                   :disabled="editorReport.status !== 'draft'" class="input w-full" />
-          </div>
-          <div>
-            <label class="label">Remarks</label>
-            <textarea v-model="editorReport.remarks" :disabled="editorReport.status !== 'draft'"
-                      rows="2" class="input w-full"></textarea>
-          </div>
+        <div>
+          <label class="label">Remarks</label>
+          <textarea v-model="editorReport.remarks" :disabled="editorReport.status !== 'draft'"
+                    rows="2" class="input w-full"></textarea>
         </div>
       </div>
 
@@ -1671,7 +1766,7 @@ function patientDisplay(r) {
 
     <!-- ─── Confirm: Set final ─── -->
     <Modal :show="confirmFinal.show" title="Tag as Final" size="md"
-           @close="confirmFinal = { show: false, report: null, pathologist: '', doctorUuid: '', defaultDoctor: null, loadingDoctor: false }">
+           @close="resetConfirmFinal()">
       <div class="space-y-3">
         <p class="text-sm text-slate-700">
           Finalizing <span class="font-mono font-semibold">{{ confirmFinal.report?.lab_number }}</span> will lock it.
@@ -1696,12 +1791,43 @@ function patientDisplay(r) {
           <label class="label">Pathologist name (printed on final report)</label>
           <input v-model="confirmFinal.pathologist" class="input w-full" placeholder="Pathologist full name" />
         </div>
+
+        <!-- Second-tester credential ceremony (tenant.testerSignatoryCount = 2).
+             The server verifies these against a user in this tenant; the
+             resolved user is snapshotted as medtech2_*. When credentials
+             resolve to the same user who created the report, the report
+             collapses back to a single printed signature (not an error). -->
+        <div v-if="twoTesterSignatories"
+             class="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
+          <div class="text-xs font-semibold text-slate-700">Second tester signatory</div>
+          <p class="text-[11px] text-slate-600">
+            Enter another lab user's credentials to sign as the finalizer.
+            If it's the same user who created the report, only one signature will print.
+          </p>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div>
+              <label class="label">Username</label>
+              <input v-model="confirmFinal.signatoryUsername" type="text" class="input w-full" autocomplete="off" />
+            </div>
+            <div>
+              <label class="label">Password</label>
+              <input v-model="confirmFinal.signatoryPassword" type="password" class="input w-full" autocomplete="off"
+                     @keydown.enter.prevent="doSetFinal" />
+            </div>
+          </div>
+        </div>
+
+        <div v-if="confirmFinal.authError" class="text-xs text-red-700">{{ confirmFinal.authError }}</div>
       </div>
       <template #footer>
-        <button class="btn-secondary" @click="confirmFinal = { show: false, report: null, pathologist: '', doctorUuid: '', defaultDoctor: null, loadingDoctor: false }">Cancel</button>
+        <button class="btn-secondary" :disabled="confirmFinal.submitting" @click="resetConfirmFinal()">Cancel</button>
         <button class="btn-primary"
-                :disabled="!(confirmFinal.defaultDoctor || confirmFinal.pathologist.trim())"
-                @click="doSetFinal">Tag as Final</button>
+                :disabled="!(confirmFinal.defaultDoctor || confirmFinal.pathologist.trim())
+                           || confirmFinal.submitting
+                           || (twoTesterSignatories && (!confirmFinal.signatoryUsername || !confirmFinal.signatoryPassword))"
+                @click="doSetFinal">
+          {{ confirmFinal.submitting ? 'Verifying…' : 'Tag as Final' }}
+        </button>
       </template>
     </Modal>
 

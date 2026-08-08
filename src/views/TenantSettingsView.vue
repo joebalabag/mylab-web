@@ -302,6 +302,10 @@ async function save() {
       is_vat_registered:  !!draft.vatRegistered,
       lab_header_mode:    draft.labHeaderMode || 'logo_text',
       lab_header_text:    draft.labHeaderText || '',
+      // Coerce to 1 or 2 defensively — the radio binds to a number
+      // but v-model on <input type=radio> can round-trip through
+      // strings when the form is programmatically hydrated.
+      tester_signatory_count: Number(draft.testerSignatoryCount) === 2 ? 2 : 1,
       receipt_header:     draft.receiptHeader || ''
     }
     await tenant.updateCurrentViaApi(apiPayload, {
@@ -330,8 +334,14 @@ function discard() {
 
 <template>
   <div class="space-y-4">
-    <!-- Header / actions -->
-    <div class="card">
+    <!-- Header / actions.
+         Pinned to the top of the scroll container so the Save / Discard
+         controls (and the "unsaved changes" indicator) stay visible while
+         the operator scrolls through the long settings form below. z-10
+         keeps it above sticky table heads that might appear in later
+         cards; shadow-sm hints at the pinned surface once content scrolls
+         underneath. -->
+    <div class="card sticky top-0 z-10 shadow-sm">
       <div class="card-body flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div class="text-sm font-semibold text-slate-800">Company Settings</div>
@@ -505,6 +515,28 @@ function discard() {
           </div>
         </div>
 
+        <!-- Cashier Receipt Header -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="text-sm font-semibold text-slate-800">Cashier Receipt Header</div>
+              <div class="text-xs text-slate-500">
+                Printed at the top of every cashier receipt (payment slip). Leave blank to auto-generate
+                from the company name and address above.
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <label class="label">Header text</label>
+            <textarea v-model="draft.receiptHeader" :disabled="!canEdit"
+                      rows="4" maxlength="500" class="input"
+                      placeholder="COMPANY NAME&#10;Address line&#10;Tel: +63 000 000 0000"></textarea>
+            <p class="mt-1 text-[11px] text-slate-500">
+              Each line is centered on the receipt. Blank lines are preserved.
+            </p>
+          </div>
+        </div>
+
         <!-- Lab Report Header -->
         <div class="card">
           <div class="card-header">
@@ -560,25 +592,39 @@ function discard() {
           </div>
         </div>
 
-        <!-- Cashier Receipt Header -->
+        <!-- Report Signatories — governs how many tester (medtech / radtech)
+             signatures print on a lab report, and drives the finalize-modal
+             behavior (credential prompt when count = 2). Pathologist
+             signatory is separate and unaffected. -->
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="text-sm font-semibold text-slate-800">Cashier Receipt Header</div>
+              <div class="text-sm font-semibold text-slate-800">Report Signatories</div>
               <div class="text-xs text-slate-500">
-                Printed at the top of every cashier receipt (payment slip). Leave blank to auto-generate
-                from the company name and address above.
+                Controls how many tester signatures print on a lab report. Pathologist signatory is not affected.
               </div>
             </div>
           </div>
-          <div class="card-body">
-            <label class="label">Header text</label>
-            <textarea v-model="draft.receiptHeader" :disabled="!canEdit"
-                      rows="4" maxlength="500" class="input"
-                      placeholder="COMPANY NAME&#10;Address line&#10;Tel: +63 000 000 0000"></textarea>
-            <p class="mt-1 text-[11px] text-slate-500">
-              Each line is centered on the receipt. Blank lines are preserved.
-            </p>
+          <div class="card-body space-y-3">
+            <div class="flex flex-wrap gap-6">
+              <label class="inline-flex items-start gap-2 text-sm">
+                <input type="radio" :value="1" v-model.number="draft.testerSignatoryCount" :disabled="!canEdit" class="mt-1" />
+                <span>
+                  <span class="font-medium text-slate-800">1 signatory</span>
+                  <span class="block text-[11px] text-slate-500">Whoever taps <b>Tag as Final</b> is the sole signatory on the printed report.</span>
+                </span>
+              </label>
+              <label class="inline-flex items-start gap-2 text-sm">
+                <input type="radio" :value="2" v-model.number="draft.testerSignatoryCount" :disabled="!canEdit" class="mt-1" />
+                <span>
+                  <span class="font-medium text-slate-800">2 signatories</span>
+                  <span class="block text-[11px] text-slate-500">
+                    Creator signs as the first; <b>Tag as Final</b> prompts for a second signatory's credentials.
+                    Same user → prints one signature (no error).
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -640,7 +686,13 @@ function discard() {
           </div>
         </div>
 
-        <div class="card">
+        <!-- Tax & Registration section is intentionally hidden from the UI.
+             The `draft.tin` / `draft.vatRegistered` values are still loaded
+             from and persisted back to the tenant record via the save flow,
+             so hiding the fields here doesn't drop them from the payload —
+             flip v-if to true (or delete the wrapper) to bring the section
+             back. -->
+        <div v-if="false" class="card">
           <div class="card-header">
             <div class="text-sm font-semibold text-slate-800">Tax &amp; Registration</div>
           </div>

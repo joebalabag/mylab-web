@@ -82,6 +82,21 @@ function formatSex(v) {
 function anyUnit(it)      { return (it.values || []).some((v) => !!(v.unit_of_measure && String(v.unit_of_measure).trim())) }
 function anyReference(it) { return (it.values || []).some((v) => !!(v.reference_range && String(v.reference_range).trim())) }
 
+// Whether the Clinical-Chemistry flat layout applies: one continuous
+// analyte table across every test item on the report, with panel
+// components indented under their parent test name (instead of each
+// item getting its own header block + isolated table). Chemistry-only
+// by design — Hematology (which also uses the 'default' template) still
+// prefers the per-item block layout for CBC/PBS-style panels.
+const isChemistryFlat = computed(() => (props.report?.item_category_code || '') === 'CHEM')
+
+function anyUnitAcross(items) {
+  return (items || []).some((it) => anyUnit(it))
+}
+function anyReferenceAcross(items) {
+  return (items || []).some((it) => anyReference(it))
+}
+
 // Group a panel's values by `section` snapshot, preserving display_order.
 function groupValuesBySection(values) {
   if (!Array.isArray(values) || !values.length) return []
@@ -228,6 +243,67 @@ function categoryHeaderStyle(report) {
           </div>
         </div>
 
+        <!-- Chemistry flat layout: one continuous analyte table across
+             every test item. Panels show their name as a bold parent row
+             and the components sit indented under it. Matrix / narrative
+             items fall through to a full-width row.
+
+             The `<table>` is wrapped in a `<div>` on purpose — `#lab-print-body`
+             becomes `display: flex; flex-direction: column` in the print
+             popup, and print engines handle table children of a flex
+             column inconsistently (some collapse the table to 0 height,
+             which prints as a blank page). Keeping every direct flex
+             child a block-level div side-steps that quirk. -->
+        <div v-if="isChemistryFlat">
+          <table class="w-full text-xs leading-tight">
+            <thead class="text-[10px] uppercase text-slate-500">
+              <tr>
+                <th class="w-1/3 text-left font-semibold">Analyte</th>
+                <th class="text-left font-semibold">Result</th>
+                <th v-if="anyUnitAcross(report.items)" class="w-16 text-left font-semibold">Unit</th>
+                <th v-if="anyReferenceAcross(report.items)" class="w-56 whitespace-nowrap text-left font-semibold">Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="it in (report.items || [])" :key="it.uuid">
+                <template v-if="it.result_type === 'single'">
+                  <tr v-for="v in (it.values || [])" :key="v.uuid" class="border-b border-slate-100">
+                    <td class="py-px">{{ it.test_name }}</td>
+                    <td class="py-px">{{ v.value_text || '' }}</td>
+                    <td v-if="anyUnitAcross(report.items)" class="py-px text-slate-500">{{ v.unit_of_measure || '' }}</td>
+                    <td v-if="anyReferenceAcross(report.items)" class="whitespace-nowrap py-px text-slate-500">{{ v.reference_range || '' }}</td>
+                  </tr>
+                </template>
+                <template v-else-if="it.result_type === 'panel'">
+                  <tr>
+                    <td colspan="4" class="pt-1 py-px font-semibold text-slate-800">{{ it.test_name }}</td>
+                  </tr>
+                  <tr v-for="v in (it.values || [])" :key="v.uuid" class="border-b border-slate-100">
+                    <td class="py-px pl-6">{{ v.component_name }}</td>
+                    <td class="py-px">{{ v.value_text || '' }}</td>
+                    <td v-if="anyUnitAcross(report.items)" class="py-px text-slate-500">{{ v.unit_of_measure || '' }}</td>
+                    <td v-if="anyReferenceAcross(report.items)" class="whitespace-nowrap py-px text-slate-500">{{ v.reference_range || '' }}</td>
+                  </tr>
+                </template>
+                <tr v-else>
+                  <td colspan="4" class="py-1">
+                    <div class="font-semibold text-slate-800">{{ it.test_name }}</div>
+                    <div class="whitespace-pre-wrap text-xs leading-tight">{{ it.narrative_text || '—' }}</div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Same flex-child-must-be-div rationale as the chemistry-flat
+             wrapper above. Instead of `<template v-else>` (which unwraps
+             to a per-item `<div>` list and worked historically), keep an
+             explicit `<div v-else>` wrapper so the flex-column of
+             `#lab-print-body` always sees a single block-level child
+             for the results region — matches the chemistry-flat branch
+             and dodges the same 0-height-in-print quirk. -->
+        <div v-else>
         <div v-for="it in (report.items || [])" :key="it.uuid" class="mb-2">
           <div class="mb-0.5 border-b border-slate-200 pb-0.5 leading-tight">
             <div class="flex flex-wrap items-baseline gap-2">
@@ -286,6 +362,7 @@ function categoryHeaderStyle(report) {
           </div>
           <div v-else class="whitespace-pre-wrap text-xs leading-tight">{{ it.narrative_text || '—' }}</div>
         </div>
+        </div>
 
         <div v-if="report.remarks" class="mt-1 border-t border-slate-200 pt-1 text-xs leading-tight">
           <span class="font-semibold">Remarks:</span> {{ report.remarks }}
@@ -295,9 +372,48 @@ function categoryHeaderStyle(report) {
              is a *minimum* gap that survives the print popup's
              `margin-top: auto` (which collapses to ~0 when the results
              table already fills the page and leaves no free space for
-             the flex layout to distribute). -->
+             the flex layout to distribute).
+
+             Layout: outer 2-col grid = tester(s) on the left, pathologist
+             on the right. When medtech2_name is present (tenant runs with
+             tester_signatory_count = 2 AND the finalizer differed from
+             the creator), the tester cell nests a 2-col grid so both
+             signatures print side-by-side. Otherwise the single medtech
+             cell fills the left column as before. -->
         <div class="lab-signature-block mt-16 pt-10 grid grid-cols-2 gap-8">
-          <div>
+          <div v-if="report.medtech2_name" class="grid grid-cols-2 gap-4">
+            <div>
+              <div class="border-b border-slate-400"></div>
+              <div class="relative mt-1 text-center text-xs">
+                <div class="font-semibold min-h-[1em]">
+                  {{ report.status === 'finalized' ? (report.medtech_name || '') : '' }}
+                </div>
+                <div class="min-h-[1em] text-[10px] text-slate-500">
+                  <template v-if="report.status === 'finalized' && report.medtech_license">
+                    Lic. No. {{ report.medtech_license }}
+                  </template>
+                  <template v-else>&nbsp;</template>
+                </div>
+                <div class="text-slate-500">{{ report.item_group_tester_role || 'Medical Technologist' }}</div>
+              </div>
+            </div>
+            <div>
+              <div class="border-b border-slate-400"></div>
+              <div class="relative mt-1 text-center text-xs">
+                <div class="font-semibold min-h-[1em]">
+                  {{ report.status === 'finalized' ? (report.medtech2_name || '') : '' }}
+                </div>
+                <div class="min-h-[1em] text-[10px] text-slate-500">
+                  <template v-if="report.status === 'finalized' && report.medtech2_license">
+                    Lic. No. {{ report.medtech2_license }}
+                  </template>
+                  <template v-else>&nbsp;</template>
+                </div>
+                <div class="text-slate-500">{{ report.item_group_tester_role || 'Medical Technologist' }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-else>
             <div class="border-b border-slate-400"></div>
             <div class="relative mt-1 text-center text-xs">
               <div class="font-semibold min-h-[1em]">

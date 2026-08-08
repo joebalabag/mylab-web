@@ -51,6 +51,12 @@ const DEFAULT_TENANT = {
   labHeaderImage: '',
   labHeaderText: '',
 
+  // Number of tester (medtech / radtech) signatories printed on a lab
+  // report. 1 = the finalizer signs; 2 = creator signs slot 1, a
+  // credential-verified user signs slot 2 (collapses to 1 if resolved
+  // credential belongs to slot 1's user).
+  testerSignatoryCount: 1,
+
   // Platform / super-admin managed fields
   active: true,
   planId: 2,                                    // STARTER by default
@@ -294,6 +300,10 @@ export const useTenantStore = defineStore('tenant', {
         labHeaderMode:     t.lab_header_mode  || 'logo_text',
         labHeaderImage:    t.lab_header_image || '',
         labHeaderText:     t.lab_header_text  || '',
+        // Coerce to 1 or 2 defensively — column is NOT NULL DEFAULT 1
+        // on the API side but some rows may return the value as a
+        // string ("1" / "2") depending on driver.
+        testerSignatoryCount: Number(t.tester_signatory_count) === 2 ? 2 : 1,
         active: (t.status || '').toLowerCase() === 'active',
         // Subscription snapshot (cached from the latest approved payment on the API tenant record)
         current_subscription_plan_uuid:            t.current_subscription_plan_uuid            ?? null,
