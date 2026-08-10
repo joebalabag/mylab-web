@@ -74,12 +74,12 @@ function exportRows() {
       <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 print:grid-cols-3">
         <div class="card lg:col-span-2 print:col-span-2">
           <div class="card-header">
-            <div class="text-sm font-semibold text-slate-800">Test Volume Trend</div>
-            <span class="text-xs text-slate-500">Daily test quantity billed</span>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Test Volume Trend</div>
+            <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Daily test quantity billed</span>
           </div>
           <div class="card-body">
-            <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-            <div v-else-if="!volume.daily.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+            <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+            <div v-else-if="!volume.daily.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500">
               No tests billed in this range.
             </div>
             <div v-else class="h-56"><LineChart :labels="trendLabels" :data="trendData" label="Tests" /></div>
@@ -88,12 +88,12 @@ function exportRows() {
 
         <div class="card">
           <div class="card-header">
-            <div class="text-sm font-semibold text-slate-800">Category Mix</div>
-            <span class="text-xs text-slate-500">By revenue</span>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Category Mix</div>
+            <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">By revenue</span>
           </div>
           <div class="card-body">
-            <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-            <div v-else-if="!categories.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+            <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+            <div v-else-if="!categories.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500">
               No data.
             </div>
             <div v-else class="h-56"><DoughnutChart :labels="catLabels" :data="catData" /></div>
@@ -104,11 +104,11 @@ function exportRows() {
       <!-- Top tests -->
       <div class="card overflow-hidden">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Top 20 Tests</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Top 20 Tests</div>
         </div>
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th class="w-10">#</th>
                 <th>Code</th>
@@ -120,10 +120,10 @@ function exportRows() {
             </thead>
             <tbody>
               <tr v-if="!volume.top.length && !loading">
-                <td colspan="6" class="py-4 text-center text-xs text-slate-400">No tests in this range.</td>
+                <td colspan="6" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No tests in this range.</td>
               </tr>
-              <tr v-for="(r, i) in volume.top" :key="r.code" class="border-b border-slate-100">
-                <td class="text-slate-400 font-bold">{{ i + 1 }}</td>
+              <tr v-for="(r, i) in volume.top" :key="r.code" class="border-b border-slate-100 dark:border-slate-800">
+                <td class="text-slate-400 dark:text-slate-500 font-bold">{{ i + 1 }}</td>
                 <td class="font-mono">{{ r.code }}</td>
                 <td>{{ r.name }}</td>
                 <td class="text-right font-semibold">{{ r.qty }}</td>
@@ -138,12 +138,12 @@ function exportRows() {
       <!-- TAT -->
       <div class="card overflow-hidden">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Turnaround Time by Category</div>
-          <span class="text-xs text-slate-500">Requisition finalized → lab report released</span>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Turnaround Time by Category</div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Requisition finalized → lab report released</span>
         </div>
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>Category</th>
                 <th class="text-right">Reports</th>
@@ -154,9 +154,9 @@ function exportRows() {
             </thead>
             <tbody>
               <tr v-if="!tat.length && !loading">
-                <td colspan="5" class="py-4 text-center text-xs text-slate-400">No finalized reports in this range.</td>
+                <td colspan="5" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No finalized reports in this range.</td>
               </tr>
-              <tr v-for="r in tat" :key="r.category_name" class="border-b border-slate-100">
+              <tr v-for="r in tat" :key="r.category_name" class="border-b border-slate-100 dark:border-slate-800">
                 <td class="font-semibold">{{ r.category_name }}</td>
                 <td class="text-right">{{ r.count }}</td>
                 <td class="text-right font-semibold text-brand-700">{{ fmtHours(r.median_hours) }}</td>

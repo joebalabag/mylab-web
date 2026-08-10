@@ -78,10 +78,10 @@ function exportRows() {
 
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">{{ data?.year }} Lab Reports Created (per month)</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ data?.year }} Lab Reports Created (per month)</div>
         </div>
         <div class="card-body">
-          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
+          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
           <div v-else class="h-56"><BarChart :labels="chartLabels" :data="chartData" label="Created" /></div>
         </div>
       </div>
@@ -89,7 +89,7 @@ function exportRows() {
       <div class="card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>Month</th>
                 <th class="text-right">Created</th>
@@ -101,17 +101,17 @@ function exportRows() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in data?.months || []" :key="m.month" class="border-b border-slate-100">
+              <tr v-for="m in data?.months || []" :key="m.month" class="border-b border-slate-100 dark:border-slate-800">
                 <td class="font-semibold">{{ MONTHS[m.month - 1] }}</td>
                 <td class="text-right">{{ m.created }}</td>
                 <td class="text-right text-emerald-700 font-semibold">{{ m.finalized }}</td>
                 <td class="text-right text-emerald-700 hidden sm:table-cell">{{ pct(m.finalized_pct) }}</td>
                 <td class="text-right text-rose-700 font-semibold">{{ m.voided }}</td>
                 <td class="text-right text-rose-700 hidden sm:table-cell">{{ pct(m.voided_pct) }}</td>
-                <td class="text-right text-slate-500 hidden md:table-cell">{{ m.draft }}</td>
+                <td class="text-right text-slate-500 dark:text-slate-400 dark:text-slate-500 hidden md:table-cell">{{ m.draft }}</td>
               </tr>
             </tbody>
-            <tfoot class="bg-slate-100">
+            <tfoot class="bg-slate-100 dark:bg-slate-800">
               <tr class="font-bold">
                 <td>Total</td>
                 <td class="text-right">{{ yearTotals.created }}</td>
@@ -119,7 +119,7 @@ function exportRows() {
                 <td class="text-right text-emerald-700 hidden sm:table-cell">{{ pct(yearTotals.finalized_pct) }}</td>
                 <td class="text-right text-rose-700">{{ yearTotals.voided }}</td>
                 <td class="text-right text-rose-700 hidden sm:table-cell">{{ pct(yearTotals.voided_pct) }}</td>
-                <td class="text-right text-slate-500 hidden md:table-cell">{{ yearTotals.draft }}</td>
+                <td class="text-right text-slate-500 dark:text-slate-400 dark:text-slate-500 hidden md:table-cell">{{ yearTotals.draft }}</td>
               </tr>
             </tfoot>
           </table>

@@ -85,7 +85,7 @@ async function submit() {
 
 <template>
   <Modal :show="show" :title="title" size="sm" @close="close">
-    <p v-if="subtitle" class="mb-2 text-xs text-slate-500">{{ subtitle }}</p>
+    <p v-if="subtitle" class="mb-2 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ subtitle }}</p>
     <form class="space-y-3" @submit.prevent="submit">
       <div>
         <label class="label">Current password</label>
@@ -138,7 +138,7 @@ async function submit() {
             </svg>
           </button>
         </div>
-        <div class="mt-1 text-[11px] text-slate-500">At least {{ minLength }} characters.</div>
+        <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">At least {{ minLength }} characters.</div>
       </div>
 
       <div>

@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
+  // Dark mode is toggled via a `dark` class on <html>, but *only* while a
+  // MainLayout route is mounted. Super-admin and public/landing routes never
+  // add the class, so they always render in light mode regardless of the
+  // user's saved preference.
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

@@ -17,6 +17,12 @@ export function viewUser(uuid) {
   return api.get(`/user/view/${uuid}`)
 }
 
+// Lightweight availability probe for the create-user form's onblur check.
+// Returns { available: bool, reason?: 'too_short' }.
+export function checkUsernameAvailable(username) {
+  return api.get('/user/username-available', { query: { username } })
+}
+
 export function createUser(payload) {
   return api.post('/user/create', payload)
 }

@@ -67,10 +67,10 @@ function exportRows() {
 
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">{{ data?.year }} Revenue by Month</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ data?.year }} Revenue by Month</div>
         </div>
         <div class="card-body">
-          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
+          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
           <div v-else class="h-56"><BarChart :labels="chartLabels" :data="chartRevenue" label="Revenue" /></div>
         </div>
       </div>
@@ -78,7 +78,7 @@ function exportRows() {
       <div class="card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>Month</th>
                 <th class="text-right">Payments</th>
@@ -89,7 +89,7 @@ function exportRows() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in data?.months || []" :key="m.month" class="border-b border-slate-100">
+              <tr v-for="m in data?.months || []" :key="m.month" class="border-b border-slate-100 dark:border-slate-800">
                 <td class="font-semibold">{{ MONTHS[m.month - 1] }}</td>
                 <td class="text-right">{{ m.count }}</td>
                 <td class="text-right font-semibold text-emerald-700">{{ money(m.revenue) }}</td>
@@ -100,7 +100,7 @@ function exportRows() {
                 </td>
               </tr>
             </tbody>
-            <tfoot class="bg-slate-100">
+            <tfoot class="bg-slate-100 dark:bg-slate-800">
               <tr class="font-bold">
                 <td>Total</td>
                 <td class="text-right">{{ yearTotals.count }}</td>

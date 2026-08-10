@@ -57,11 +57,11 @@ function exportRows() {
 
       <div class="grid grid-cols-2 gap-3">
         <div class="card"><div class="card-body">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Voided Count</div>
-          <div class="mt-1 text-2xl font-bold text-slate-800">{{ data.count }}</div>
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Voided Count</div>
+          <div class="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">{{ data.count }}</div>
         </div></div>
         <div class="card"><div class="card-body">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Voided Amount</div>
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Voided Amount</div>
           <div class="mt-1 text-2xl font-bold text-rose-600 tabular-nums">{{ money(data.total_voided) }}</div>
         </div></div>
       </div>
@@ -69,7 +69,7 @@ function exportRows() {
       <div class="card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>PAY #</th>
                 <th class="hidden md:table-cell">Case / Patient</th>
@@ -82,19 +82,19 @@ function exportRows() {
             </thead>
             <tbody>
               <tr v-if="!data.rows.length && !loading">
-                <td colspan="7" class="py-4 text-center text-xs text-slate-400">No voided payments in this range.</td>
+                <td colspan="7" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No voided payments in this range.</td>
               </tr>
-              <tr v-for="r in data.rows" :key="r.uuid" class="border-b border-slate-100">
+              <tr v-for="r in data.rows" :key="r.uuid" class="border-b border-slate-100 dark:border-slate-800">
                 <td class="font-mono font-semibold">{{ r.payment_number }}</td>
                 <td class="hidden md:table-cell">
                   <div class="font-medium">{{ patientName(r) }}</div>
-                  <div class="text-[10px] text-slate-500 font-mono">{{ r.patient_case_number || '—' }}</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 font-mono">{{ r.patient_case_number || '—' }}</div>
                 </td>
                 <td class="text-[10px] uppercase">{{ PAYMENT_METHOD_LABELS[r.payment_method] || r.payment_method }}</td>
-                <td class="text-right font-semibold line-through text-slate-500">{{ money(r.total) }}</td>
-                <td class="hidden sm:table-cell text-slate-600">{{ r.created_by || '—' }}</td>
+                <td class="text-right font-semibold line-through text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ money(r.total) }}</td>
+                <td class="hidden sm:table-cell text-slate-600 dark:text-slate-300">{{ r.created_by || '—' }}</td>
                 <td class="hidden sm:table-cell text-rose-600">{{ r.voided_by || '—' }}</td>
-                <td class="hidden lg:table-cell text-slate-500">{{ formatDateTime(r.voided_at) }}</td>
+                <td class="hidden lg:table-cell text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(r.voided_at) }}</td>
               </tr>
             </tbody>
           </table>

@@ -13,7 +13,7 @@ defineEmits(['close', 'confirm'])
 
 <template>
   <Modal :show="show" :title="title" size="sm" @close="$emit('close')">
-    <p class="text-sm text-slate-600">{{ message }}</p>
+    <p class="text-sm text-slate-600 dark:text-slate-300">{{ message }}</p>
     <template #footer>
       <button class="btn-secondary" @click="$emit('close')">Cancel</button>
       <button :class="danger ? 'btn-danger' : 'btn-primary'" @click="$emit('confirm')">{{ confirmText }}</button>

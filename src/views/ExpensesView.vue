@@ -318,7 +318,7 @@ const categoryChip = {
   Supplies:       'bg-purple-50 text-purple-700 ring-purple-200',
   Rent:           'bg-rose-50 text-rose-700 ring-rose-200',
   Transportation: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
-  Others:         'bg-slate-100 text-slate-700 ring-slate-200'
+  Others:         'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 ring-slate-200 dark:ring-slate-700'
 }
 function chipClass(cat) {
   return categoryChip[cat] || categoryChip.Others
@@ -330,8 +330,8 @@ function chipClass(cat) {
     <!-- Header -->
     <div class="flex shrink-0 flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-lg font-bold text-slate-800 sm:text-xl">Expenses</h1>
-        <p class="text-xs text-slate-500">
+        <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100 sm:text-xl">Expenses</h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
           Track operational costs by category. Records can be edited or voided; voided rows remain visible for audit.
         </p>
       </div>
@@ -347,13 +347,13 @@ function chipClass(cat) {
 
     <!-- Summary strip -->
     <div class="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="rounded-xl border border-slate-200 bg-white p-3">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total</div>
-        <div class="mt-1 font-mono text-lg font-black text-slate-900">{{ money(totalAmount) }}</div>
-        <div class="mt-0.5 text-[11px] text-slate-500">{{ totalCount }} record{{ totalCount === 1 ? '' : 's' }}</div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Total</div>
+        <div class="mt-1 font-mono text-lg font-black text-slate-900 dark:text-slate-100">{{ money(totalAmount) }}</div>
+        <div class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ totalCount }} record{{ totalCount === 1 ? '' : 's' }}</div>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-3">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Top category</div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Top category</div>
         <template v-if="topCategory">
           <div class="mt-1 flex items-center gap-1.5">
             <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold ring-1"
@@ -361,26 +361,26 @@ function chipClass(cat) {
               {{ topCategory[0] }}
             </span>
           </div>
-          <div class="mt-0.5 font-mono text-sm font-semibold text-slate-800">{{ money(topCategory[1]) }}</div>
+          <div class="mt-0.5 font-mono text-sm font-semibold text-slate-800 dark:text-slate-100">{{ money(topCategory[1]) }}</div>
         </template>
         <template v-else>
-          <div class="mt-1 text-sm text-slate-400">—</div>
+          <div class="mt-1 text-sm text-slate-400 dark:text-slate-500">—</div>
         </template>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-3">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Void</div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Void</div>
         <div class="mt-1 font-mono text-lg font-black text-rose-600">{{ voidedCount }}</div>
-        <div class="mt-0.5 text-[11px] text-slate-500">excluded from totals</div>
+        <div class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">excluded from totals</div>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-3">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Categories</div>
+      <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Categories</div>
         <div class="mt-1 space-y-0.5">
           <div v-for="([cat, amt]) in categoryTotals.slice(0, 3)" :key="cat"
                class="flex items-center justify-between gap-2 text-[11px]">
-            <span class="truncate text-slate-600">{{ cat }}</span>
-            <span class="font-mono font-semibold text-slate-800">{{ money(amt) }}</span>
+            <span class="truncate text-slate-600 dark:text-slate-300">{{ cat }}</span>
+            <span class="font-mono font-semibold text-slate-800 dark:text-slate-100">{{ money(amt) }}</span>
           </div>
-          <div v-if="!categoryTotals.length" class="text-xs text-slate-400">—</div>
+          <div v-if="!categoryTotals.length" class="text-xs text-slate-400 dark:text-slate-500">—</div>
         </div>
       </div>
     </div>
@@ -392,21 +392,21 @@ function chipClass(cat) {
            ReportsView. -->
       <button
         type="button"
-        class="flex w-full items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-2 text-left text-sm text-slate-700 sm:hidden"
+        class="flex w-full items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-200 sm:hidden"
         :aria-expanded="filtersOpen"
         aria-controls="expenses-filters-body"
         @click="filtersOpen = !filtersOpen"
       >
         <span class="flex items-center gap-2">
-          <svg viewBox="0 0 24 24" class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2"
+          <svg viewBox="0 0 24 24" class="h-4 w-4 text-slate-500 dark:text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round">
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
           </svg>
           <b>Filters</b>
-          <span class="truncate text-xs font-normal text-slate-500">· {{ filtersSummary }}</span>
+          <span class="truncate text-xs font-normal text-slate-500 dark:text-slate-400 dark:text-slate-500">· {{ filtersSummary }}</span>
         </span>
         <svg viewBox="0 0 24 24"
-             class="h-4 w-4 text-slate-500 transition-transform"
+             class="h-4 w-4 text-slate-500 dark:text-slate-400 dark:text-slate-500 transition-transform"
              :class="filtersOpen && 'rotate-180'"
              fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
@@ -463,7 +463,7 @@ function chipClass(cat) {
                       label="Loading expenses…"
                       :columns="['bar','pill','lines','bar','pill','bar','bar']" />
         <table v-else-if="visibleRows.length" class="table">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th>Date</th>
               <th>Category</th>
@@ -478,7 +478,7 @@ function chipClass(cat) {
             <tr v-for="row in visibleRows" :key="row.uuid"
                 :class="isVoided(row) && 'bg-rose-50/40'">
               <td class="whitespace-nowrap text-sm"
-                  :class="isVoided(row) && 'text-slate-400 line-through'">
+                  :class="isVoided(row) && 'text-slate-400 dark:text-slate-500 line-through'">
                 {{ formatDate(row.date_transact || row.expense_date) }}
               </td>
               <td>
@@ -490,18 +490,18 @@ function chipClass(cat) {
               <td>
                 <div class="min-w-0">
                   <div class="truncate text-sm font-medium"
-                       :class="isVoided(row) ? 'text-slate-400 line-through' : 'text-slate-800'">
+                       :class="isVoided(row) ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-100'">
                     {{ row.description || '—' }}
                   </div>
                   <div v-if="row.notes"
                        class="truncate text-[11px] italic"
-                       :class="isVoided(row) ? 'text-slate-400' : 'text-slate-500'">
+                       :class="isVoided(row) ? 'text-slate-400 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400 dark:text-slate-500'">
                     {{ row.notes }}
                   </div>
                 </div>
               </td>
               <td class="text-right font-mono text-sm font-semibold"
-                  :class="isVoided(row) ? 'text-slate-400 line-through' : 'text-slate-800'">
+                  :class="isVoided(row) ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-100'">
                 {{ money(row.amount) }}
               </td>
               <td>
@@ -514,17 +514,17 @@ function chipClass(cat) {
                   {{ isVoided(row) ? 'Void' : (row.status || 'Active') }}
                 </span>
               </td>
-              <td class="whitespace-nowrap text-[11px] text-slate-500">
+              <td class="whitespace-nowrap text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <div v-if="isVoided(row)" class="flex flex-col">
                   <span v-if="row.voided_at">{{ formatDateTime(row.voided_at) }}</span>
-                  <span v-if="row.voided_by_name" class="text-slate-400">
+                  <span v-if="row.voided_by_name" class="text-slate-400 dark:text-slate-500">
                     by {{ row.voided_by_name }}
                   </span>
                 </div>
                 <div v-else class="flex flex-col">
                   <span v-if="row.created_at">{{ formatDateTime(row.created_at) }}</span>
                   <span v-if="row.recorded_by_name || row.created_by_name"
-                        class="text-slate-400">
+                        class="text-slate-400 dark:text-slate-500">
                     by {{ row.recorded_by_name || row.created_by_name }}
                   </span>
                 </div>
@@ -585,7 +585,7 @@ function chipClass(cat) {
                  placeholder="0.00" />
         </div>
         <div>
-          <label class="label">Notes <span class="text-slate-400">(optional)</span></label>
+          <label class="label">Notes <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
           <textarea v-model="form.notes"
                     rows="2"
                     class="input"
@@ -622,28 +622,28 @@ function chipClass(cat) {
           </span>
         </div>
         <dl class="grid grid-cols-3 gap-x-3 gap-y-1 text-[13px]">
-          <dt class="text-slate-500">Date</dt>
-          <dd class="col-span-2 font-medium text-slate-800">{{ formatDate(detailRow.date_transact || detailRow.expense_date) }}</dd>
+          <dt class="text-slate-500 dark:text-slate-400 dark:text-slate-500">Date</dt>
+          <dd class="col-span-2 font-medium text-slate-800 dark:text-slate-100">{{ formatDate(detailRow.date_transact || detailRow.expense_date) }}</dd>
 
-          <dt class="text-slate-500">Amount</dt>
+          <dt class="text-slate-500 dark:text-slate-400 dark:text-slate-500">Amount</dt>
           <dd class="col-span-2 font-mono text-lg font-black"
-              :class="isVoided(detailRow) ? 'text-slate-400 line-through' : 'text-slate-900'">
+              :class="isVoided(detailRow) ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-900 dark:text-slate-100'">
             {{ money(detailRow.amount) }}
           </dd>
 
-          <dt class="text-slate-500">Description</dt>
-          <dd class="col-span-2 text-slate-800">{{ detailRow.description || '—' }}</dd>
+          <dt class="text-slate-500 dark:text-slate-400 dark:text-slate-500">Description</dt>
+          <dd class="col-span-2 text-slate-800 dark:text-slate-100">{{ detailRow.description || '—' }}</dd>
 
-          <dt v-if="detailRow.notes" class="text-slate-500">Notes</dt>
-          <dd v-if="detailRow.notes" class="col-span-2 whitespace-pre-line text-slate-700">
+          <dt v-if="detailRow.notes" class="text-slate-500 dark:text-slate-400 dark:text-slate-500">Notes</dt>
+          <dd v-if="detailRow.notes" class="col-span-2 whitespace-pre-line text-slate-700 dark:text-slate-200">
             {{ detailRow.notes }}
           </dd>
 
-          <dt class="text-slate-500">Recorded</dt>
-          <dd class="col-span-2 text-slate-700">
+          <dt class="text-slate-500 dark:text-slate-400 dark:text-slate-500">Recorded</dt>
+          <dd class="col-span-2 text-slate-700 dark:text-slate-200">
             {{ formatDateTime(detailRow.created_at) }}
             <span v-if="detailRow.recorded_by_name || detailRow.created_by_name"
-                  class="text-slate-500">
+                  class="text-slate-500 dark:text-slate-400 dark:text-slate-500">
               · by {{ detailRow.recorded_by_name || detailRow.created_by_name }}
             </span>
           </dd>
@@ -679,10 +679,10 @@ function chipClass(cat) {
     <!-- Void confirmation -->
     <Modal :show="showVoid" title="Void expense" size="sm" @close="cancelVoid">
       <div v-if="voidTarget" class="space-y-3">
-        <p class="text-sm text-slate-700">
+        <p class="text-sm text-slate-700 dark:text-slate-200">
           Void
           <span class="font-semibold">{{ voidTarget.description || voidTarget.uuid?.slice(0, 8) }}</span>
-          <span class="text-slate-500"> ({{ money(voidTarget.amount) }})</span>?
+          <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500"> ({{ money(voidTarget.amount) }})</span>?
           The record stays in the list for audit but is excluded from totals.
         </p>
         <div>

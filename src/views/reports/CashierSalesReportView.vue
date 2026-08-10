@@ -48,7 +48,7 @@ function exportRows() {
     <div class="print-area">
       <div class="hidden print:block text-center mb-3">
         <h1 class="text-lg font-bold">{{ tenant.current?.name || 'Laboratory' }} — Cashier Sales</h1>
-        <p class="text-xs text-slate-500">
+        <p class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
           {{ filters.date_from ? formatDate(filters.date_from) : 'earliest' }} to
           {{ filters.date_to ? formatDate(filters.date_to) : 'latest' }}
         </p>
@@ -57,7 +57,7 @@ function exportRows() {
       <div class="card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table w-full text-sm">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>Cashier</th>
                 <th class="text-right">Payments</th>
@@ -67,16 +67,16 @@ function exportRows() {
             </thead>
             <tbody>
               <tr v-if="!rows.length && !loading">
-                <td colspan="4" class="py-4 text-center text-xs text-slate-400">No cashier sales in this range.</td>
+                <td colspan="4" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No cashier sales in this range.</td>
               </tr>
-              <tr v-for="r in rows" :key="r.cashier" class="border-b border-slate-100">
+              <tr v-for="r in rows" :key="r.cashier" class="border-b border-slate-100 dark:border-slate-800">
                 <td class="font-semibold">{{ r.cashier }}</td>
                 <td class="text-right">{{ r.count }}</td>
                 <td class="text-right font-semibold text-emerald-700">{{ money(r.revenue) }}</td>
                 <td class="text-right text-amber-700 hidden sm:table-cell">− {{ money(r.discounts_given) }}</td>
               </tr>
             </tbody>
-            <tfoot v-if="rows.length" class="bg-slate-100">
+            <tfoot v-if="rows.length" class="bg-slate-100 dark:bg-slate-800">
               <tr class="font-bold">
                 <td>Total</td>
                 <td class="text-right">{{ totals.count }}</td>

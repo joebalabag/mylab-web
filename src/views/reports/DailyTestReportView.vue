@@ -67,11 +67,11 @@ function exportRows() {
 
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Lab Reports Created (per day)</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Lab Reports Created (per day)</div>
         </div>
         <div class="card-body">
-          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-          <div v-else-if="!rows.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+          <div v-else-if="!rows.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500">
             No lab reports in this range.
           </div>
           <div v-else class="h-56"><BarChart :labels="chartLabels" :data="chartData" label="Created" /></div>
@@ -81,7 +81,7 @@ function exportRows() {
       <div class="card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>Date</th>
                 <th class="text-right">Created</th>
@@ -94,19 +94,19 @@ function exportRows() {
             </thead>
             <tbody>
               <tr v-if="!rows.length && !loading">
-                <td colspan="7" class="py-4 text-center text-xs text-slate-400">No lab reports in this range.</td>
+                <td colspan="7" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No lab reports in this range.</td>
               </tr>
-              <tr v-for="r in rows" :key="r.date" class="border-b border-slate-100">
+              <tr v-for="r in rows" :key="r.date" class="border-b border-slate-100 dark:border-slate-800">
                 <td>{{ formatDate(r.date) }}</td>
                 <td class="text-right font-semibold">{{ r.created }}</td>
                 <td class="text-right text-emerald-700 font-semibold">{{ r.finalized }}</td>
                 <td class="text-right text-emerald-700 hidden sm:table-cell">{{ pct(r.finalized_pct) }}</td>
                 <td class="text-right text-rose-700 font-semibold">{{ r.voided }}</td>
                 <td class="text-right text-rose-700 hidden sm:table-cell">{{ pct(r.voided_pct) }}</td>
-                <td class="text-right text-slate-500 hidden md:table-cell">{{ r.draft }}</td>
+                <td class="text-right text-slate-500 dark:text-slate-400 dark:text-slate-500 hidden md:table-cell">{{ r.draft }}</td>
               </tr>
             </tbody>
-            <tfoot v-if="rows.length" class="bg-slate-100">
+            <tfoot v-if="rows.length" class="bg-slate-100 dark:bg-slate-800">
               <tr class="font-bold">
                 <td>Total</td>
                 <td class="text-right">{{ totals.created }}</td>
@@ -114,7 +114,7 @@ function exportRows() {
                 <td class="text-right text-emerald-700 hidden sm:table-cell">{{ pct(totals.finalized_pct) }}</td>
                 <td class="text-right text-rose-700">{{ totals.voided }}</td>
                 <td class="text-right text-rose-700 hidden sm:table-cell">{{ pct(totals.voided_pct) }}</td>
-                <td class="text-right text-slate-500 hidden md:table-cell">{{ totals.draft }}</td>
+                <td class="text-right text-slate-500 dark:text-slate-400 dark:text-slate-500 hidden md:table-cell">{{ totals.draft }}</td>
               </tr>
             </tfoot>
           </table>

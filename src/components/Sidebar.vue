@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { version as appVersion } from '../../package.json'
@@ -172,26 +172,27 @@ watch(() => route.path, (p) => {
 
   <aside
     class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full transform flex-col border-r border-slate-200 bg-white
-           transition-[width,transform] duration-200 md:translate-x-0"
+           transition-[width,transform] duration-200 md:translate-x-0
+           dark:border-slate-800 dark:bg-slate-900"
     :class="[
       { 'translate-x-0': open },
       collapsed ? 'md:w-20' : 'md:w-64'
     ]"
   >
     <!-- Brand row -->
-    <div class="relative flex h-16 shrink-0 items-center gap-3 border-b border-slate-100 px-5"
+    <div class="relative flex h-16 shrink-0 items-center gap-3 border-b border-slate-100 px-5 dark:border-slate-800"
          :class="collapsed && 'md:justify-center md:px-0'">
       <img :src="MyLabLogo" alt="MyLab"
            class="h-9 w-9 shrink-0 rounded-lg object-contain" />
       <div :class="collapsed && 'md:hidden'">
-        <div class="text-sm font-bold text-slate-800">MyLab</div>
-        <div class="text-xs text-slate-500">Laboratory</div>
+        <div class="text-sm font-bold text-slate-800 dark:text-slate-100">MyLab</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400">Laboratory</div>
       </div>
 
       <!-- Desktop collapse toggle (only when expanded; when collapsed, use Topbar button) -->
       <button
         v-if="!collapsed"
-        class="ml-auto hidden h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:inline-flex"
+        class="ml-auto hidden h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:inline-flex dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         title="Collapse sidebar"
         @click="$emit('toggle-collapse')"
       >
@@ -204,7 +205,7 @@ watch(() => route.path, (p) => {
 
     <!-- Tenant logo -->
     <div v-if="tenant.logo"
-         class="flex shrink-0 items-center justify-center border-b border-slate-100 px-4 py-5">
+         class="flex shrink-0 items-center justify-center border-b border-slate-100 px-4 py-5 dark:border-slate-800">
       <img :src="assetUrl(tenant.logo)"
            class="max-h-28 w-auto object-contain"
            :alt="tenant.name || 'Tenant logo'" />
@@ -222,16 +223,16 @@ watch(() => route.path, (p) => {
                 @click="toggleGroup(group)"
                 class="mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
                 :class="isGroupActive(group)
-                        ? 'bg-brand-50 text-brand-700 hover:bg-brand-100'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
+                        ? 'bg-brand-50 text-brand-700 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:hover:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'">
           <span v-if="group.icon"
                 class="inline-flex h-5 w-5 shrink-0 items-center justify-center"
-                :class="isGroupActive(group) ? 'text-brand-600' : 'text-slate-400'"
+                :class="isGroupActive(group) ? 'text-brand-600 dark:text-brand-300' : 'text-slate-400 dark:text-slate-500'"
                 v-html="iconSvg(group.icon)"></span>
           <span class="flex-1 text-left">{{ group.label }}</span>
           <svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform"
                :class="[
-                 isGroupActive(group) ? 'text-brand-500' : 'text-slate-400',
+                 isGroupActive(group) ? 'text-brand-500 dark:text-brand-300' : 'text-slate-400 dark:text-slate-500',
                  isGroupOpen(group) ? 'rotate-180' : ''
                ]"
                fill="none" stroke="currentColor" stroke-width="2.5"
@@ -241,13 +242,13 @@ watch(() => route.path, (p) => {
         </button>
         <!-- Static (non-collapsible) group header. -->
         <div v-else-if="group.label && !collapsed"
-             class="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+             class="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
           {{ group.label }}
         </div>
         <!-- Thin divider stripe in icon-collapsed mode so groups still read
              as distinct even without headers. Skipped for the first group. -->
         <div v-else-if="group.label && collapsed && gi > 0"
-             class="mx-auto my-2 hidden h-px w-6 bg-slate-200 md:block"></div>
+             class="mx-auto my-2 hidden h-px w-6 bg-slate-200 md:block dark:bg-slate-700"></div>
 
         <!-- Items: hidden when the group is collapsible AND currently closed
              AND the sidebar itself isn't icon-only (icon-only mode ignores
@@ -260,21 +261,21 @@ watch(() => route.path, (p) => {
             :to="item.to"
             :title="collapsed ? item.label : ''"
             @click="$emit('close')"
-            class="mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600
-                   hover:bg-slate-100 hover:text-slate-900"
+            class="mb-0.5 flex items-center gap-3 rounded-lg border-l-4 border-l-transparent px-3 py-2 text-sm font-medium text-slate-600
+                   hover:bg-slate-100 hover:text-slate-900 dark:hover:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
             :class="[
               collapsed && 'md:justify-center md:px-0',
               // Collapsible-group children get the bullet + indent treatment;
               // top-level groups keep their per-item icons as-is.
               group.collapsible && !collapsed && 'pl-8'
             ]"
-            active-class="!bg-brand-50 !text-brand-700 !font-semibold"
+            active-class="!border-l-brand-600 !bg-brand-50 !text-brand-700 !font-semibold dark:!border-l-brand-400 dark:!bg-brand-900/30 dark:!text-brand-300"
           >
             <!-- Bullet dot for collapsible sub-items, per-item icon otherwise -->
             <span v-if="group.collapsible && !collapsed"
-                  class="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300"></span>
+                  class="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600"></span>
             <span v-else
-                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center text-slate-400"
+                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center text-slate-400 dark:text-slate-500"
                   v-html="iconSvg(item.icon)"></span>
             <span :class="collapsed && 'md:hidden'">{{ item.label }}</span>
           </RouterLink>
@@ -282,13 +283,13 @@ watch(() => route.path, (p) => {
       </div>
     </nav>
 
-    <div class="shrink-0 border-t border-slate-100"
+    <div class="shrink-0 border-t border-slate-100 dark:border-slate-800"
          :class="collapsed && 'md:hidden'">
       <button type="button"
-              class="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              class="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
               :title="collapsed ? 'Help / Getting Started' : ''"
               @click="showHelp = true">
-        <svg viewBox="0 0 24 24" class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2"
+        <svg viewBox="0 0 24 24" class="h-4 w-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
           <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
@@ -296,7 +297,7 @@ watch(() => route.path, (p) => {
         </svg>
         <span :class="collapsed && 'md:hidden'">Help &amp; Getting Started</span>
       </button>
-      <div class="border-t border-slate-100 p-3 text-xs text-slate-400">
+      <div class="border-t border-slate-100 p-3 text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
         v{{ appVersion }}
       </div>
     </div>

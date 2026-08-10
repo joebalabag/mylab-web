@@ -344,8 +344,8 @@ function discard() {
     <div class="card sticky top-0 z-10 shadow-sm">
       <div class="card-body flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Company Settings</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Company Settings</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Company info, address, and contact details.
             <span class="font-mono">UUID: {{ tenant.uuid }}</span>
           </div>
@@ -377,7 +377,7 @@ function discard() {
         {{ loadError }}
       </div>
 
-      <div v-if="!canEdit" class="border-t border-slate-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+      <div v-if="!canEdit" class="border-t border-slate-100 dark:border-slate-800 bg-amber-50 px-4 py-2 text-xs text-amber-800">
         You are signed in as <b>{{ auth.role || auth.user?.type || 'guest' }}</b>. Only a store <b>admin</b> or <b>manager</b> can save changes to company settings.
       </div>
     </div>
@@ -387,17 +387,17 @@ function discard() {
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="text-sm font-semibold text-slate-800">Company Identity</div>
-              <div class="text-xs text-slate-500">Displayed on receipts and reports</div>
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Company Identity</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Displayed on receipts and reports</div>
             </div>
           </div>
           <div class="card-body grid grid-cols-1 gap-4 sm:grid-cols-3">
             <!-- Logo -->
             <div class="sm:col-span-1">
               <label class="label">Company Logo</label>
-              <div class="flex h-32 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+              <div class="flex h-32 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-800">
                 <img v-if="logoPreviewSrc" :src="logoPreviewSrc" class="h-full w-full object-contain" />
-                <div v-else class="text-center text-xs text-slate-500">
+                <div v-else class="text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   <svg viewBox="0 0 24 24" class="mx-auto h-8 w-8 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5"
                        stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="5" width="18" height="14" rx="2"/>
@@ -414,7 +414,7 @@ function discard() {
                 </label>
                 <button v-if="logoFile" class="btn-ghost !text-xs" @click="discardLogoPick">Discard pick</button>
               </div>
-              <p class="mt-1 text-[11px] text-slate-500">
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 JPG, PNG, WebP, GIF or SVG · up to 5 MB.
                 <span class="italic">Removing an existing logo isn't supported by the API — you can only replace it.</span>
               </p>
@@ -452,7 +452,7 @@ function discard() {
                   <input v-model="draft.currency" :disabled="!canEdit" class="input" placeholder="PHP" />
                   <input v-model="draft.currencySymbol" :disabled="!canEdit" class="input text-center" placeholder="₱" />
                 </div>
-                <p class="mt-1 text-[11px] text-slate-500">
+                <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   <span class="font-semibold">currency</span> is synced with the server.
                   <span class="text-amber-700"><span class="font-semibold">currencySymbol</span> is not in the API</span> — kept locally only.
                 </p>
@@ -464,7 +464,7 @@ function discard() {
         <!-- Address -->
         <div class="card">
           <div class="card-header">
-            <div class="text-sm font-semibold text-slate-800">Address</div>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Address</div>
           </div>
           <div class="card-body grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="sm:col-span-2">
@@ -497,7 +497,7 @@ function discard() {
         <!-- Contact -->
         <div class="card">
           <div class="card-header">
-            <div class="text-sm font-semibold text-slate-800">Contact</div>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Contact</div>
           </div>
           <div class="card-body grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
@@ -519,8 +519,8 @@ function discard() {
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="text-sm font-semibold text-slate-800">Cashier Receipt Header</div>
-              <div class="text-xs text-slate-500">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Cashier Receipt Header</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Printed at the top of every cashier receipt (payment slip). Leave blank to auto-generate
                 from the company name and address above.
               </div>
@@ -531,7 +531,7 @@ function discard() {
             <textarea v-model="draft.receiptHeader" :disabled="!canEdit"
                       rows="4" maxlength="500" class="input"
                       placeholder="COMPANY NAME&#10;Address line&#10;Tel: +63 000 000 0000"></textarea>
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Each line is centered on the receipt. Blank lines are preserved.
             </p>
           </div>
@@ -541,8 +541,8 @@ function discard() {
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="text-sm font-semibold text-slate-800">Lab Report Result Header</div>
-              <div class="text-xs text-slate-500">Rendered at the top of every printed lab report.</div>
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Lab Report Result Header</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Rendered at the top of every printed lab report.</div>
             </div>
           </div>
           <div class="card-body space-y-3">
@@ -562,16 +562,16 @@ function discard() {
               <textarea v-model="draft.labHeaderText" :disabled="!canEdit"
                         rows="4" maxlength="2000" class="input"
                         placeholder="Clinic name&#10;Address line 1&#10;Address line 2&#10;Contact number · Email"></textarea>
-              <p class="mt-1 text-[11px] text-slate-500">
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Printed on the right side of the header, next to the company logo above.
               </p>
             </div>
 
             <div v-else>
               <label class="label">Header banner image</label>
-              <div class="flex min-h-[8rem] items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+              <div class="flex min-h-[8rem] items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-800">
                 <img v-if="labHeaderPreviewSrc" :src="labHeaderPreviewSrc" class="max-h-40 w-full object-contain" />
-                <div v-else class="text-center text-xs text-slate-500 p-4">
+                <div v-else class="text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 p-4">
                   Upload a wide banner (e.g. 1600×400) that fills the report header.
                 </div>
               </div>
@@ -585,7 +585,7 @@ function discard() {
                   ⬇ Download template (1600×400 PNG)
                 </button>
               </div>
-              <p class="mt-1 text-[11px] text-slate-500">
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Recommended: <b>1600 × 400 px</b> (aspect 4:1). JPG, PNG, WebP, GIF or SVG · up to 5 MB. Renders full-width on the report; pick artwork with good contrast against white paper.
               </p>
             </div>
@@ -599,8 +599,8 @@ function discard() {
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="text-sm font-semibold text-slate-800">Report Signatories</div>
-              <div class="text-xs text-slate-500">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Report Signatories</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Controls how many tester signatures print on a lab report. Pathologist signatory is not affected.
               </div>
             </div>
@@ -610,15 +610,15 @@ function discard() {
               <label class="inline-flex items-start gap-2 text-sm">
                 <input type="radio" :value="1" v-model.number="draft.testerSignatoryCount" :disabled="!canEdit" class="mt-1" />
                 <span>
-                  <span class="font-medium text-slate-800">1 signatory</span>
-                  <span class="block text-[11px] text-slate-500">Whoever taps <b>Tag as Final</b> is the sole signatory on the printed report.</span>
+                  <span class="font-medium text-slate-800 dark:text-slate-100">1 signatory</span>
+                  <span class="block text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">Whoever taps <b>Tag as Final</b> is the sole signatory on the printed report.</span>
                 </span>
               </label>
               <label class="inline-flex items-start gap-2 text-sm">
                 <input type="radio" :value="2" v-model.number="draft.testerSignatoryCount" :disabled="!canEdit" class="mt-1" />
                 <span>
-                  <span class="font-medium text-slate-800">2 signatories</span>
-                  <span class="block text-[11px] text-slate-500">
+                  <span class="font-medium text-slate-800 dark:text-slate-100">2 signatories</span>
+                  <span class="block text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     Creator signs as the first; <b>Tag as Final</b> prompts for a second signatory's credentials.
                     Same user → prints one signature (no error).
                   </span>
@@ -635,8 +635,8 @@ function discard() {
         <div class="card">
           <div class="card-header flex items-center justify-between">
             <div>
-              <div class="text-sm font-semibold text-slate-800">Doctors</div>
-              <div class="text-xs text-slate-500">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Doctors</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Pathologists, radiologists and other signatories that sign off on generated reports.
               </div>
             </div>
@@ -644,12 +644,12 @@ function discard() {
           </div>
           <div class="card-body">
             <div v-if="!doctors.items.length && !doctors.loading"
-                 class="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-slate-500">
+                 class="rounded-md border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-800 p-4 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
               No doctors yet. Click <b>+ Add Doctor</b> to create one.
             </div>
             <table v-else class="w-full text-sm">
-              <thead class="text-[10px] uppercase text-slate-500">
-                <tr class="border-b border-slate-200">
+              <thead class="text-[10px] uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                <tr class="border-b border-slate-200 dark:border-slate-700">
                   <th class="w-16 py-1.5 text-left font-semibold">Sign.</th>
                   <th class="py-1.5 text-left font-semibold">Name</th>
                   <th class="py-1.5 text-left font-semibold">Specialty</th>
@@ -658,15 +658,15 @@ function discard() {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="d in doctors.items" :key="d.uuid" class="border-b border-slate-100">
+                <tr v-for="d in doctors.items" :key="d.uuid" class="border-b border-slate-100 dark:border-slate-800">
                   <td class="py-1.5">
                     <img v-if="d.esignature_image" :src="assetUrl(d.esignature_image)"
                          class="h-8 max-w-[3rem] object-contain" alt="signature" />
-                    <span v-else class="text-[10px] text-slate-400">—</span>
+                    <span v-else class="text-[10px] text-slate-400 dark:text-slate-500">—</span>
                   </td>
-                  <td class="py-1.5 text-slate-800">{{ d.name }}</td>
-                  <td class="py-1.5 text-slate-600">{{ d.specialty }}</td>
-                  <td class="py-1.5 font-mono text-[11px] text-slate-500">{{ d.license_number || '—' }}</td>
+                  <td class="py-1.5 text-slate-800 dark:text-slate-100">{{ d.name }}</td>
+                  <td class="py-1.5 text-slate-600 dark:text-slate-300">{{ d.specialty }}</td>
+                  <td class="py-1.5 font-mono text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ d.license_number || '—' }}</td>
                   <td class="py-1.5 text-right">
                     <button class="btn-secondary !py-0.5 !text-[11px]" @click="openEditDoctor(d)">Edit</button>
                     <button v-if="canEdit"
@@ -694,7 +694,7 @@ function discard() {
              back. -->
         <div v-if="false" class="card">
           <div class="card-header">
-            <div class="text-sm font-semibold text-slate-800">Tax &amp; Registration</div>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Tax &amp; Registration</div>
           </div>
           <div class="card-body grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
@@ -704,7 +704,7 @@ function discard() {
             <div class="flex items-center gap-4 sm:col-span-2">
               <label class="mt-6 inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" v-model="draft.vatRegistered" :disabled="!canEdit" class="h-4 w-4" />
-                <span class="font-medium text-slate-700">VAT-registered</span>
+                <span class="font-medium text-slate-700 dark:text-slate-200">VAT-registered</span>
               </label>
             </div>
           </div>
@@ -729,15 +729,15 @@ function discard() {
             </select>
           </div>
           <div>
-            <label class="label">License # <span class="text-slate-400">(optional)</span></label>
+            <label class="label">License # <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
             <input v-model="doctorForm.license_number" maxlength="100" class="input font-mono" placeholder="00112233" />
           </div>
         </div>
         <div>
-          <label class="label">E-signature <span class="text-slate-400">(optional)</span></label>
-          <div class="flex h-24 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+          <label class="label">E-signature <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
+          <div class="flex h-24 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-800">
             <img v-if="doctorPreviewSrc" :src="doctorPreviewSrc" class="max-h-full max-w-full object-contain" />
-            <div v-else class="text-center text-xs text-slate-500">No signature uploaded</div>
+            <div v-else class="text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">No signature uploaded</div>
           </div>
           <div class="mt-2 flex flex-wrap gap-2">
             <label class="btn-secondary cursor-pointer !text-xs">
@@ -746,7 +746,7 @@ function discard() {
             </label>
             <button v-if="doctorFile" class="btn-ghost !text-xs" @click="discardDoctorFile">Discard pick</button>
           </div>
-          <p class="mt-1 text-[11px] text-slate-500">
+          <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
             PNG with transparent background recommended. JPG / PNG / WebP / SVG up to 5 MB.
           </p>
         </div>

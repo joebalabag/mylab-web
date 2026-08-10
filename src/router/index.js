@@ -58,6 +58,15 @@ const routes = [
     component: () => import('../views/VerifyView.vue'),
     meta: { public: true }
   },
+  // Landing point for the ${appUrl}/reset-password?token=xxx link in the
+  // forgot-password email. Verifies the token, then lets the user set a new
+  // password and bounces them to /login on success.
+  {
+    path: '/reset-password',
+    name: 'reset-password',
+    component: () => import('../views/ResetPasswordView.vue'),
+    meta: { public: true }
+  },
 
   // ─── Super Admin ───
   {

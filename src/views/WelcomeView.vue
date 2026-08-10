@@ -50,26 +50,33 @@ const tiles = [
 ]
 const visibleTiles = computed(() => tiles.filter(t => t.always || auth.canOpen(t.mainNav)))
 
-// Tailwind class maps — kept explicit (no dynamic concatenation) so the JIT
-// compiler actually emits them.
+// Tile palette — light-mode pastel + dark-mode tinted panel. Kept explicit
+// (no dynamic concatenation) so the JIT compiler actually emits them.
 const toneBg = {
-  indigo:  'bg-brand-50 ring-brand-100  hover:bg-brand-100/70  hover:ring-brand-300',
-  emerald: 'bg-emerald-50 ring-emerald-100 hover:bg-emerald-100/70 hover:ring-emerald-300',
-  amber:   'bg-amber-50 ring-amber-100    hover:bg-amber-100/70   hover:ring-amber-300',
-  rose:    'bg-rose-50 ring-rose-100      hover:bg-rose-100/70    hover:ring-rose-300',
-  sky:     'bg-sky-50 ring-sky-100        hover:bg-sky-100/70     hover:ring-sky-300',
-  teal:    'bg-teal-50 ring-teal-100      hover:bg-teal-100/70    hover:ring-teal-300',
-  fuchsia: 'bg-fuchsia-50 ring-fuchsia-100 hover:bg-fuchsia-100/70 hover:ring-fuchsia-300',
-  violet:  'bg-violet-50 ring-violet-100  hover:bg-violet-100/70  hover:ring-violet-300',
-  cyan:    'bg-cyan-50 ring-cyan-100      hover:bg-cyan-100/70    hover:ring-cyan-300',
-  slate:   'bg-slate-50 ring-slate-100    hover:bg-slate-100/70   hover:ring-slate-300',
-  zinc:    'bg-zinc-50 ring-zinc-100      hover:bg-zinc-100/70    hover:ring-zinc-300'
+  indigo:  'bg-brand-50   ring-brand-100   hover:bg-brand-100/70   hover:ring-brand-300   dark:bg-brand-900/30   dark:ring-brand-900/60   dark:hover:bg-brand-900/50   dark:hover:ring-brand-700',
+  emerald: 'bg-emerald-50 ring-emerald-100 hover:bg-emerald-100/70 hover:ring-emerald-300 dark:bg-emerald-900/30 dark:ring-emerald-900/60 dark:hover:bg-emerald-900/50 dark:hover:ring-emerald-700',
+  amber:   'bg-amber-50   ring-amber-100   hover:bg-amber-100/70   hover:ring-amber-300   dark:bg-amber-900/30   dark:ring-amber-900/60   dark:hover:bg-amber-900/50   dark:hover:ring-amber-700',
+  rose:    'bg-rose-50    ring-rose-100    hover:bg-rose-100/70    hover:ring-rose-300    dark:bg-rose-900/30    dark:ring-rose-900/60    dark:hover:bg-rose-900/50    dark:hover:ring-rose-700',
+  sky:     'bg-sky-50     ring-sky-100     hover:bg-sky-100/70     hover:ring-sky-300     dark:bg-sky-900/30     dark:ring-sky-900/60     dark:hover:bg-sky-900/50     dark:hover:ring-sky-700',
+  teal:    'bg-teal-50    ring-teal-100    hover:bg-teal-100/70    hover:ring-teal-300    dark:bg-teal-900/30    dark:ring-teal-900/60    dark:hover:bg-teal-900/50    dark:hover:ring-teal-700',
+  fuchsia: 'bg-fuchsia-50 ring-fuchsia-100 hover:bg-fuchsia-100/70 hover:ring-fuchsia-300 dark:bg-fuchsia-900/30 dark:ring-fuchsia-900/60 dark:hover:bg-fuchsia-900/50 dark:hover:ring-fuchsia-700',
+  violet:  'bg-violet-50  ring-violet-100  hover:bg-violet-100/70  hover:ring-violet-300  dark:bg-violet-900/30  dark:ring-violet-900/60  dark:hover:bg-violet-900/50  dark:hover:ring-violet-700',
+  cyan:    'bg-cyan-50    ring-cyan-100    hover:bg-cyan-100/70    hover:ring-cyan-300    dark:bg-cyan-900/30    dark:ring-cyan-900/60    dark:hover:bg-cyan-900/50    dark:hover:ring-cyan-700',
+  slate:   'bg-slate-50   ring-slate-100   hover:bg-slate-100      hover:ring-slate-300   dark:bg-slate-800      dark:ring-slate-700      dark:hover:bg-slate-700      dark:hover:ring-slate-600',
+  zinc:    'bg-zinc-50    ring-zinc-100    hover:bg-zinc-100/70    hover:ring-zinc-300    dark:bg-zinc-800       dark:ring-zinc-700       dark:hover:bg-zinc-700       dark:hover:ring-zinc-600'
 }
 const toneIcon = {
-  indigo: 'text-brand-600',  emerald: 'text-emerald-600', amber: 'text-amber-600',
-  rose:   'text-rose-600',    sky:     'text-sky-600',     teal:  'text-teal-600',
-  fuchsia:'text-fuchsia-600', violet:  'text-violet-600',  cyan:  'text-cyan-600',
-  slate:  'text-slate-600',   zinc:    'text-zinc-600'
+  indigo:  'text-brand-600   dark:text-brand-300',
+  emerald: 'text-emerald-600 dark:text-emerald-300',
+  amber:   'text-amber-600   dark:text-amber-300',
+  rose:    'text-rose-600    dark:text-rose-300',
+  sky:     'text-sky-600     dark:text-sky-300',
+  teal:    'text-teal-600    dark:text-teal-300',
+  fuchsia: 'text-fuchsia-600 dark:text-fuchsia-300',
+  violet:  'text-violet-600  dark:text-violet-300',
+  cyan:    'text-cyan-600    dark:text-cyan-300',
+  slate:   'text-slate-600   dark:text-slate-300',
+  zinc:    'text-zinc-600    dark:text-zinc-300'
 }
 
 function iconSvg(name) {
@@ -127,8 +134,8 @@ function iconSvg(name) {
     <!-- Quick launch tiles -->
     <section>
       <div class="mb-2 flex items-baseline justify-between">
-        <h2 class="text-sm font-bold uppercase tracking-widest text-slate-600">Quick launch</h2>
-        <div class="text-xs text-slate-400">
+        <h2 class="text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">Quick launch</h2>
+        <div class="text-xs text-slate-400 dark:text-slate-500">
           {{ visibleTiles.length }} module{{ visibleTiles.length === 1 ? '' : 's' }}
         </div>
       </div>
@@ -138,17 +145,17 @@ function iconSvg(name) {
         <RouterLink v-for="t in visibleTiles" :key="t.to" :to="t.to"
                     class="group flex flex-col gap-2 rounded-xl p-4 ring-1 transition"
                     :class="toneBg[t.tone] || toneBg.slate">
-          <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/70 shadow-sm ring-1 ring-white/60"
+          <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/70 shadow-sm ring-1 ring-white/60 dark:bg-slate-950/40 dark:ring-white/10"
                 :class="toneIcon[t.tone] || toneIcon.slate"
                 v-html="iconSvg(t.icon)"></span>
           <div>
-            <div class="text-sm font-bold text-slate-800">{{ t.label }}</div>
-            <div class="text-[11px] text-slate-500">{{ t.hint }}</div>
+            <div class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ t.label }}</div>
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ t.hint }}</div>
           </div>
         </RouterLink>
       </div>
       <div v-else
-           class="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+           class="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500">
         No modules granted to your account yet. Ask an admin to assign access.
       </div>
     </section>

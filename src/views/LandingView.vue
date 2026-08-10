@@ -160,7 +160,34 @@ async function loadPlans() {
     plansError.value = e?.message || 'Failed to load plans'
   }
 }
-onMounted(loadPlans)
+
+// Google Analytics (GA4) — injected on the landing page only so the marketing
+// side gets traffic analytics without shipping the tag into the authenticated
+// app. Guarded against double-injection because Vue can remount the view
+// when the user navigates away and back.
+const GA_MEASUREMENT_ID = 'G-4D112LGNY2'
+function loadGoogleAnalytics() {
+  if (typeof window === 'undefined') return
+  if (window.__gaLoaded) return
+  window.__gaLoaded = true
+
+  const loader = document.createElement('script')
+  loader.async = true
+  loader.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`
+  document.head.appendChild(loader)
+
+  window.dataLayer = window.dataLayer || []
+  // Standard gtag shim — pushes args onto dataLayer for gtag.js to consume.
+  function gtag() { window.dataLayer.push(arguments) }
+  window.gtag = gtag
+  gtag('js', new Date())
+  gtag('config', GA_MEASUREMENT_ID)
+}
+
+onMounted(() => {
+  loadPlans()
+  loadGoogleAnalytics()
+})
 
 const faqs = [
   {
@@ -213,6 +240,7 @@ const faqs = [
           <a href="#how" class="hover:text-slate-900">How it works</a>
           <a href="#pricing" class="hover:text-slate-900">Pricing</a>
           <a href="#faq" class="hover:text-slate-900">FAQ</a>
+          <a href="#contact" class="hover:text-slate-900">Contact</a>
         </nav>
 
         <div class="flex items-center gap-2">
@@ -252,7 +280,7 @@ const faqs = [
 
           <p class="mt-5 max-w-lg text-lg text-slate-600">
             MyLab is a browser-based laboratory management system: patients, cases,
-            requisitions, cashier, results, and signed reports — all in one clean workspace.
+            requisitions, cashier, results, signed reports and QR code for authenticity verification  — all in one clean workspace.
           </p>
 
           <div class="mt-8 flex flex-wrap items-center gap-3">
@@ -617,6 +645,46 @@ const faqs = [
       </div>
     </section>
 
+    <!-- ─── Contact ─────────────────────────────────────────────── -->
+    <section id="contact" class="border-t border-slate-100 bg-white">
+      <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <div class="text-center">
+          <span class="text-xs font-semibold uppercase tracking-widest text-brand-600">Contact</span>
+          <h2 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            Talk to a human.
+          </h2>
+          <p class="mt-3 text-slate-600">
+            Sales questions, onboarding help, or a feature you'd like to see —
+            drop us a line and we'll get back within one business day.
+          </p>
+        </div>
+
+        <div class="mt-10 rounded-2xl border border-slate-200 bg-slate-50/60 p-6 sm:p-8">
+          <div class="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:justify-between sm:text-left">
+            <div>
+              <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Support &amp; Sales</div>
+              <a href="mailto:support@edgetechph.net"
+                 class="mt-1 inline-block text-xl font-bold text-brand-700 hover:text-brand-800">
+                support@edgetechph.net
+              </a>
+              <p class="mt-1 text-xs text-slate-500">
+                Include your laboratory name so we can pull up your account faster.
+              </p>
+            </div>
+            <a href="mailto:support@edgetechph.net?subject=MyLab%20inquiry"
+               class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              Send us an email
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ─── CTA banner ──────────────────────────────────────────── -->
     <section class="bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 text-white">
       <div class="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6 lg:px-8">
@@ -651,11 +719,15 @@ const faqs = [
           <span class="font-semibold text-slate-700">MyLab</span>
           <span class="text-slate-400">· © 2026</span>
         </div>
-        <div class="flex items-center gap-5">
+        <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           <a href="#features" class="hover:text-slate-800">Features</a>
           <a href="#how" class="hover:text-slate-800">How it works</a>
           <a href="#pricing" class="hover:text-slate-800">Pricing</a>
           <a href="#faq" class="hover:text-slate-800">FAQ</a>
+          <a href="#contact" class="hover:text-slate-800">Contact</a>
+          <a href="mailto:support@edgetechph.net" class="text-brand-700 hover:text-brand-800">
+            support@edgetechph.net
+          </a>
           <RouterLink to="/login" class="hover:text-slate-800">Log in</RouterLink>
           <RouterLink to="/register" class="hover:text-slate-800">Sign up</RouterLink>
         </div>

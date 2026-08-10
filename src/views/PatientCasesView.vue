@@ -899,15 +899,15 @@ function caseTypeBadge(t) {
     case 'OPD': return 'bg-emerald-100 text-emerald-700'
     case 'IPD': return 'bg-brand-100 text-brand-700'
     case 'ER':  return 'bg-rose-100 text-rose-700'
-    default:    return 'bg-slate-100 text-slate-700'
+    default:    return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
   }
 }
 function reqStatusBadge(s) {
   switch (s) {
-    case 'draft':     return 'bg-slate-100 text-slate-700'
+    case 'draft':     return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
     case 'finalized': return 'bg-emerald-100 text-emerald-700'
     case 'cancelled': return 'bg-rose-100 text-rose-700'
-    default:          return 'bg-slate-100 text-slate-700'
+    default:          return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
   }
 }
 </script>
@@ -916,11 +916,11 @@ function reqStatusBadge(s) {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-2 gap-3 shrink-0">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Total Cases</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Total Cases</div>
         <div class="mt-1 text-2xl font-bold">{{ totalCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Open</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Open</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ openCount }}</div>
       </div></div>
     </div>
@@ -928,8 +928,8 @@ function reqStatusBadge(s) {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Patient Cases</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Patient Cases</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ filtered.length }} shown
             <span v-if="cases.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -987,7 +987,7 @@ function reqStatusBadge(s) {
           :columns="['bar','lines','pill','lines','pill','bar','dot']"
         />
         <table class="table" v-else-if="filtered.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-32">Case #</th>
               <th>Patient</th>
@@ -998,7 +998,7 @@ function reqStatusBadge(s) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in filtered" :key="row.uuid" :class="row.status !== 'open' && 'bg-slate-50/50'">
+            <tr v-for="row in filtered" :key="row.uuid" :class="row.status !== 'open' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td class="font-mono text-xs font-semibold">
                 <button type="button"
                         class="text-brand-600 hover:text-brand-800 hover:underline"
@@ -1006,8 +1006,8 @@ function reqStatusBadge(s) {
                         :title="`View ${row.case_number}`">{{ row.case_number }}</button>
               </td>
               <td>
-                <div class="font-medium text-slate-800">{{ fullPatientName(row) }}</div>
-                <div class="text-[11px] text-slate-500">
+                <div class="font-medium text-slate-800 dark:text-slate-100">{{ fullPatientName(row) }}</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   <span class="font-mono">{{ row.patient_number || '—' }}</span>
                   · {{ row.patient_sex || '?' }}
                   <span v-if="ageFromBirthdate(row.patient_birthdate) !== null">
@@ -1019,7 +1019,7 @@ function reqStatusBadge(s) {
                 <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
                       :class="caseTypeBadge(row.case_type)">{{ row.case_type }}</span>
               </td>
-              <td class="text-xs text-slate-600">{{ formatDateTime(row.admission_date) }}</td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">{{ formatDateTime(row.admission_date) }}</td>
               <td>
                 <span class="badge"
                       :class="row.status === 'open' ? 'badge-success' : (row.status === 'cancelled' ? 'badge-danger' : 'badge-muted')">
@@ -1039,9 +1039,9 @@ function reqStatusBadge(s) {
     </div>
 
     <!-- ═══ Step 1: search-first patient picker ═══ -->
-    <Modal :show="showPatientSearch" title="Add Case — search patient" size="md" @close="showPatientSearch = false">
+    <Modal :show="showPatientSearch" title="Add Case — search patient" size="xl" @close="showPatientSearch = false">
       <div class="space-y-3">
-        <p class="text-xs text-slate-600">
+        <p class="text-xs text-slate-600 dark:text-slate-300">
           Search the existing patient list. If not found, register the patient in Patients first, then come back here.
         </p>
         <form id="patCaseSearchForm" @submit.prevent="runPatientSearch" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1054,7 +1054,7 @@ function reqStatusBadge(s) {
             <input v-model="patSearchForm.last_name" class="input" placeholder="Dela Cruz" />
           </div>
           <div>
-            <label class="label">Birthdate <span class="text-slate-400">(optional)</span></label>
+            <label class="label">Birthdate <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">(optional)</span></label>
             <input type="date" v-model="patSearchForm.birthdate" class="input" />
           </div>
         </form>
@@ -1064,29 +1064,28 @@ function reqStatusBadge(s) {
         </div>
 
         <div v-if="patSearchTouched && !patSearchLoading && !patSearchResults.length"
-             class="rounded-md border border-dashed border-slate-300 bg-white p-3 text-center text-xs text-slate-500">
+             class="rounded-md border border-dashed border-slate-300 bg-white dark:bg-slate-900 p-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
           No existing patient matched. Register them in <b>Patients</b> first.
         </div>
 
-        <div v-if="patSearchResults.length" class="overflow-hidden rounded-md border border-slate-200">
-          <table class="w-full text-xs">
-            <thead class="bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <div v-if="patSearchResults.length" class="overflow-hidden rounded-md border border-slate-200 dark:border-slate-700">
+          <table class="w-full table-fixed text-xs">
+            <thead class="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
               <tr>
-                <th class="px-2 py-1.5 text-left">MRN</th>
+                <th class="w-28 px-2 py-1.5 text-left">MRN</th>
                 <th class="px-2 py-1.5 text-left">Name</th>
-                <th class="px-2 py-1.5 text-left">Sex / Age</th>
-                <th class="px-2 py-1.5 text-right"></th>
+                <th class="w-32 px-2 py-1.5 text-left">Sex / Age</th>
+                <th class="w-32 px-2 py-1.5 text-right"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="p in patSearchResults" :key="p.uuid" class="border-t border-slate-100">
-                <td class="px-2 py-1 font-mono font-semibold text-slate-700">{{ p.patient_number }}</td>
-                <td class="px-2 py-1 text-slate-800">
-                  {{ [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ') }}
-                  <span v-if="p.suffix"> {{ p.suffix }}</span>
+              <tr v-for="p in patSearchResults" :key="p.uuid" class="border-t border-slate-100 dark:border-slate-800 align-top">
+                <td class="px-2 py-1 font-mono font-semibold text-slate-700 dark:text-slate-200 break-all">{{ p.patient_number }}</td>
+                <td class="px-2 py-1 font-medium text-slate-800 dark:text-slate-100 break-words">
+                  {{ [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ') }}<span v-if="p.suffix"> {{ p.suffix }}</span>
                 </td>
-                <td class="px-2 py-1 text-slate-600">
-                  <span class="rounded bg-slate-100 px-1 text-[10px] font-bold uppercase">{{ p.sex }}</span>
+                <td class="px-2 py-1 text-slate-600 dark:text-slate-300">
+                  <span class="rounded bg-slate-100 dark:bg-slate-800 px-1 text-[10px] font-bold uppercase">{{ p.sex }}</span>
                   <span v-if="ageFromBirthdate(p.birthdate) !== null" class="ml-1">
                     · {{ ageFromBirthdate(p.birthdate) }} y/o
                   </span>
@@ -1133,10 +1132,10 @@ function reqStatusBadge(s) {
             <div class="min-w-0">
               <div class="text-[10px] font-bold uppercase tracking-widest text-brand-700">Patient</div>
               <div class="mt-1 flex flex-wrap items-center gap-2">
-                <span class="rounded bg-white px-2 py-0.5 font-mono text-xs font-bold text-slate-700 border border-brand-100">
+                <span class="rounded bg-white dark:bg-slate-900 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 dark:text-slate-200 border border-brand-100">
                   {{ selectedPatient.patient_number || '—' }}
                 </span>
-                <span class="text-base font-bold text-slate-800">
+                <span class="text-base font-bold text-slate-800 dark:text-slate-100">
                   {{ [selectedPatient.first_name, selectedPatient.middle_name, selectedPatient.last_name].filter(Boolean).join(' ') }}
                   <span v-if="selectedPatient.suffix"> {{ selectedPatient.suffix }}</span>
                 </span>
@@ -1144,7 +1143,7 @@ function reqStatusBadge(s) {
                   {{ selectedPatient.sex || '?' }}
                 </span>
                 <span v-if="ageFromBirthdate(selectedPatient.birthdate) !== null"
-                      class="text-xs font-semibold text-slate-600">
+                      class="text-xs font-semibold text-slate-600 dark:text-slate-300">
                   {{ ageFromBirthdate(selectedPatient.birthdate) }} y/o
                 </span>
               </div>
@@ -1153,26 +1152,26 @@ function reqStatusBadge(s) {
 
           <div class="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
             <div>
-              <span class="text-slate-500">Birthdate:</span>
-              <span class="ml-1 text-slate-800">
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Birthdate:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">
                 {{ selectedPatient.birthdate ? formatDateTime(selectedPatient.birthdate).split(',')[0] : '—' }}
               </span>
             </div>
             <div>
-              <span class="text-slate-500">Civil status:</span>
-              <span class="ml-1 text-slate-800">{{ selectedPatient.civil_status || '—' }}</span>
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Civil status:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">{{ selectedPatient.civil_status || '—' }}</span>
             </div>
             <div>
-              <span class="text-slate-500">Contact:</span>
-              <span class="ml-1 text-slate-800">{{ selectedPatient.contact_number || '—' }}</span>
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Contact:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">{{ selectedPatient.contact_number || '—' }}</span>
             </div>
             <div>
-              <span class="text-slate-500">Email:</span>
-              <span class="ml-1 text-slate-800">{{ selectedPatient.email || '—' }}</span>
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Email:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">{{ selectedPatient.email || '—' }}</span>
             </div>
             <div class="sm:col-span-2">
-              <span class="text-slate-500">Address:</span>
-              <span class="ml-1 text-slate-800">
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Address:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">
                 {{ [selectedPatient.address_street1, selectedPatient.address_street2,
                      selectedPatient.city, selectedPatient.province,
                      selectedPatient.postal_code, selectedPatient.country]
@@ -1180,38 +1179,38 @@ function reqStatusBadge(s) {
               </span>
             </div>
             <div>
-              <span class="text-slate-500">Blood type:</span>
-              <span class="ml-1 text-slate-800">{{ selectedPatient.blood_type || '—' }}</span>
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Blood type:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">{{ selectedPatient.blood_type || '—' }}</span>
             </div>
             <div>
-              <span class="text-slate-500">Occupation:</span>
-              <span class="ml-1 text-slate-800">{{ selectedPatient.occupation || '—' }}</span>
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Occupation:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">{{ selectedPatient.occupation || '—' }}</span>
             </div>
             <div v-if="selectedPatient.allergies" class="sm:col-span-2">
               <span class="text-[10px] font-bold uppercase tracking-widest text-rose-700">Allergies:</span>
-              <span class="ml-1 text-slate-800">{{ selectedPatient.allergies }}</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">{{ selectedPatient.allergies }}</span>
             </div>
             <div v-if="selectedPatient.emergency_contact_name" class="sm:col-span-2">
-              <span class="text-slate-500">Emergency:</span>
-              <span class="ml-1 text-slate-800">
+              <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Emergency:</span>
+              <span class="ml-1 text-slate-800 dark:text-slate-100">
                 {{ selectedPatient.emergency_contact_name }}
-                <span v-if="selectedPatient.emergency_contact_relation" class="text-slate-500">({{ selectedPatient.emergency_contact_relation }})</span>
+                <span v-if="selectedPatient.emergency_contact_relation" class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">({{ selectedPatient.emergency_contact_relation }})</span>
                 <span v-if="selectedPatient.emergency_contact_number"> — {{ selectedPatient.emergency_contact_number }}</span>
               </span>
             </div>
             <div v-if="selectedPatient.philhealth_number || selectedPatient.senior_citizen_number || selectedPatient.pwd_number || selectedPatient.national_id"
                  class="sm:col-span-2 flex flex-wrap gap-x-3 gap-y-1 pt-1">
               <span v-if="selectedPatient.national_id" class="text-[11px]">
-                <span class="text-slate-500">PhilSys:</span> <span class="font-mono text-slate-700">{{ selectedPatient.national_id }}</span>
+                <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">PhilSys:</span> <span class="font-mono text-slate-700 dark:text-slate-200">{{ selectedPatient.national_id }}</span>
               </span>
               <span v-if="selectedPatient.philhealth_number" class="text-[11px]">
-                <span class="text-slate-500">PhilHealth:</span> <span class="font-mono text-slate-700">{{ selectedPatient.philhealth_number }}</span>
+                <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">PhilHealth:</span> <span class="font-mono text-slate-700 dark:text-slate-200">{{ selectedPatient.philhealth_number }}</span>
               </span>
               <span v-if="selectedPatient.senior_citizen_number" class="text-[11px]">
-                <span class="text-slate-500">Senior:</span> <span class="font-mono text-slate-700">{{ selectedPatient.senior_citizen_number }}</span>
+                <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Senior:</span> <span class="font-mono text-slate-700 dark:text-slate-200">{{ selectedPatient.senior_citizen_number }}</span>
               </span>
               <span v-if="selectedPatient.pwd_number" class="text-[11px]">
-                <span class="text-slate-500">PWD:</span> <span class="font-mono text-slate-700">{{ selectedPatient.pwd_number }}</span>
+                <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">PWD:</span> <span class="font-mono text-slate-700 dark:text-slate-200">{{ selectedPatient.pwd_number }}</span>
               </span>
             </div>
           </div>
@@ -1224,7 +1223,7 @@ function reqStatusBadge(s) {
         <div v-else-if="caseFormMode === 'new'" class="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 space-y-3">
           <div class="flex items-center justify-between">
             <div class="text-[10px] font-bold uppercase tracking-widest text-emerald-700">New Patient</div>
-            <span class="text-[10px] text-slate-500">MRN auto-assigned on save</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">MRN auto-assigned on save</span>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-6">
             <div class="sm:col-span-2">
@@ -1274,21 +1273,21 @@ function reqStatusBadge(s) {
               <input v-model="newPatientForm.province" maxlength="255" class="input" />
             </div>
           </div>
-          <p class="text-[11px] text-slate-500">
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Full patient profile (IDs, emergency contact, medical history) can be filled in later from Patients.
           </p>
         </div>
 
         <!-- Case details -->
-        <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Case Details</div>
+        <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60 p-3">
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 mb-2">Case Details</div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label class="label">Case type *</label>
               <select v-model="form.case_type" required class="input">
                 <option v-for="t in CASE_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
-              <p class="mt-1 text-[11px] text-slate-500">Default OPD.</p>
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Default OPD.</p>
             </div>
             <!-- Admission date only editable on Edit; on Create it's auto-set
                  by the server to registration time. -->
@@ -1304,8 +1303,8 @@ function reqStatusBadge(s) {
             </template>
             <template v-else>
               <div class="sm:col-span-2 flex items-end">
-                <div class="text-[11px] text-slate-500">
-                  <b class="text-slate-700">Admission date</b> is auto-set on save (registration time).
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                  <b class="text-slate-700 dark:text-slate-200">Admission date</b> is auto-set on save (registration time).
                   Discharge is recorded later when the case is closed.
                 </div>
               </div>
@@ -1350,14 +1349,14 @@ function reqStatusBadge(s) {
            title="Case created — add a requisition now?"
            size="sm"
            @close="skipRequisition">
-      <div class="space-y-2 text-sm text-slate-700">
+      <div class="space-y-2 text-sm text-slate-700 dark:text-slate-200">
         <p>
           <b>{{ promptRequisitionAfterCreate.caseRow?.case_number }}</b> was created for
           {{ [promptRequisitionAfterCreate.caseRow?.patient_first_name,
               promptRequisitionAfterCreate.caseRow?.patient_middle_name,
               promptRequisitionAfterCreate.caseRow?.patient_last_name].filter(Boolean).join(' ') }}.
         </p>
-        <p class="text-slate-600">
+        <p class="text-slate-600 dark:text-slate-300">
           You can order test items and packages now, or come back later from the case's View.
         </p>
       </div>
@@ -1371,10 +1370,10 @@ function reqStatusBadge(s) {
     <Modal :show="showView" :title="viewing?.case_number || 'Patient case'" size="xl" @close="closeCaseView">
       <div v-if="viewing" class="space-y-4">
         <!-- Case header -->
-        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">{{ viewing.case_number }}</span>
+              <span class="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 dark:text-slate-200">{{ viewing.case_number }}</span>
               <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
                     :class="caseTypeBadge(viewing.case_type)">{{ viewing.case_type }}</span>
               <span class="badge"
@@ -1385,15 +1384,15 @@ function reqStatusBadge(s) {
               </span>
             </div>
             <div class="mt-1">
-              <span class="font-mono text-xs text-slate-500 mr-2">{{ viewing.patient_number }}</span>
-              <span class="font-semibold text-slate-800">{{ fullPatientName(viewing) }}</span>
+              <span class="font-mono text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 mr-2">{{ viewing.patient_number }}</span>
+              <span class="font-semibold text-slate-800 dark:text-slate-100">{{ fullPatientName(viewing) }}</span>
             </div>
-            <div v-if="viewing.chief_complaint" class="mt-1 text-xs text-slate-600 italic">
+            <div v-if="viewing.chief_complaint" class="mt-1 text-xs text-slate-600 dark:text-slate-300 italic">
               "{{ viewing.chief_complaint }}"
             </div>
           </div>
-          <div class="text-right text-xs text-slate-500">
-            <div>Admitted <b class="text-slate-700">{{ formatDateTime(viewing.admission_date) }}</b></div>
+          <div class="text-right text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
+            <div>Admitted <b class="text-slate-700 dark:text-slate-200">{{ formatDateTime(viewing.admission_date) }}</b></div>
             <div v-if="viewing.discharge_date">Discharged {{ formatDateTime(viewing.discharge_date) }}</div>
             <div v-if="viewing.attending_physician">Attending: {{ viewing.attending_physician }}</div>
             <div v-if="viewing.referring_physician">Referred by: {{ viewing.referring_physician }}</div>
@@ -1401,9 +1400,9 @@ function reqStatusBadge(s) {
         </div>
 
         <!-- Requisitions -->
-        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+        <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3">
           <div class="mb-2 flex items-center justify-between">
-            <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
+            <div class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Requisitions ({{ requisitions.length }})
               <span v-if="requisitionsLoading" class="ml-1 text-brand-600">· loading…</span>
             </div>
@@ -1413,13 +1412,13 @@ function reqStatusBadge(s) {
           </div>
 
           <div v-if="!requisitionsLoading && !requisitions.length"
-               class="rounded-md border border-dashed border-slate-300 bg-white p-3 text-center text-xs text-slate-500">
+               class="rounded-md border border-dashed border-slate-300 bg-white dark:bg-slate-900 p-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No requisitions yet. Add one to order test items / packages against this case.
           </div>
 
-          <div v-else-if="requisitions.length" class="overflow-hidden rounded-md border border-slate-200 bg-white">
+          <div v-else-if="requisitions.length" class="overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <table class="w-full text-xs">
-              <thead class="bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="px-2 py-1.5 text-left">Req #</th>
                   <th class="px-2 py-1.5 text-left">Date</th>
@@ -1432,17 +1431,17 @@ function reqStatusBadge(s) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="r in requisitions" :key="r.uuid" class="border-t border-slate-100">
-                  <td class="px-2 py-1 font-mono font-semibold text-slate-700">{{ r.requisition_number }}</td>
-                  <td class="px-2 py-1 text-slate-600">{{ formatDateTime(r.requisition_date) }}</td>
+                <tr v-for="r in requisitions" :key="r.uuid" class="border-t border-slate-100 dark:border-slate-800">
+                  <td class="px-2 py-1 font-mono font-semibold text-slate-700 dark:text-slate-200">{{ r.requisition_number }}</td>
+                  <td class="px-2 py-1 text-slate-600 dark:text-slate-300">{{ formatDateTime(r.requisition_date) }}</td>
                   <td class="px-2 py-1 text-right">{{ r.item_count || 0 }}</td>
                   <td class="px-2 py-1 text-right">{{ money(r.subtotal) }}</td>
                   <td class="px-2 py-1 text-right">
                     <span v-if="Number(r.discount_amount) > 0" class="text-emerald-700 font-semibold">
                       − {{ money(r.discount_amount) }}
-                      <span v-if="r.discount_code" class="ml-1 text-[10px] text-slate-500">({{ r.discount_code }})</span>
+                      <span v-if="r.discount_code" class="ml-1 text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">({{ r.discount_code }})</span>
                     </span>
-                    <span v-else class="text-slate-400">—</span>
+                    <span v-else class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">—</span>
                   </td>
                   <td class="px-2 py-1 text-right font-bold text-brand-700">{{ money(r.total) }}</td>
                   <td class="px-2 py-1">
@@ -1460,7 +1459,7 @@ function reqStatusBadge(s) {
                     <button type="button"
                             class="text-[11px] mr-2"
                             :class="(r.status === 'finalized' || r.status === 'paid' || r.status === 'partially_paid')
-                                    ? 'text-slate-400 cursor-not-allowed'
+                                    ? 'text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 cursor-not-allowed'
                                     : 'text-brand-600 hover:underline'"
                             :disabled="r.status === 'finalized' || r.status === 'paid' || r.status === 'partially_paid'"
                             :title="r.status === 'paid' || r.status === 'partially_paid'
@@ -1478,7 +1477,7 @@ function reqStatusBadge(s) {
                             type="button"
                             class="text-[11px]"
                             :class="(r.status === 'paid' || r.status === 'partially_paid')
-                                    ? 'text-slate-400 cursor-not-allowed'
+                                    ? 'text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 cursor-not-allowed'
                                     : 'text-rose-600 hover:underline'"
                             :disabled="r.status === 'paid' || r.status === 'partially_paid'"
                             :title="r.status === 'paid' || r.status === 'partially_paid'
@@ -1492,7 +1491,7 @@ function reqStatusBadge(s) {
           </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+        <div class="border-t border-slate-100 dark:border-slate-800 pt-2 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
           Created {{ formatDateTime(viewing.created_at) }}
           <span v-if="viewing.created_by">by {{ viewing.created_by }}</span>
         </div>
@@ -1523,32 +1522,32 @@ function reqStatusBadge(s) {
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div class="flex items-center gap-2">
-                <span class="rounded bg-white border border-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">
+                <span class="rounded bg-white dark:bg-slate-900 border border-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 dark:text-slate-200">
                   {{ viewing.case_number }}
                 </span>
                 <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
                       :class="caseTypeBadge(viewing.case_type)">{{ viewing.case_type }}</span>
-                <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600">
+                <span class="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-[11px] text-slate-600 dark:text-slate-300">
                   {{ viewing.patient_number }}
                 </span>
               </div>
-              <div class="mt-1 text-base font-bold text-slate-800">
+              <div class="mt-1 text-base font-bold text-slate-800 dark:text-slate-100">
                 {{ fullPatientName(viewing) }}
                 <span class="ml-1 rounded bg-brand-100 px-1 text-[10px] font-bold uppercase text-brand-700">{{ viewing.patient_sex || '?' }}</span>
                 <span v-if="ageFromBirthdate(viewing.patient_birthdate) !== null"
-                      class="ml-1 text-xs text-slate-600">
+                      class="ml-1 text-xs text-slate-600 dark:text-slate-300">
                   · {{ ageFromBirthdate(viewing.patient_birthdate) }} y/o
                 </span>
               </div>
-              <div v-if="viewing.chief_complaint" class="mt-0.5 text-xs italic text-slate-600">
+              <div v-if="viewing.chief_complaint" class="mt-0.5 text-xs italic text-slate-600 dark:text-slate-300">
                 "{{ viewing.chief_complaint }}"
               </div>
-              <div v-if="viewing.attending_physician" class="mt-0.5 text-[11px] text-slate-500">
+              <div v-if="viewing.attending_physician" class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Attending: {{ viewing.attending_physician }}
               </div>
             </div>
-            <div class="text-right text-[11px] text-slate-500">
-              Admitted <b class="text-slate-700">{{ formatDateTime(viewing.admission_date) }}</b>
+            <div class="text-right text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
+              Admitted <b class="text-slate-700 dark:text-slate-200">{{ formatDateTime(viewing.admission_date) }}</b>
             </div>
           </div>
         </div>
@@ -1566,21 +1565,21 @@ function reqStatusBadge(s) {
           <div :class="editingReq ? '' : 'sm:col-span-2'">
             <label class="label">Notes</label>
             <input v-model="reqForm.notes" maxlength="2000" placeholder="Optional — instructions or reason" class="input" />
-            <p v-if="!editingReq" class="mt-1 text-[11px] text-slate-500">
+            <p v-if="!editingReq" class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Requisition date auto-sets to registration time.
             </p>
           </div>
         </div>
 
         <!-- ═══ TOP: catalog picker ═══ -->
-        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+        <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3">
           <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-1">
               <button type="button"
                       class="rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider"
                       :class="catalogTab === 'tests'
                                 ? 'bg-brand-600 text-white'
-                                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
+                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'"
                       @click="catalogTab = 'tests'">
                 Tests
               </button>
@@ -1588,7 +1587,7 @@ function reqStatusBadge(s) {
                       class="rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider"
                       :class="catalogTab === 'packages'
                                 ? 'bg-brand-600 text-white'
-                                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
+                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'"
                       @click="catalogTab = 'packages'">
                 Packages
               </button>
@@ -1611,9 +1610,9 @@ function reqStatusBadge(s) {
 
           <!-- Tests catalog table -->
           <div v-if="catalogTab === 'tests'"
-               class="h-64 overflow-auto rounded-md border border-slate-200 bg-white">
+               class="h-64 overflow-auto rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <table class="w-full text-xs">
-              <thead class="sticky top-0 bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-20 px-2 py-1.5 text-left">Code</th>
                   <th class="px-2 py-1.5 text-left">Name</th>
@@ -1624,17 +1623,17 @@ function reqStatusBadge(s) {
               </thead>
               <tbody>
                 <tr v-for="t in catalogTestResults" :key="t.uuid"
-                    class="border-t border-slate-100"
-                    :class="chosenTestUuids.has(t.uuid) && 'bg-slate-50'">
-                  <td class="px-2 py-1 font-mono font-semibold text-slate-700">{{ t.code }}</td>
-                  <td class="px-2 py-1 text-slate-800">{{ t.name }}</td>
-                  <td class="px-2 py-1 text-slate-500 text-[11px]">{{ t.item_category_name || '—' }}</td>
+                    class="border-t border-slate-100 dark:border-slate-800"
+                    :class="chosenTestUuids.has(t.uuid) && 'bg-slate-50 dark:bg-slate-800'">
+                  <td class="px-2 py-1 font-mono font-semibold text-slate-700 dark:text-slate-200">{{ t.code }}</td>
+                  <td class="px-2 py-1 text-slate-800 dark:text-slate-100">{{ t.name }}</td>
+                  <td class="px-2 py-1 text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 text-[11px]">{{ t.item_category_name || '—' }}</td>
                   <td class="px-2 py-1 text-right font-semibold">{{ money(t.price) }}</td>
                   <td class="px-2 py-1 text-right">
                     <button type="button"
                             class="rounded px-2 py-0.5 text-[11px] font-semibold"
                             :class="chosenTestUuids.has(t.uuid)
-                                    ? 'bg-slate-100 text-slate-400 cursor-default'
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 cursor-default'
                                     : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'"
                             :disabled="chosenTestUuids.has(t.uuid)"
                             @click="addTestToBasket(t)">
@@ -1643,7 +1642,7 @@ function reqStatusBadge(s) {
                   </td>
                 </tr>
                 <tr v-if="!catalogTestResults.length">
-                  <td colspan="5" class="px-2 py-3 text-center text-xs text-slate-500">
+                  <td colspan="5" class="px-2 py-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     {{ catalogSearch ? 'No tests match your search.' : 'No active tests.' }}
                   </td>
                 </tr>
@@ -1652,9 +1651,9 @@ function reqStatusBadge(s) {
           </div>
 
           <!-- Packages catalog table (rows expandable to preview items) -->
-          <div v-else class="h-64 overflow-auto rounded-md border border-slate-200 bg-white">
+          <div v-else class="h-64 overflow-auto rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <table class="w-full text-xs">
-              <thead class="sticky top-0 bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-6 px-2 py-1.5"></th>
                   <th class="w-20 px-2 py-1.5 text-left">Code</th>
@@ -1666,11 +1665,11 @@ function reqStatusBadge(s) {
               </thead>
               <tbody>
                 <template v-for="p in catalogPackageResults" :key="p.uuid">
-                  <tr class="border-t border-slate-100"
-                      :class="chosenPackageUuids.has(p.uuid) && 'bg-slate-50'">
+                  <tr class="border-t border-slate-100 dark:border-slate-800"
+                      :class="chosenPackageUuids.has(p.uuid) && 'bg-slate-50 dark:bg-slate-800'">
                     <td class="px-2 py-1 text-center">
                       <button type="button"
-                              class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                              class="rounded p-0.5 text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200"
                               @click="togglePackageExpand(p)"
                               :title="expandedPackageUuid === p.uuid ? 'Hide items' : 'Show items'">
                         <svg viewBox="0 0 24 24" class="h-3 w-3 transition-transform"
@@ -1681,15 +1680,15 @@ function reqStatusBadge(s) {
                         </svg>
                       </button>
                     </td>
-                    <td class="px-2 py-1 font-mono font-semibold text-slate-700">{{ p.code }}</td>
-                    <td class="px-2 py-1 text-slate-800">{{ p.name }}</td>
-                    <td class="px-2 py-1 text-right text-slate-600">{{ p.item_count || 0 }}</td>
+                    <td class="px-2 py-1 font-mono font-semibold text-slate-700 dark:text-slate-200">{{ p.code }}</td>
+                    <td class="px-2 py-1 text-slate-800 dark:text-slate-100">{{ p.name }}</td>
+                    <td class="px-2 py-1 text-right text-slate-600 dark:text-slate-300">{{ p.item_count || 0 }}</td>
                     <td class="px-2 py-1 text-right font-semibold">{{ money(p.package_price) }}</td>
                     <td class="px-2 py-1 text-right">
                       <button type="button"
                               class="rounded px-2 py-0.5 text-[11px] font-semibold"
                               :class="chosenPackageUuids.has(p.uuid)
-                                      ? 'bg-slate-100 text-slate-400 cursor-default'
+                                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 cursor-default'
                                       : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'"
                               :disabled="chosenPackageUuids.has(p.uuid)"
                               @click="addPackageToBasket(p)">
@@ -1698,22 +1697,22 @@ function reqStatusBadge(s) {
                     </td>
                   </tr>
                   <!-- Expanded package contents -->
-                  <tr v-if="expandedPackageUuid === p.uuid" class="border-t border-slate-100 bg-slate-50/60">
+                  <tr v-if="expandedPackageUuid === p.uuid" class="border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60">
                     <td></td>
                     <td colspan="5" class="px-2 py-1.5">
                       <div v-if="packageItemsLoading[p.uuid]" class="text-[11px] text-brand-600">Loading items…</div>
                       <div v-else-if="!packageItemsCache[p.uuid]?.length"
-                           class="text-[11px] italic text-slate-500">No items configured.</div>
+                           class="text-[11px] italic text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">No items configured.</div>
                       <div v-else class="space-y-0.5">
                         <div v-for="it in packageItemsCache[p.uuid]" :key="it.uuid"
-                             class="flex items-center justify-between text-[11px] text-slate-600">
+                             class="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
                           <span>
-                            <span class="font-mono font-semibold text-slate-700">{{ it.test_item_code || '—' }}</span>
+                            <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ it.test_item_code || '—' }}</span>
                             <span class="ml-1">{{ it.test_item_name || '' }}</span>
                           </span>
-                          <span class="text-slate-500">
+                          <span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                             <span class="line-through">{{ money(it.current_price) }}</span>
-                            <span class="ml-1 font-semibold text-slate-700">{{ money(it.new_price) }}</span>
+                            <span class="ml-1 font-semibold text-slate-700 dark:text-slate-200">{{ money(it.new_price) }}</span>
                           </span>
                         </div>
                       </div>
@@ -1721,7 +1720,7 @@ function reqStatusBadge(s) {
                   </tr>
                 </template>
                 <tr v-if="!catalogPackageResults.length">
-                  <td colspan="6" class="px-2 py-3 text-center text-xs text-slate-500">
+                  <td colspan="6" class="px-2 py-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     {{ catalogSearch ? 'No packages match your search.' : 'No active packages.' }}
                   </td>
                 </tr>
@@ -1729,15 +1728,15 @@ function reqStatusBadge(s) {
             </table>
           </div>
 
-          <p class="mt-1.5 text-[11px] text-slate-500">
+          <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Click <b>+ Add</b> to move items to the requested list below. Adding a package expands into its individual tests (each priced at the package's discounted rate) so lab results can be recorded per test.
           </p>
         </div>
 
         <!-- ═══ BOTTOM: requested items ═══ -->
-        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+        <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3">
           <div class="mb-2 flex items-center justify-between">
-            <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
+            <div class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Requested Items ({{ reqLines.length }})
             </div>
             <div class="flex items-center gap-2">
@@ -1753,14 +1752,14 @@ function reqStatusBadge(s) {
 
           <!-- Fixed-height wrapper — keeps the modal from bouncing when the
                operator adds or removes lines. Scrolls internally past the fit. -->
-          <div class="h-56 overflow-auto rounded-md border border-slate-200 bg-white">
+          <div class="h-56 overflow-auto rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div v-if="!reqLinesLoading && !reqLines.length"
-                 class="flex h-full items-center justify-center border-dashed p-3 text-center text-xs text-slate-500">
+                 class="flex h-full items-center justify-center border-dashed p-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
               No items yet. Pick tests or packages from the catalog above.
             </div>
 
             <table v-else-if="reqLines.length" class="w-full text-xs">
-              <thead class="bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-8 px-2 py-1.5 text-left">#</th>
                   <th class="w-20 px-2 py-1.5 text-left">Type</th>
@@ -1776,24 +1775,24 @@ function reqStatusBadge(s) {
                   <!-- Package group header: renders once per package on the
                        first exploded row so grouped items read as a bundle. -->
                   <tr v-if="r.package_uuid && (i === 0 || reqLines[i - 1].package_uuid !== r.package_uuid)"
-                      class="border-t border-slate-200 bg-amber-50/60">
+                      class="border-t border-slate-200 dark:border-slate-700 bg-amber-50/60">
                     <td colspan="7" class="px-2 py-1">
                       <span class="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">Package</span>
-                      <span class="ml-2 font-mono text-xs font-semibold text-slate-700">{{ r.package_code || '—' }}</span>
-                      <span class="ml-1 text-xs text-slate-700">{{ r.package_name || '' }}</span>
+                      <span class="ml-2 font-mono text-xs font-semibold text-slate-700 dark:text-slate-200">{{ r.package_code || '—' }}</span>
+                      <span class="ml-1 text-xs text-slate-700 dark:text-slate-200">{{ r.package_name || '' }}</span>
                     </td>
                   </tr>
-                  <tr class="border-t border-slate-100 align-middle"
+                  <tr class="border-t border-slate-100 dark:border-slate-800 align-middle"
                       :class="r.package_uuid && 'bg-amber-50/20'">
-                  <td class="px-2 py-1 text-slate-400">{{ i + 1 }}</td>
+                  <td class="px-2 py-1 text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ i + 1 }}</td>
                   <td class="px-2 py-1">
                     <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700">
                       Test
                     </span>
                   </td>
                   <td class="px-2 py-1" :class="r.package_uuid && 'pl-6'">
-                    <span class="font-mono font-semibold text-slate-700">{{ basketRowLabel(r).code }}</span>
-                    <span class="ml-1 text-slate-800">{{ basketRowLabel(r).name }}</span>
+                    <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ basketRowLabel(r).code }}</span>
+                    <span class="ml-1 text-slate-800 dark:text-slate-100">{{ basketRowLabel(r).name }}</span>
                   </td>
                   <td class="px-1 py-1">
                     <input type="number" min="1" step="1" v-model.number="r.quantity"
@@ -1803,7 +1802,7 @@ function reqStatusBadge(s) {
                        the requisition modal — special pricing goes through
                        the catalog (item_package new_price / test_item price)
                        so bills stay auditable. -->
-                  <td class="px-2 py-1 text-right font-mono text-slate-700">
+                  <td class="px-2 py-1 text-right font-mono text-slate-700 dark:text-slate-200">
                     {{ money(r.unit_price) }}
                   </td>
                   <td class="px-2 py-1 text-right font-semibold">
@@ -1830,12 +1829,12 @@ function reqStatusBadge(s) {
 
         <!-- Discount + totals -->
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Discount</div>
+          <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3">
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 mb-2">Discount</div>
             <div class="grid grid-cols-1 gap-2">
               <select v-model="reqDiscount.discount_uuid"
                       :disabled="hasPackageLines"
-                      class="input !py-1 !text-xs disabled:bg-slate-100 disabled:cursor-not-allowed">
+                      class="input !py-1 !text-xs disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed">
                 <option value="">No discount</option>
                 <option v-for="d in activeDiscounts" :key="d.uuid" :value="d.uuid">
                   {{ d.code }} · {{ d.name }}
@@ -1849,7 +1848,7 @@ function reqStatusBadge(s) {
                 <input type="number" min="0" step="0.01"
                        v-model.number="reqDiscount.discount_open_amount"
                        class="input !py-1 !text-xs text-right" />
-                <p class="mt-1 text-[10px] text-slate-500">Capped at subtotal on save.</p>
+                <p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Capped at subtotal on save.</p>
               </div>
               <!-- Explain the disable so the operator isn't left guessing. -->
               <div v-if="hasPackageLines"
@@ -1863,11 +1862,11 @@ function reqStatusBadge(s) {
           <div class="rounded-lg border border-brand-100 bg-brand-50/40 p-3">
             <div class="space-y-1 text-sm">
               <div class="flex items-center justify-between">
-                <span class="text-slate-600">Subtotal</span>
+                <span class="text-slate-600 dark:text-slate-300">Subtotal</span>
                 <span class="font-semibold">{{ money(reqSubtotal) }}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-slate-600">Discount</span>
+                <span class="text-slate-600 dark:text-slate-300">Discount</span>
                 <span class="font-semibold text-emerald-700">− {{ money(reqDiscountAmount) }}</span>
               </div>
               <div class="flex items-center justify-between border-t border-brand-100 pt-1">
@@ -1894,31 +1893,31 @@ function reqStatusBadge(s) {
          can either park a draft (still editable) or finalize immediately
          (locks the order for downstream systems). -->
     <Modal :show="showReqConfirm" title="Create requisition?" size="sm" @close="showReqConfirm = false">
-      <div class="space-y-2 text-sm text-slate-700">
+      <div class="space-y-2 text-sm text-slate-700 dark:text-slate-200">
         <p>
           You're about to create a requisition against
           <b>{{ viewing?.case_number }}</b> for
           <b>{{ fullPatientName(viewing) }}</b>.
         </p>
-        <div class="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
+        <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 text-xs">
           <div class="flex items-center justify-between">
-            <span class="text-slate-600">Items</span>
+            <span class="text-slate-600 dark:text-slate-300">Items</span>
             <span class="font-semibold">{{ reqLines.length }}</span>
           </div>
           <div class="flex items-center justify-between">
-            <span class="text-slate-600">Subtotal</span>
+            <span class="text-slate-600 dark:text-slate-300">Subtotal</span>
             <span class="font-semibold">{{ money(reqSubtotal) }}</span>
           </div>
           <div v-if="reqDiscountAmount > 0" class="flex items-center justify-between">
-            <span class="text-slate-600">Discount</span>
+            <span class="text-slate-600 dark:text-slate-300">Discount</span>
             <span class="font-semibold text-emerald-700">− {{ money(reqDiscountAmount) }}</span>
           </div>
-          <div class="mt-1 flex items-center justify-between border-t border-slate-200 pt-1">
+          <div class="mt-1 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-1">
             <span class="font-bold text-brand-700 uppercase tracking-widest text-[11px]">Total</span>
             <span class="text-base font-bold text-brand-700">{{ money(reqTotal) }}</span>
           </div>
         </div>
-        <p class="text-[11px] text-slate-500">
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
           <b>Save as Draft</b> keeps this editable. <b>Create &amp; Finalize</b> locks the order — use this when the tests are ready to be ordered / billed.
         </p>
       </div>

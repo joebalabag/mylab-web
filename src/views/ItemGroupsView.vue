@@ -282,11 +282,11 @@ async function doImport() {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-2 gap-3 shrink-0">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Total Item Groups</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Total Item Groups</div>
         <div class="mt-1 text-2xl font-bold">{{ totalCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Active</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Active</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ activeCount }}</div>
       </div></div>
     </div>
@@ -312,8 +312,8 @@ async function doImport() {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Item Groups</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Item Groups</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ filtered.length }} shown
             <span v-if="groups.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -367,7 +367,7 @@ async function doImport() {
           :columns="['bar','lines','pill','pill','dot']"
         />
         <table class="table" v-else-if="filtered.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-24">Code</th>
               <th>Name</th>
@@ -379,25 +379,25 @@ async function doImport() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="g in filtered" :key="g.uuid" :class="g.status !== 'active' && 'bg-slate-50/50'">
+            <tr v-for="g in filtered" :key="g.uuid" :class="g.status !== 'active' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td class="font-mono text-xs font-semibold">{{ g.code }}</td>
               <td>
-                <span class="font-medium text-slate-800">{{ g.name }}</span>
+                <span class="font-medium text-slate-800 dark:text-slate-100">{{ g.name }}</span>
                 <div v-if="g.status !== 'active'" class="text-[10px] font-semibold uppercase tracking-wider text-rose-600">
                   Hidden
                 </div>
               </td>
-              <td class="text-sm text-slate-600 max-w-md truncate">{{ g.description || '—' }}</td>
-              <td class="text-sm text-slate-700">
+              <td class="text-sm text-slate-600 dark:text-slate-300 max-w-md truncate">{{ g.description || '—' }}</td>
+              <td class="text-sm text-slate-700 dark:text-slate-200">
                 <template v-if="g.signatory_doctor_name">
                   <div>{{ g.signatory_doctor_name }}</div>
-                  <div class="text-[10px] text-slate-500">
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     {{ g.signatory_doctor_specialty }}<span v-if="g.signatory_doctor_license"> · Lic. {{ g.signatory_doctor_license }}</span>
                   </div>
                 </template>
-                <span v-else class="text-slate-400">—</span>
-                <div v-if="g.tester_role" class="mt-0.5 text-[10px] text-slate-500">
-                  <span class="text-slate-400">Tester:</span> {{ g.tester_role }}
+                <span v-else class="text-slate-400 dark:text-slate-500">—</span>
+                <div v-if="g.tester_role" class="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                  <span class="text-slate-400 dark:text-slate-500">Tester:</span> {{ g.tester_role }}
                 </div>
               </td>
               <td>
@@ -407,7 +407,7 @@ async function doImport() {
                   {{ g.status === 'active' ? 'Active' : 'Inactive' }}
                 </span>
               </td>
-              <td class="hidden md:table-cell text-xs text-slate-500">{{ formatDateTime(g.created_at) }}</td>
+              <td class="hidden md:table-cell text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(g.created_at) }}</td>
               <td class="text-right">
                 <RowActionMenu :actions="actionsFor(g)" />
               </td>
@@ -431,33 +431,33 @@ async function doImport() {
           </div>
         </div>
         <div>
-          <label class="label">Description <span class="text-slate-400">(optional)</span></label>
+          <label class="label">Description <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
           <textarea v-model="form.description" rows="3" maxlength="2000" class="input"></textarea>
         </div>
 
-        <div class="rounded-md border border-slate-200 bg-slate-50/50 p-3 space-y-3">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lab report roles</div>
+        <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 p-3 space-y-3">
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Lab report roles</div>
           <div>
-            <label class="label">Signatory doctor <span class="text-slate-400">(optional)</span></label>
+            <label class="label">Signatory doctor <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
             <select v-model="form.signatory_doctor_uuid" class="input">
               <option value="">— No default —</option>
               <option v-for="d in activeDoctors" :key="d.uuid" :value="d.uuid">
                 {{ d.name }} · {{ d.specialty }}<span v-if="d.license_number"> · Lic. {{ d.license_number }}</span>
               </option>
             </select>
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Auto-fills as the pathologist snapshot when finalizing a lab report from any test
               under this group. Manage doctors in <b>Company Settings → Doctors</b>.
             </p>
           </div>
           <div>
-            <label class="label">Tester role <span class="text-slate-400">(who runs the test)</span></label>
+            <label class="label">Tester role <span class="text-slate-400 dark:text-slate-500">(who runs the test)</span></label>
             <input v-model="form.tester_role" list="tester-role-suggestions" maxlength="100"
                    class="input" placeholder="Medical Technologist" />
             <datalist id="tester-role-suggestions">
               <option v-for="r in TESTER_ROLES" :key="r" :value="r"></option>
             </datalist>
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Prints under the medtech signature on the report — e.g. "Medical Technologist" for lab,
               "Radiologic Technologist" for X-ray, "Sonographer" for ultrasound.
             </p>
@@ -507,16 +507,16 @@ async function doImport() {
            title="Import from pre-loaded catalog"
            size="lg" @close="showImport = false">
       <div class="space-y-3">
-        <p class="text-xs text-slate-600">
+        <p class="text-xs text-slate-600 dark:text-slate-300">
           Pick which <b>item groups</b> to install. Each group ships with its own
           categories and standard test items — ticking a group installs the whole
           sub-tree. Existing codes are skipped, so re-running is safe.
         </p>
 
-        <div v-if="importLoading" class="h-40 animate-pulse rounded bg-slate-50"></div>
+        <div v-if="importLoading" class="h-40 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
 
         <template v-else-if="importCatalog">
-          <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-300">
             <div>
               <b>{{ importPicks.size }}</b> of {{ importCatalog.groups.length }} groups ·
               <b>{{ importSelectionTotals.categories }}</b> categories ·
@@ -528,10 +528,10 @@ async function doImport() {
             </div>
           </div>
 
-          <div class="max-h-[26rem] overflow-auto rounded-md border border-slate-200">
+          <div class="max-h-[26rem] overflow-auto rounded-md border border-slate-200 dark:border-slate-700">
             <div v-for="g in importCatalog.groups" :key="g.code"
-                 class="border-b border-slate-100 last:border-none">
-              <div class="flex items-start gap-3 p-3 hover:bg-slate-50">
+                 class="border-b border-slate-100 dark:border-slate-800 last:border-none">
+              <div class="flex items-start gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800">
                 <input type="checkbox"
                        :checked="importPicks.has(g.code)"
                        @change="toggleImportPick(g.code)"
@@ -539,20 +539,20 @@ async function doImport() {
                        class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
                 <label :for="`grp-${g.code}`" class="min-w-0 flex-1 cursor-pointer">
                   <div class="flex items-baseline justify-between gap-2">
-                    <div class="text-sm font-semibold text-slate-800">
-                      <span class="font-mono text-[11px] text-slate-500">{{ g.code }}</span>
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ g.code }}</span>
                       <span class="ml-1">{{ g.name }}</span>
                     </div>
-                    <div class="text-[11px] text-slate-500 whitespace-nowrap">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 whitespace-nowrap">
                       {{ g.categories_count }} categor{{ g.categories_count === 1 ? 'y' : 'ies' }} ·
                       {{ g.test_items_count }} test(s)
                     </div>
                   </div>
-                  <div v-if="g.description" class="text-[11px] text-slate-500 mt-0.5">{{ g.description }}</div>
-                  <div v-if="g.tester_role" class="text-[10px] text-slate-400 mt-0.5 italic">Tester role: {{ g.tester_role }}</div>
+                  <div v-if="g.description" class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-0.5">{{ g.description }}</div>
+                  <div v-if="g.tester_role" class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 italic">Tester role: {{ g.tester_role }}</div>
                 </label>
                 <button type="button"
-                        class="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        class="shrink-0 rounded-md p-1 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200"
                         @click="toggleImportExpand(g.code)"
                         :title="importExpanded.has(g.code) ? 'Hide categories' : 'Preview categories'">
                   <svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform"
@@ -568,15 +568,15 @@ async function doImport() {
                    partially tick within a group, ticking the group installs
                    everything under it. -->
               <div v-if="importExpanded.has(g.code)"
-                   class="border-t border-slate-100 bg-slate-50/60 px-3 py-2">
+                   class="border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60 px-3 py-2">
                 <div class="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   <div v-for="c in g.categories" :key="c.code"
                        class="flex items-center gap-2 rounded px-2 py-1 text-xs">
                     <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                           :style="{ background: c.color || '#94a3b8' }"></span>
-                    <span class="font-mono text-[10px] text-slate-500">{{ c.code }}</span>
+                    <span class="font-mono text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ c.code }}</span>
                     <span class="truncate">{{ c.name }}</span>
-                    <span class="ml-auto text-[10px] text-slate-400 whitespace-nowrap">{{ c.test_items_count }} test(s)</span>
+                    <span class="ml-auto text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{{ c.test_items_count }} test(s)</span>
                   </div>
                 </div>
               </div>

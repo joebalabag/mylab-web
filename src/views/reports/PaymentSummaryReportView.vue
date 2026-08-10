@@ -58,11 +58,11 @@ function exportRows() {
       <div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <div class="card lg:col-span-1">
           <div class="card-header">
-            <div class="text-sm font-semibold text-slate-800">Method Share</div>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Method Share</div>
           </div>
           <div class="card-body">
-            <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-            <div v-else-if="!completedRows.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+            <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+            <div v-else-if="!completedRows.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500">
               No completed payments.
             </div>
             <div v-else class="h-56"><DoughnutChart :labels="chartLabels" :data="chartData" /></div>
@@ -72,7 +72,7 @@ function exportRows() {
         <div class="card lg:col-span-2 overflow-hidden">
           <div class="overflow-x-auto">
             <table class="table w-full text-sm">
-              <thead class="bg-slate-50">
+              <thead class="bg-slate-50 dark:bg-slate-800">
                 <tr>
                   <th>Method</th>
                   <th>Status</th>
@@ -82,9 +82,9 @@ function exportRows() {
               </thead>
               <tbody>
                 <tr v-if="!rows.length && !loading">
-                  <td colspan="4" class="py-4 text-center text-xs text-slate-400">No payments in this range.</td>
+                  <td colspan="4" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No payments in this range.</td>
                 </tr>
-                <tr v-for="r in rows" :key="r.payment_method + r.status" class="border-b border-slate-100">
+                <tr v-for="r in rows" :key="r.payment_method + r.status" class="border-b border-slate-100 dark:border-slate-800">
                   <td class="font-semibold">{{ PAYMENT_METHOD_LABELS[r.payment_method] || r.payment_method }}</td>
                   <td>
                     <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
@@ -94,18 +94,18 @@ function exportRows() {
                   </td>
                   <td class="text-right">{{ r.count }}</td>
                   <td class="text-right font-semibold tabular-nums"
-                      :class="r.status === 'voided' ? 'text-slate-400 line-through' : 'text-emerald-700'">
+                      :class="r.status === 'voided' ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-emerald-700'">
                     {{ money(r.total) }}
                   </td>
                 </tr>
               </tbody>
-              <tfoot v-if="rows.length" class="bg-slate-100">
+              <tfoot v-if="rows.length" class="bg-slate-100 dark:bg-slate-800">
                 <tr class="font-bold">
                   <td colspan="2">Completed</td>
                   <td class="text-right">{{ totals.completed_count }}</td>
                   <td class="text-right text-emerald-700">{{ money(totals.completed) }}</td>
                 </tr>
-                <tr v-if="totals.voided > 0" class="text-slate-500">
+                <tr v-if="totals.voided > 0" class="text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   <td colspan="3">Voided (excluded from revenue)</td>
                   <td class="text-right line-through">{{ money(totals.voided) }}</td>
                 </tr>

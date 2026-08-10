@@ -52,7 +52,7 @@ function exportRows() {
       <div class="card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>Code</th>
                 <th class="hidden sm:table-cell">Name</th>
@@ -64,18 +64,18 @@ function exportRows() {
             </thead>
             <tbody>
               <tr v-if="!data.rows.length && !loading">
-                <td colspan="6" class="py-4 text-center text-xs text-slate-400">No discounts applied in this range.</td>
+                <td colspan="6" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No discounts applied in this range.</td>
               </tr>
-              <tr v-for="r in data.rows" :key="r.code + r.name" class="border-b border-slate-100">
+              <tr v-for="r in data.rows" :key="r.code + r.name" class="border-b border-slate-100 dark:border-slate-800">
                 <td class="font-mono font-semibold">{{ r.code }}</td>
                 <td class="hidden sm:table-cell">{{ r.name }}</td>
-                <td class="text-[10px] uppercase text-slate-500">{{ r.type }}</td>
+                <td class="text-[10px] uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ r.type }}</td>
                 <td class="text-right">{{ r.count }}</td>
                 <td class="text-right hidden md:table-cell">{{ money(r.subtotal) }}</td>
                 <td class="text-right font-semibold text-amber-700">− {{ money(r.discount_amount) }}</td>
               </tr>
             </tbody>
-            <tfoot v-if="data.rows.length" class="bg-slate-100">
+            <tfoot v-if="data.rows.length" class="bg-slate-100 dark:bg-slate-800">
               <tr class="font-bold">
                 <td colspan="3">Total</td>
                 <td class="text-right">{{ totals.count }}</td>

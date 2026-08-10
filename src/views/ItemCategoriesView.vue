@@ -203,11 +203,11 @@ function actionsFor(c) {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-2 gap-3 shrink-0">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Total Categories</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Total Categories</div>
         <div class="mt-1 text-2xl font-bold">{{ totalCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Active</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Active</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ activeCount }}</div>
       </div></div>
     </div>
@@ -215,8 +215,8 @@ function actionsFor(c) {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Item Categories</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Item Categories</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ filtered.length }} shown
             <span v-if="categories.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -278,7 +278,7 @@ function actionsFor(c) {
           :columns="['bar','lines','lines','pill','pill','dot']"
         />
         <table class="table" v-else-if="filtered.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-24">Code</th>
               <th>Name</th>
@@ -290,19 +290,19 @@ function actionsFor(c) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in filtered" :key="c.uuid" :class="c.status !== 'active' && 'bg-slate-50/50'">
+            <tr v-for="c in filtered" :key="c.uuid" :class="c.status !== 'active' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td class="font-mono text-xs font-semibold">{{ c.code }}</td>
               <td>
-                <span class="font-medium text-slate-800">{{ c.name }}</span>
+                <span class="font-medium text-slate-800 dark:text-slate-100">{{ c.name }}</span>
                 <div v-if="c.status !== 'active'" class="text-[10px] font-semibold uppercase tracking-wider text-rose-600">
                   Hidden
                 </div>
               </td>
               <td>
-                <span class="font-mono text-[11px] text-slate-500">{{ c.item_group_code || '—' }}</span>
-                <span class="ml-1 text-sm text-slate-700">{{ c.item_group_name || '—' }}</span>
+                <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ c.item_group_code || '—' }}</span>
+                <span class="ml-1 text-sm text-slate-700 dark:text-slate-200">{{ c.item_group_name || '—' }}</span>
               </td>
-              <td class="text-sm text-slate-600 max-w-xs truncate">{{ c.description || '—' }}</td>
+              <td class="text-sm text-slate-600 dark:text-slate-300 max-w-xs truncate">{{ c.description || '—' }}</td>
               <td>
                 <span class="badge" :class="c.status === 'active' ? 'badge-success' : 'badge-danger'">
                   <span class="mr-1 inline-block h-1.5 w-1.5 rounded-full"
@@ -310,7 +310,7 @@ function actionsFor(c) {
                   {{ c.status === 'active' ? 'Active' : 'Inactive' }}
                 </span>
               </td>
-              <td class="hidden md:table-cell text-xs text-slate-500">{{ formatDateTime(c.created_at) }}</td>
+              <td class="hidden md:table-cell text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(c.created_at) }}</td>
               <td class="text-right">
                 <RowActionMenu :actions="actionsFor(c)" />
               </td>
@@ -343,31 +343,31 @@ function actionsFor(c) {
           </div>
         </div>
         <div>
-          <label class="label">Description <span class="text-slate-400">(optional)</span></label>
+          <label class="label">Description <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
           <textarea v-model="form.description" rows="3" maxlength="2000" class="input"></textarea>
         </div>
-        <label class="flex items-start gap-2 text-sm text-slate-700">
+        <label class="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
           <input type="checkbox" v-model="form.combine_printout" class="mt-0.5" />
           <span>
             <span class="font-medium">Combine tests in one laboratory print-out</span>
-            <span class="block text-xs text-slate-500">
+            <span class="block text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
               When on, all requisitioned tests in this category share a single Lab ID and print together.
               Turn off if each test in this category should print as its own report.
             </span>
           </span>
         </label>
 
-        <div class="rounded-md border border-slate-200 bg-slate-50/50 p-3 space-y-3">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Print layout</div>
+        <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 p-3 space-y-3">
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Print layout</div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label class="label">Section color</label>
               <div class="flex items-center gap-2">
-                <input type="color" v-model="form.color" class="h-9 w-14 rounded border border-slate-200" />
+                <input type="color" v-model="form.color" class="h-9 w-14 rounded border border-slate-200 dark:border-slate-700" />
                 <input type="text" v-model="form.color" maxlength="20"
                        class="input font-mono flex-1" placeholder="#0ea5e9" />
               </div>
-              <p class="mt-1 text-[11px] text-slate-500">Colored band above the results on the printout.</p>
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">Colored band above the results on the printout.</p>
             </div>
             <div>
               <label class="label">Print template</label>
@@ -390,15 +390,15 @@ function actionsFor(c) {
               <option value="half_letter_crosswise">Half Letter — 8.5″ × 5.5″ crosswise (landscape)</option>
               <option value="half_legal_crosswise">Half Legal — 8.5″ × 7″ crosswise (landscape)</option>
             </select>
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Applied to the browser print dialog. Big panels typically use full; single-line qualitative tests fit on half.
             </p>
           </div>
           <div>
-            <label class="label">Print title <span class="text-slate-400">(optional)</span></label>
+            <label class="label">Print title <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
             <input v-model="form.print_title" maxlength="255" class="input"
                    placeholder="C L I N I C A L   C H E M I S T R Y" />
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Section title printed in the colored band above the results. Leave blank to use the category name.
             </p>
           </div>

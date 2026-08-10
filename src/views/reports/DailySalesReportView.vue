@@ -55,11 +55,11 @@ function exportRows() {
 
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Revenue Trend</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Revenue Trend</div>
         </div>
         <div class="card-body">
-          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-          <div v-else-if="!rows.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+          <div v-if="loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+          <div v-else-if="!rows.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500">
             No sales in this range.
           </div>
           <div v-else class="h-56"><LineChart :labels="chartLabels" :data="chartData" label="Revenue" /></div>
@@ -69,7 +69,7 @@ function exportRows() {
       <div class="card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="table w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th>Date</th>
                 <th class="text-right">Payments</th>
@@ -80,9 +80,9 @@ function exportRows() {
             </thead>
             <tbody>
               <tr v-if="!rows.length && !loading">
-                <td colspan="5" class="py-4 text-center text-xs text-slate-400">No sales in this range.</td>
+                <td colspan="5" class="py-4 text-center text-xs text-slate-400 dark:text-slate-500">No sales in this range.</td>
               </tr>
-              <tr v-for="r in rows" :key="r.date" class="border-b border-slate-100">
+              <tr v-for="r in rows" :key="r.date" class="border-b border-slate-100 dark:border-slate-800">
                 <td>{{ formatDate(r.date) }}</td>
                 <td class="text-right">{{ r.count }}</td>
                 <td class="text-right font-semibold text-emerald-700">{{ money(r.revenue) }}</td>
@@ -90,7 +90,7 @@ function exportRows() {
                 <td class="text-right text-amber-700 hidden sm:table-cell">− {{ money(r.discounts) }}</td>
               </tr>
             </tbody>
-            <tfoot v-if="rows.length" class="bg-slate-100">
+            <tfoot v-if="rows.length" class="bg-slate-100 dark:bg-slate-800">
               <tr class="font-bold">
                 <td>Total</td>
                 <td class="text-right">{{ totals.count }}</td>

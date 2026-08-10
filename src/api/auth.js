@@ -32,3 +32,16 @@ export function changeOwnAdminPassword({ old_password, password, confirm_passwor
     confirm_password
   })
 }
+
+// Forgot-password flow. The backend always returns success on
+// /forgot-password (no username enumeration), so callers should show a
+// generic "check your inbox" message regardless of the response body.
+export function requestPasswordReset(username) {
+  return api.post('/auth/forgot-password', { username })
+}
+export function verifyResetToken(token) {
+  return api.get(`/auth/reset-password/verify?token=${encodeURIComponent(token)}`)
+}
+export function submitNewPassword(token, new_password) {
+  return api.post('/auth/reset-password', { token, new_password })
+}

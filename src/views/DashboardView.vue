@@ -139,14 +139,14 @@ function goResolve(row) {
       <!-- Title / breadcrumb -->
       <div class="card lg:col-span-2">
         <div class="card-body">
-          <div class="text-sm font-semibold text-slate-800">Dashboard</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Dashboard</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Analytics for {{ tenant.current?.name || 'this laboratory' }} · showing
             <b>{{ formatDate(dateFrom) }}</b> to <b>{{ formatDate(dateTo) }}</b>
           </div>
           <!-- Preset chips + custom range -->
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+            <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5 text-xs">
               <button v-for="p in [
                         { k: 'today', label: 'Today' },
                         { k: '7d',    label: '7d' },
@@ -157,14 +157,14 @@ function goResolve(row) {
                       @click="applyPreset(p.k)"
                       class="rounded px-2.5 py-1 font-semibold transition-colors"
                       :class="activePreset === p.k
-                              ? 'bg-white text-brand-700 shadow-sm'
-                              : 'text-slate-500 hover:text-slate-800'">
+                              ? 'bg-white dark:bg-slate-900 text-brand-700 shadow-sm'
+                              : 'text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-100'">
                 {{ p.label }}
               </button>
             </div>
             <input type="date" v-model="dateFrom" @change="onCustomRange"
                    :max="dateTo || undefined" class="input !py-1 !text-xs w-36" />
-            <span class="text-xs text-slate-400">→</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">→</span>
             <input type="date" v-model="dateTo" @change="onCustomRange"
                    :min="dateFrom || undefined" class="input !py-1 !text-xs w-36" />
           </div>
@@ -175,19 +175,19 @@ function goResolve(row) {
       <router-link to="/subscription" class="card block cursor-pointer transition hover:shadow-md">
         <div class="card-body">
           <div class="flex items-center justify-between">
-            <div class="text-xs font-semibold uppercase tracking-widest text-slate-500">Subscription</div>
+            <div class="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Subscription</div>
             <span v-if="subscriptionTone === 'ok'"
                   class="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Active</span>
             <span v-else-if="subscriptionTone === 'warn'"
                   class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-700">Near expiry</span>
             <span v-else-if="subscriptionTone === 'danger'"
                   class="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-rose-700">Expired</span>
-            <span v-else class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">None</span>
+            <span v-else class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">None</span>
           </div>
-          <div class="mt-1 text-lg font-bold text-slate-800">
+          <div class="mt-1 text-lg font-bold text-slate-800 dark:text-slate-100">
             {{ subscription?.plan_name || 'No active plan' }}
           </div>
-          <div class="mt-1 text-[11px] text-slate-500">
+          <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             <template v-if="subscription?.expiry">
               Expires {{ formatDate(subscription.expiry) }}
               <span v-if="subscriptionDaysRemaining != null">
@@ -207,30 +207,30 @@ function goResolve(row) {
     <!-- ═══ FINANCIAL — revenue KPIs ═══ -->
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div class="card"><div class="card-body">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Revenue Collected</div>
-        <div v-if="state.summary.loading" class="mt-2 h-8 w-32 animate-pulse rounded bg-slate-100"></div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Revenue Collected</div>
+        <div v-if="state.summary.loading" class="mt-2 h-8 w-32 animate-pulse rounded bg-slate-100 dark:bg-slate-800"></div>
         <div v-else class="mt-1 text-2xl font-bold text-emerald-600 tabular-nums">
           {{ money(state.summary.data?.collected_total || 0) }}
         </div>
-        <div class="text-[11px] text-slate-500">{{ state.summary.data?.collected_count || 0 }} payments</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ state.summary.data?.collected_count || 0 }} payments</div>
       </div></div>
 
       <div class="card"><div class="card-body">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Outstanding A/R</div>
-        <div v-if="state.summary.loading" class="mt-2 h-8 w-32 animate-pulse rounded bg-slate-100"></div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Outstanding A/R</div>
+        <div v-if="state.summary.loading" class="mt-2 h-8 w-32 animate-pulse rounded bg-slate-100 dark:bg-slate-800"></div>
         <div v-else class="mt-1 text-2xl font-bold text-rose-600 tabular-nums">
           {{ money(state.summary.data?.outstanding_total || 0) }}
         </div>
-        <div class="text-[11px] text-slate-500">{{ state.summary.data?.outstanding_count || 0 }} pending arrangements</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ state.summary.data?.outstanding_count || 0 }} pending arrangements</div>
       </div></div>
 
       <div class="card"><div class="card-body">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Today's Cash</div>
-        <div v-if="state.summary.loading" class="mt-2 h-8 w-32 animate-pulse rounded bg-slate-100"></div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Today's Cash</div>
+        <div v-if="state.summary.loading" class="mt-2 h-8 w-32 animate-pulse rounded bg-slate-100 dark:bg-slate-800"></div>
         <div v-else class="mt-1 text-2xl font-bold text-brand-700 tabular-nums">
           {{ money(state.summary.data?.today_cash_total || 0) }}
         </div>
-        <div class="text-[11px] text-slate-500">{{ state.summary.data?.today_cash_count || 0 }} cash payments today</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ state.summary.data?.today_cash_count || 0 }} cash payments today</div>
       </div></div>
     </div>
 
@@ -238,12 +238,12 @@ function goResolve(row) {
     <div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
       <div class="card lg:col-span-2">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Revenue Trend</div>
-          <span class="text-xs text-slate-500">Daily collected revenue (arrangements excluded)</span>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Revenue Trend</div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Daily collected revenue (arrangements excluded)</span>
         </div>
         <div class="card-body">
-          <div v-if="state.trend.loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-          <div v-else-if="!trendLabels.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+          <div v-if="state.trend.loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+          <div v-else-if="!trendLabels.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No revenue in this range.
           </div>
           <div v-else class="h-56"><LineChart :labels="trendLabels" :data="trendData" label="Revenue" /></div>
@@ -252,12 +252,12 @@ function goResolve(row) {
 
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Payment Method</div>
-          <span class="text-xs text-slate-500">Share of collected revenue</span>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Payment Method</div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Share of collected revenue</span>
         </div>
         <div class="card-body">
-          <div v-if="state.method.loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-          <div v-else-if="!methodLabels.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+          <div v-if="state.method.loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+          <div v-else-if="!methodLabels.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No payments yet.
           </div>
           <div v-else class="h-56"><DoughnutChart :labels="methodLabels" :data="methodData" /></div>
@@ -270,8 +270,8 @@ function goResolve(row) {
       <!-- Aging buckets -->
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">A/R Aging</div>
-          <span class="text-xs text-slate-500">As of today</span>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">A/R Aging</div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">As of today</span>
         </div>
         <div class="card-body space-y-1.5 text-sm">
           <template v-if="state.receiv.data">
@@ -281,34 +281,34 @@ function goResolve(row) {
                     { k: 'bucket_61_90',  label: '61 – 90 days', color: 'text-orange-700' },
                     { k: 'bucket_over_90',label: 'Over 90 days', color: 'text-rose-700' }
                   ]" :key="b.k" class="flex items-center justify-between">
-              <span class="text-slate-600">{{ b.label }}</span>
+              <span class="text-slate-600 dark:text-slate-300">{{ b.label }}</span>
               <span class="font-semibold tabular-nums" :class="b.color">
                 {{ money(state.receiv.data.totals[b.k] || 0) }}
               </span>
             </div>
-            <div class="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total pending</span>
+            <div class="mt-2 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-2">
+              <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Total pending</span>
               <span class="text-base font-bold text-brand-700 tabular-nums">{{ money(state.receiv.data.totals.grand_total || 0) }}</span>
             </div>
           </template>
-          <div v-else-if="state.receiv.loading" class="h-40 animate-pulse rounded bg-slate-50"></div>
+          <div v-else-if="state.receiv.loading" class="h-40 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
         </div>
       </div>
 
       <!-- Top counter-parties -->
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Top Billed-To</div>
-          <span class="text-xs text-slate-500">Company / guarantor outstanding</span>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Top Billed-To</div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Company / guarantor outstanding</span>
         </div>
         <div class="card-body">
-          <div v-if="state.receiv.loading" class="h-40 animate-pulse rounded bg-slate-50"></div>
+          <div v-if="state.receiv.loading" class="h-40 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
           <div v-else-if="!state.receiv.data?.by_billed_to?.length"
-               class="py-4 text-center text-xs text-slate-400">No outstanding arrangements.</div>
+               class="py-4 text-center text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">No outstanding arrangements.</div>
           <ul v-else class="space-y-1 text-sm">
             <li v-for="row in state.receiv.data.by_billed_to" :key="row.billed_to"
-                class="flex items-center justify-between border-b border-slate-100 py-1 last:border-none">
-              <span class="truncate text-slate-800">{{ row.billed_to }}</span>
+                class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 py-1 last:border-none">
+              <span class="truncate text-slate-800 dark:text-slate-100">{{ row.billed_to }}</span>
               <span class="ml-2 whitespace-nowrap font-semibold text-rose-700 tabular-nums">{{ money(row.total) }}</span>
             </li>
           </ul>
@@ -319,25 +319,25 @@ function goResolve(row) {
       <div class="card">
         <div class="card-header flex items-center justify-between">
           <div>
-            <div class="text-sm font-semibold text-slate-800">Oldest Pending</div>
-            <span class="text-xs text-slate-500">Chase these first</span>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Oldest Pending</div>
+            <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Chase these first</span>
           </div>
           <router-link to="/cashier" class="btn-ghost !text-xs">Open Cashier →</router-link>
         </div>
         <div class="card-body">
-          <div v-if="state.receiv.loading" class="h-40 animate-pulse rounded bg-slate-50"></div>
+          <div v-if="state.receiv.loading" class="h-40 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
           <div v-else-if="!state.receiv.data?.oldest?.length"
-               class="py-4 text-center text-xs text-slate-400">Nothing overdue.</div>
+               class="py-4 text-center text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Nothing overdue.</div>
           <table v-else class="w-full text-xs">
             <tbody>
-              <tr v-for="row in state.receiv.data.oldest" :key="row.uuid" class="border-b border-slate-100 last:border-none">
+              <tr v-for="row in state.receiv.data.oldest" :key="row.uuid" class="border-b border-slate-100 dark:border-slate-800 last:border-none">
                 <td class="py-1.5">
-                  <div class="font-mono font-semibold text-slate-800">{{ row.payment_number }}</div>
-                  <div class="text-slate-500 truncate max-w-[10rem]">{{ row.billed_to || row.patient_last_name || '—' }}</div>
+                  <div class="font-mono font-semibold text-slate-800 dark:text-slate-100">{{ row.payment_number }}</div>
+                  <div class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 truncate max-w-[10rem]">{{ row.billed_to || row.patient_last_name || '—' }}</div>
                 </td>
                 <td class="py-1.5 text-right">
                   <div class="font-semibold text-rose-700 tabular-nums">{{ money(row.total) }}</div>
-                  <div class="text-slate-400 text-[10px]">{{ row.age_days }}d old</div>
+                  <div class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 text-[10px]">{{ row.age_days }}d old</div>
                 </td>
               </tr>
             </tbody>
@@ -350,19 +350,19 @@ function goResolve(row) {
     <div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
       <div class="card lg:col-span-2">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Cases &amp; Requisitions</div>
-          <span class="text-xs text-slate-500">Daily throughput</span>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Cases &amp; Requisitions</div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Daily throughput</span>
         </div>
         <div class="card-body">
-          <div v-if="state.through.loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
-          <div v-else-if="!throughLabels.length" class="flex h-56 items-center justify-center text-xs text-slate-400">
+          <div v-if="state.through.loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+          <div v-else-if="!throughLabels.length" class="flex h-56 items-center justify-center text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No case activity.
           </div>
           <!-- Two bars per day: cases + requisitions. Simple approach — render
                requisitions overlaid; a full stacked bar would need a custom
                Chart config. -->
           <div v-else class="h-56"><BarChart :labels="throughLabels" :data="throughReqs" label="Requisitions" /></div>
-          <div v-if="throughLabels.length" class="mt-2 text-[11px] text-slate-500">
+          <div v-if="throughLabels.length" class="mt-2 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ throughCases.reduce((a, b) => a + b, 0) }} cases ·
             {{ throughReqs.reduce((a, b) => a + b, 0) }} requisitions this range
           </div>
@@ -371,24 +371,24 @@ function goResolve(row) {
 
       <div class="card">
         <div class="card-header">
-          <div class="text-sm font-semibold text-slate-800">Top Tests</div>
-          <span class="text-xs text-slate-500">By revenue</span>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Top Tests</div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">By revenue</span>
         </div>
         <div class="card-body">
-          <div v-if="state.topItems.loading" class="h-56 animate-pulse rounded bg-slate-50"></div>
+          <div v-if="state.topItems.loading" class="h-56 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
           <div v-else-if="!state.topItems.data?.length"
-               class="py-4 text-center text-xs text-slate-400">No items billed.</div>
+               class="py-4 text-center text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">No items billed.</div>
           <ol v-else class="space-y-1 text-sm">
             <li v-for="(row, i) in state.topItems.data" :key="row.code + i"
-                class="flex items-baseline justify-between border-b border-slate-100 py-1 last:border-none">
+                class="flex items-baseline justify-between border-b border-slate-100 dark:border-slate-800 py-1 last:border-none">
               <span class="truncate">
-                <span class="mr-1 text-[10px] font-bold text-slate-400">#{{ i + 1 }}</span>
-                <span class="font-mono text-[11px] text-slate-500">{{ row.code }}</span>
-                <span class="ml-1 text-slate-800">{{ row.name }}</span>
+                <span class="mr-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">#{{ i + 1 }}</span>
+                <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ row.code }}</span>
+                <span class="ml-1 text-slate-800 dark:text-slate-100">{{ row.name }}</span>
               </span>
               <span class="ml-2 whitespace-nowrap text-right">
                 <span class="block font-semibold text-brand-700 tabular-nums">{{ money(row.revenue) }}</span>
-                <span class="block text-[10px] text-slate-400">{{ row.qty }} unit(s)</span>
+                <span class="block text-[10px] text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ row.qty }} unit(s)</span>
               </span>
             </li>
           </ol>
@@ -399,24 +399,24 @@ function goResolve(row) {
     <!-- ═══ PROFITABILITY ═══ -->
     <div class="card">
       <div class="card-header">
-        <div class="text-sm font-semibold text-slate-800">Revenue vs Expenses</div>
-        <span class="text-xs text-slate-500">Net income for the range</span>
+        <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Revenue vs Expenses</div>
+        <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Net income for the range</span>
       </div>
       <div class="card-body">
-        <div v-if="state.profit.loading" class="h-40 animate-pulse rounded bg-slate-50"></div>
+        <div v-if="state.profit.loading" class="h-40 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
         <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <!-- Totals -->
           <div class="space-y-2 text-sm lg:col-span-1">
             <div class="flex items-center justify-between">
-              <span class="text-slate-600">Revenue</span>
+              <span class="text-slate-600 dark:text-slate-300">Revenue</span>
               <span class="font-semibold text-emerald-600 tabular-nums">{{ money(state.profit.data?.revenue || 0) }}</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-slate-600">Expenses</span>
+              <span class="text-slate-600 dark:text-slate-300">Expenses</span>
               <span class="font-semibold text-rose-600 tabular-nums">− {{ money(state.profit.data?.expenses || 0) }}</span>
             </div>
-            <div class="flex items-center justify-between border-t border-slate-200 pt-2">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Net</span>
+            <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-2">
+              <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Net</span>
               <span class="text-lg font-bold tabular-nums"
                     :class="(state.profit.data?.net || 0) >= 0 ? 'text-brand-700' : 'text-rose-700'">
                 {{ money(state.profit.data?.net || 0) }}
@@ -428,7 +428,7 @@ function goResolve(row) {
                use a proper multi-dataset chart later; for now revenue bar with
                expenses summarized on the left. -->
           <div class="lg:col-span-3">
-            <div v-if="!profitLabels.length" class="flex h-40 items-center justify-center text-xs text-slate-400">
+            <div v-if="!profitLabels.length" class="flex h-40 items-center justify-center text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
               No data in this range.
             </div>
             <div v-else class="h-40"><BarChart :labels="profitLabels" :data="profitRevenue" label="Revenue" /></div>

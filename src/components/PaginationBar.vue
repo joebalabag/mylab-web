@@ -37,7 +37,7 @@ function onSizeChange(e) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2 border-t border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+  <div class="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
     <div class="flex items-center gap-2">
       <label class="flex items-center gap-1">
         Rows
@@ -49,11 +49,11 @@ function onSizeChange(e) {
           <option v-for="n in sizes" :key="n" :value="n">{{ n }}</option>
         </select>
       </label>
-      <span class="text-slate-400">·</span>
+      <span class="text-slate-400 dark:text-slate-500">·</span>
       <span>
         <template v-if="total > 0">
-          Showing <b class="text-slate-800">{{ firstOnPage }}–{{ lastOnPage }}</b>
-          of <b class="text-slate-800">{{ total }}</b>
+          Showing <b class="text-slate-800 dark:text-slate-100">{{ firstOnPage }}–{{ lastOnPage }}</b>
+          of <b class="text-slate-800 dark:text-slate-100">{{ total }}</b>
         </template>
         <template v-else>No rows</template>
       </span>
@@ -85,7 +85,7 @@ function onSizeChange(e) {
           :value="clampedPage"
           @change="e => goto(e.target.value)"
         />
-        of <b class="text-slate-800">{{ totalPages }}</b>
+        of <b class="text-slate-800 dark:text-slate-100">{{ totalPages }}</b>
       </span>
 
       <button

@@ -18,9 +18,9 @@ const toneMap = {
   <div class="card">
     <div class="card-body flex items-start justify-between gap-3">
       <div>
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</div>
-        <div class="mt-1 text-2xl font-bold text-slate-800">{{ value }}</div>
-        <div v-if="hint" class="mt-1 text-xs text-slate-500">{{ hint }}</div>
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ label }}</div>
+        <div class="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">{{ value }}</div>
+        <div v-if="hint" class="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ hint }}</div>
       </div>
       <div :class="['flex h-10 w-10 items-center justify-center rounded-lg', toneMap[tone]]">
         <slot name="icon">

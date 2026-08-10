@@ -384,8 +384,22 @@ function closeReceipt() {
   receipt.value = null
 }
 function printReceipt() {
-  // The @media print stylesheet on the receipt block does the heavy lifting;
-  // window.print() opens the OS dialog with our sized page.
+  // Add a body flag so the @media print rules (see <style> at the bottom of
+  // this file) know they should apply. The rules are scoped to
+  // `body.printing-receipt` on purpose — the previous unscoped `body *`
+  // visibility hack leaked into any other print flow that shared the app's
+  // stylesheets, most notably the LaboratoryView / TestItemsView print
+  // popup, which came out white because everything got hidden.
+  if (typeof document !== 'undefined') {
+    document.body.classList.add('printing-receipt')
+    const clear = () => {
+      document.body.classList.remove('printing-receipt')
+      window.removeEventListener('afterprint', clear)
+    }
+    window.addEventListener('afterprint', clear)
+    // Safety net — some browsers skip afterprint on cancel.
+    setTimeout(clear, 30000)
+  }
   nextTick(() => window.print())
 }
 
@@ -521,7 +535,7 @@ function methodBadge(m) {
     case 'accounts_receivable': return 'bg-rose-100 text-rose-700'
     case 'paid_outside':        return 'bg-teal-100 text-teal-700'
     case 'charity':             return 'bg-pink-100 text-pink-700'
-    default:                    return 'bg-slate-100 text-slate-700'
+    default:                    return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
   }
 }
 </script>
@@ -530,11 +544,11 @@ function methodBadge(m) {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-2 gap-3 shrink-0">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Payments</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Payments</div>
         <div class="mt-1 text-2xl font-bold">{{ totalCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Completed</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Completed</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ completedCount }}</div>
       </div></div>
     </div>
@@ -542,8 +556,8 @@ function methodBadge(m) {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Cashier — Payments</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Cashier — Payments</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ filtered.length }} shown
             <span v-if="payments.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -551,7 +565,7 @@ function methodBadge(m) {
         <MobileFilterBar>
           <!-- Tab filter — split cash-in-hand from deferred/waived. Kept as
                segmented pills so both are one click away. -->
-          <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+          <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5 text-xs">
             <button v-for="t in [
                       { k: 'all',          label: 'All' },
                       { k: 'paid',         label: 'Paid' },
@@ -560,8 +574,8 @@ function methodBadge(m) {
                     @click="tabFilter = t.k"
                     class="rounded px-2.5 py-1 font-semibold transition-colors"
                     :class="tabFilter === t.k
-                            ? 'bg-white text-brand-700 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-800'">
+                            ? 'bg-white dark:bg-slate-900 text-brand-700 shadow-sm'
+                            : 'text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-100'">
               {{ t.label }}
               <span v-if="t.k === 'arrangements' && pendingArrangementCount > 0"
                     class="ml-1 rounded-full bg-rose-100 px-1.5 text-[10px] font-bold text-rose-700">
@@ -577,7 +591,7 @@ function methodBadge(m) {
             <input type="date" v-model="dateFrom" @change="onFilterChange"
                    :max="dateTo || undefined"
                    title="From" class="input w-full sm:w-36" />
-            <span class="text-xs text-slate-400">→</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">→</span>
             <input type="date" v-model="dateTo" @change="onFilterChange"
                    :min="dateFrom || undefined"
                    title="To" class="input w-full sm:w-36" />
@@ -628,7 +642,7 @@ function methodBadge(m) {
                       :rows="8" label="Loading payments…"
                       :columns="['bar','lines','pill','bar','pill','dot']" />
         <table class="table" v-else-if="filtered.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-32">PAY #</th>
               <th class="min-w-[16rem]">Patient / Case</th>
@@ -641,7 +655,7 @@ function methodBadge(m) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in filtered" :key="p.uuid" :class="p.status === 'voided' && 'bg-slate-50/50'">
+            <tr v-for="p in filtered" :key="p.uuid" :class="p.status === 'voided' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td class="font-mono text-xs font-semibold">
                 <button type="button"
                         class="text-brand-600 hover:text-brand-800 hover:underline"
@@ -649,10 +663,10 @@ function methodBadge(m) {
                         :title="`View ${p.payment_number}`">{{ p.payment_number }}</button>
               </td>
               <td>
-                <div class="font-medium text-slate-800">{{ fullPatientName(p) }}</div>
-                <div class="text-[11px] text-slate-500">
+                <div class="font-medium text-slate-800 dark:text-slate-100">{{ fullPatientName(p) }}</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   <span class="font-mono">{{ p.patient_case_number || '—' }}</span>
-                  <span v-if="p.patient_case_type" class="ml-1 rounded bg-slate-100 px-1 text-[9px] font-bold uppercase">{{ p.patient_case_type }}</span>
+                  <span v-if="p.patient_case_type" class="ml-1 rounded bg-slate-100 dark:bg-slate-800 px-1 text-[9px] font-bold uppercase">{{ p.patient_case_type }}</span>
                 </div>
               </td>
               <td class="whitespace-nowrap">
@@ -664,7 +678,7 @@ function methodBadge(m) {
                         :title="p.reference ? `Ref: ${p.reference}` : undefined">
                     {{ PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method }}
                   </span>
-                  <span v-if="p.channel" class="text-[10px] font-semibold text-slate-600">· {{ p.channel }}</span>
+                  <span v-if="p.channel" class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">· {{ p.channel }}</span>
                   <!-- Arrangement resolution badge: green = settled, amber = pending.
                        Charity is treated as auto-resolved so we don't nag ops to click through. -->
                   <template v-if="isNonCashArrangement(p.payment_method) && p.status !== 'voided'">
@@ -678,11 +692,11 @@ function methodBadge(m) {
                     </span>
                   </template>
                 </div>
-                <div v-if="p.billed_to" class="mt-0.5 text-[11px] text-slate-600">
-                  <span class="text-slate-400">to</span> {{ p.billed_to }}
+                <div v-if="p.billed_to" class="mt-0.5 text-[11px] text-slate-600 dark:text-slate-300">
+                  <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">to</span> {{ p.billed_to }}
                 </div>
               </td>
-              <td class="text-right font-semibold" :class="p.status === 'voided' && 'text-slate-400 line-through'">
+              <td class="text-right font-semibold" :class="p.status === 'voided' && 'text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 line-through'">
                 {{ money(p.total) }}
               </td>
               <td>
@@ -692,8 +706,8 @@ function methodBadge(m) {
                   {{ p.status }}
                 </span>
               </td>
-              <td class="hidden md:table-cell text-xs text-slate-500">{{ formatDateTime(p.payment_date) }}</td>
-              <td class="hidden lg:table-cell text-xs text-slate-700">
+              <td class="hidden md:table-cell text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(p.payment_date) }}</td>
+              <td class="hidden lg:table-cell text-xs text-slate-700 dark:text-slate-200">
                 <div>{{ p.created_by || '—' }}</div>
                 <!-- Void audit: show who voided the payment, if any -->
                 <div v-if="p.status === 'voided' && p.updated_by && p.updated_by !== p.created_by"
@@ -714,9 +728,9 @@ function methodBadge(m) {
          the list scrolls. Voided rows are excluded from the sum. -->
     <div class="card shrink-0">
       <div class="card-body flex items-center justify-between py-2">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
           Total ({{ filtered.filter(p => p.status === 'completed').length }} completed)
-          <span class="ml-2 text-slate-400 italic normal-case tracking-normal">· Voided excluded</span>
+          <span class="ml-2 text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 italic normal-case tracking-normal">· Voided excluded</span>
         </div>
         <div class="text-lg font-bold text-brand-700 tabular-nums">{{ money(paymentsTotal) }}</div>
       </div>
@@ -725,7 +739,7 @@ function methodBadge(m) {
     <!-- ═══ Step 1: search for a case with unpaid items ═══ -->
     <Modal :show="showCaseSearch" title="New Payment — pick a case" size="lg" @close="showCaseSearch = false">
       <div class="space-y-3">
-        <p class="text-xs text-slate-600">
+        <p class="text-xs text-slate-600 dark:text-slate-300">
           Only cases with at least one unpaid <b>finalized</b> requisition item appear here.
           If a case you expect is missing, finalize its requisition first.
         </p>
@@ -740,9 +754,9 @@ function methodBadge(m) {
         <div v-if="caseSearchError" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {{ caseSearchError }}
         </div>
-        <div class="h-80 overflow-auto rounded-md border border-slate-200 bg-white">
+        <div class="h-80 overflow-auto rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <table class="w-full text-xs">
-            <thead class="sticky top-0 bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
               <tr>
                 <th class="px-2 py-1.5 text-left">Case #</th>
                 <th class="px-2 py-1.5 text-left">Patient</th>
@@ -752,14 +766,14 @@ function methodBadge(m) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in caseResults" :key="c.case_uuid" class="border-t border-slate-100">
+              <tr v-for="c in caseResults" :key="c.case_uuid" class="border-t border-slate-100 dark:border-slate-800">
                 <td class="px-2 py-1">
-                  <span class="font-mono font-semibold text-slate-700">{{ c.case_number }}</span>
-                  <div class="text-[10px] font-bold uppercase text-slate-400">{{ c.case_type }}</div>
+                  <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ c.case_number }}</span>
+                  <div class="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ c.case_type }}</div>
                 </td>
                 <td class="px-2 py-1">
-                  <div class="text-slate-800">{{ fullPatientName(c) }}</div>
-                  <div class="text-[11px] text-slate-500 font-mono">{{ c.patient_number }}</div>
+                  <div class="text-slate-800 dark:text-slate-100">{{ fullPatientName(c) }}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 font-mono">{{ c.patient_number }}</div>
                 </td>
                 <td class="px-2 py-1 text-right">{{ c.unpaid_count }}</td>
                 <td class="px-2 py-1 text-right font-semibold">{{ money(c.unpaid_total) }}</td>
@@ -770,7 +784,7 @@ function methodBadge(m) {
                 </td>
               </tr>
               <tr v-if="!caseResults.length && !caseSearchLoading">
-                <td colspan="5" class="px-2 py-3 text-center text-xs text-slate-500">
+                <td colspan="5" class="px-2 py-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   No cases with unpaid finalized items.
                 </td>
               </tr>
@@ -789,17 +803,17 @@ function methodBadge(m) {
         <!-- Patient + case banner -->
         <div class="rounded-lg border border-brand-100 bg-brand-50/50 p-3">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded bg-white border border-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">
+            <span class="rounded bg-white dark:bg-slate-900 border border-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 dark:text-slate-200">
               {{ paymentCase.case_number }}
             </span>
-            <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600">
+            <span class="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-[11px] text-slate-600 dark:text-slate-300">
               {{ paymentCase.patient_number }}
             </span>
           </div>
-          <div class="mt-1 text-base font-bold text-slate-800">
+          <div class="mt-1 text-base font-bold text-slate-800 dark:text-slate-100">
             {{ fullPatientName(paymentCase) }}
             <span class="ml-1 rounded bg-brand-100 px-1 text-[10px] font-bold uppercase text-brand-700">{{ paymentCase.sex || '?' }}</span>
-            <span v-if="ageFromBirthdate(paymentCase.birthdate) !== null" class="ml-1 text-xs text-slate-600">
+            <span v-if="ageFromBirthdate(paymentCase.birthdate) !== null" class="ml-1 text-xs text-slate-600 dark:text-slate-300">
               · {{ ageFromBirthdate(paymentCase.birthdate) }} y/o
             </span>
           </div>
@@ -812,9 +826,9 @@ function methodBadge(m) {
              from any cashier tool carries over. -->
         <div class="grid grid-cols-1 gap-3 lg:grid-cols-5">
           <!-- LEFT: items -->
-          <div class="lg:col-span-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 flex flex-col">
+          <div class="lg:col-span-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3 flex flex-col">
             <div class="mb-2 flex items-center justify-between">
-              <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
+              <div class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Unpaid Items ({{ paymentItems.length }})
                 <span v-if="paymentItemsLoading" class="ml-1 text-brand-600">· loading…</span>
               </div>
@@ -826,13 +840,13 @@ function methodBadge(m) {
               </div>
             </div>
 
-            <div class="h-[420px] overflow-auto rounded-md border border-slate-200 bg-white">
+            <div class="h-[420px] overflow-auto rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <div v-if="!paymentItemsLoading && !paymentItems.length"
-                   class="flex h-full items-center justify-center text-xs text-slate-500">
+                   class="flex h-full items-center justify-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 No unpaid items. Nothing to settle for this case.
               </div>
               <table v-else class="w-full text-xs">
-                <thead class="sticky top-0 bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   <tr>
                     <th class="w-8 px-2 py-1.5 text-left"></th>
                     <th class="px-2 py-1.5 text-left">Item</th>
@@ -844,16 +858,16 @@ function methodBadge(m) {
                 </thead>
                 <tbody>
                   <template v-for="g in itemsByRequisition" :key="g.uuid">
-                    <tr class="border-t border-slate-200 bg-slate-50">
+                    <tr class="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                       <td colspan="6" class="px-2 py-1">
-                        <span class="font-mono text-[11px] font-semibold text-slate-700">{{ g.requisition_number }}</span>
-                        <span class="ml-2 text-[10px] text-slate-500">{{ formatDateTime(g.requisition_date) }}</span>
+                        <span class="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-200">{{ g.requisition_number }}</span>
+                        <span class="ml-2 text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(g.requisition_date) }}</span>
                       </td>
                     </tr>
                     <!-- Excluded rows: pink tint + red left border; every
                          content cell strikes-through with dimmed text. -->
                     <tr v-for="it in g.items" :key="it.uuid"
-                        class="border-t border-slate-100"
+                        class="border-t border-slate-100 dark:border-slate-800"
                         :class="!it._selected && 'bg-rose-50/60 border-l-4 border-l-rose-400'">
                       <td class="px-2 py-1 text-center">
                         <input type="checkbox" v-model="it._selected"
@@ -862,29 +876,29 @@ function methodBadge(m) {
                       </td>
                       <td class="px-2 py-1" :class="!it._selected && 'line-through'">
                         <span class="font-mono font-semibold"
-                              :class="it._selected ? 'text-slate-700' : 'text-slate-400'">{{ it.code }}</span>
-                        <span class="ml-1" :class="it._selected ? 'text-slate-800' : 'text-slate-400'">{{ it.name }}</span>
+                              :class="it._selected ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500'">{{ it.code }}</span>
+                        <span class="ml-1" :class="it._selected ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500'">{{ it.name }}</span>
                         <div v-if="it.package_code"
                              class="text-[10px]"
-                             :class="it._selected ? 'text-amber-700' : 'text-slate-400'">
+                             :class="it._selected ? 'text-amber-700' : 'text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500'">
                           via package {{ it.package_code }}
                         </div>
                       </td>
                       <td class="px-2 py-1 text-right"
-                          :class="!it._selected && 'line-through text-slate-400'">
+                          :class="!it._selected && 'line-through text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500'">
                         {{ it.quantity }}
                       </td>
                       <td class="px-2 py-1 text-right"
-                          :class="!it._selected && 'line-through text-slate-400'">
+                          :class="!it._selected && 'line-through text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500'">
                         {{ money(it.unit_price) }}
                       </td>
                       <td class="px-2 py-1 text-right"
-                          :class="it._selected ? 'text-emerald-700' : 'text-slate-400 line-through'">
+                          :class="it._selected ? 'text-emerald-700' : 'text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 line-through'">
                         <span v-if="Number(it.line_discount_amount) > 0">− {{ money(it.line_discount_amount) }}</span>
-                        <span v-else class="text-slate-400">—</span>
+                        <span v-else class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">—</span>
                       </td>
                       <td class="px-2 py-1 text-right font-semibold"
-                          :class="!it._selected && 'line-through text-slate-400'">
+                          :class="!it._selected && 'line-through text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500'">
                         {{ money(it.line_total) }}
                       </td>
                     </tr>
@@ -903,11 +917,11 @@ function methodBadge(m) {
           <div class="lg:col-span-2 rounded-lg border border-brand-200 bg-brand-50/40 p-3 flex flex-col gap-2">
             <!-- Subtotal + discount override -->
             <div class="flex items-center justify-between text-sm">
-              <span class="text-slate-600">Subtotal</span>
-              <span class="font-semibold text-slate-800">{{ money(paymentSubtotal) }}</span>
+              <span class="text-slate-600 dark:text-slate-300">Subtotal</span>
+              <span class="font-semibold text-slate-800 dark:text-slate-100">{{ money(paymentSubtotal) }}</span>
             </div>
 
-            <div class="rounded-md border border-brand-100 bg-white/70 px-2 py-1.5">
+            <div class="rounded-md border border-brand-100 bg-white/70 dark:bg-slate-900/70 px-2 py-1.5">
               <div class="flex items-center gap-2">
                 <span class="whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-brand-700">
                   Discount
@@ -927,7 +941,7 @@ function methodBadge(m) {
               </div>
               <div v-if="selectedDiscount && selectedDiscount.discount_type === 'open_amount'"
                    class="mt-2 flex items-center gap-2">
-                <span class="text-[10px] uppercase text-slate-500 tracking-widest">Amount</span>
+                <span class="text-[10px] uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500 tracking-widest">Amount</span>
                 <input type="number" min="0" step="0.01"
                        v-model.number="paymentForm.discount_open_amount"
                        placeholder="0.00"
@@ -945,7 +959,7 @@ function methodBadge(m) {
 
             <!-- Payment method -->
             <div>
-              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Payment Method</label>
+              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Payment Method</label>
               <select v-model="paymentForm.payment_method" class="input mt-1">
                 <option v-for="m in PAYMENT_METHODS" :key="m" :value="m">{{ PAYMENT_METHOD_LABELS[m] }}</option>
               </select>
@@ -954,11 +968,11 @@ function methodBadge(m) {
             <!-- Cash: big tendered input + big emerald change -->
             <template v-if="isCashPayment">
               <div>
-                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Amount Tendered</label>
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Amount Tendered</label>
                 <input type="number" min="0" step="0.01"
                        v-model.number="paymentForm.amount_tendered"
                        placeholder="0.00"
-                       class="input mt-1 text-right text-3xl font-extrabold text-slate-800 tabular-nums !py-2" />
+                       class="input mt-1 text-right text-3xl font-extrabold text-slate-800 dark:text-slate-100 tabular-nums !py-2" />
               </div>
               <div class="rounded-lg bg-emerald-500 px-3 py-3 text-white">
                 <div class="flex items-center justify-between">
@@ -972,7 +986,7 @@ function methodBadge(m) {
                  Money still counts as collected — this is just proof-of-payment. -->
             <template v-if="isChanneledForm">
               <div>
-                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   {{ paymentForm.payment_method === 'ewallet' ? 'eWallet Provider' : 'Bank' }}
                   <span class="text-rose-500">*</span>
                 </label>
@@ -985,7 +999,7 @@ function methodBadge(m) {
                        placeholder="BDO, BPI, Metrobank…" class="input mt-1" />
               </div>
               <div>
-                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reference Number</label>
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Reference Number</label>
                 <input v-model="paymentForm.reference" maxlength="255"
                        placeholder="Transaction / OR / Confirmation #"
                        class="input mt-1 font-mono !text-xs" />
@@ -997,7 +1011,7 @@ function methodBadge(m) {
                  unlocked so downstream (specimen collection, etc.) can proceed. -->
             <template v-if="isArrangementPayment">
               <div>
-                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   Billed To
                   <span v-if="paymentForm.payment_method === 'accounts_receivable'" class="text-rose-500">*</span>
                 </label>
@@ -1010,7 +1024,7 @@ function methodBadge(m) {
                        class="input mt-1" />
               </div>
               <div>
-                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reference</label>
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Reference</label>
                 <input v-model="paymentForm.reference" maxlength="255"
                        placeholder="PO #, OR #, transaction ID… (optional)"
                        class="input mt-1 font-mono !text-xs" />
@@ -1043,49 +1057,49 @@ function methodBadge(m) {
           <b>{{ paymentCase?.case_number }}</b>
           for <b>{{ fullPatientName(paymentCase) }}</b>?
         </p>
-        <div class="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
+        <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 text-xs">
           <div class="flex items-center justify-between">
-            <span class="text-slate-600">Method</span>
+            <span class="text-slate-600 dark:text-slate-300">Method</span>
             <span class="font-semibold">{{ PAYMENT_METHOD_LABELS[paymentForm.payment_method] }}</span>
           </div>
           <div class="flex items-center justify-between">
-            <span class="text-slate-600">Subtotal</span>
+            <span class="text-slate-600 dark:text-slate-300">Subtotal</span>
             <span>{{ money(paymentSubtotal) }}</span>
           </div>
           <div class="flex items-center justify-between text-emerald-700">
-            <span class="text-slate-600">Discount</span>
+            <span class="text-slate-600 dark:text-slate-300">Discount</span>
             <span>− {{ money(paymentDiscountAmount) }}</span>
           </div>
-          <div class="mt-1 flex items-center justify-between border-t border-slate-200 pt-1">
+          <div class="mt-1 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-1">
             <span class="text-xs font-bold uppercase tracking-widest text-brand-700">Total</span>
             <span class="text-base font-bold text-brand-700">{{ money(paymentTotal) }}</span>
           </div>
           <div v-if="isCashPayment" class="mt-1 flex items-center justify-between">
-            <span class="text-slate-600">Tendered / Change</span>
+            <span class="text-slate-600 dark:text-slate-300">Tendered / Change</span>
             <span>{{ money(paymentForm.amount_tendered) }} / <b>{{ money(changeAmount) }}</b></span>
           </div>
           <template v-if="isChanneledForm">
             <div v-if="paymentForm.channel" class="mt-1 flex items-center justify-between">
-              <span class="text-slate-600">{{ paymentForm.payment_method === 'ewallet' ? 'eWallet' : 'Bank' }}</span>
+              <span class="text-slate-600 dark:text-slate-300">{{ paymentForm.payment_method === 'ewallet' ? 'eWallet' : 'Bank' }}</span>
               <span class="font-semibold">{{ paymentForm.channel }}</span>
             </div>
             <div v-if="paymentForm.reference" class="flex items-center justify-between">
-              <span class="text-slate-600">Reference</span>
+              <span class="text-slate-600 dark:text-slate-300">Reference</span>
               <span class="font-mono">{{ paymentForm.reference }}</span>
             </div>
           </template>
           <template v-if="isArrangementPayment">
             <div v-if="paymentForm.billed_to" class="mt-1 flex items-center justify-between">
-              <span class="text-slate-600">Billed to</span>
+              <span class="text-slate-600 dark:text-slate-300">Billed to</span>
               <span class="font-semibold">{{ paymentForm.billed_to }}</span>
             </div>
             <div v-if="paymentForm.reference" class="flex items-center justify-between">
-              <span class="text-slate-600">Reference</span>
+              <span class="text-slate-600 dark:text-slate-300">Reference</span>
               <span class="font-mono">{{ paymentForm.reference }}</span>
             </div>
           </template>
         </div>
-        <p class="text-[11px] text-slate-500">Selected items will be marked <b>settled</b>. Receipt opens for print after confirming.</p>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Selected items will be marked <b>settled</b>. Receipt opens for print after confirming.</p>
       </div>
       <template #footer>
         <button class="btn-secondary" @click="showConfirm = false">Cancel</button>
@@ -1098,8 +1112,8 @@ function methodBadge(m) {
          spreadsheet: 6-column grid, dashed section separators, values in
          navy. -->
     <Modal :show="showReceipt" title="Receipt" size="lg" @close="closeReceipt">
-      <div v-if="receiptLoading" class="p-6 text-center text-sm text-slate-500">Loading receipt…</div>
-      <div v-else-if="receipt" class="receipt-sheet mx-auto max-w-2xl bg-white p-2 text-[12px] leading-tight text-slate-900">
+      <div v-if="receiptLoading" class="p-6 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Loading receipt…</div>
+      <div v-else-if="receipt" class="receipt-sheet mx-auto max-w-2xl bg-white dark:bg-slate-900 p-2 text-[12px] leading-tight text-slate-900 dark:text-slate-100">
         <table class="receipt-grid w-full border-collapse">
           <tbody>
             <!-- Header: custom lines from Company Settings › Cashier Receipt Header,
@@ -1238,21 +1252,21 @@ function methodBadge(m) {
          (visible in the Transact By column as "voided by …"). -->
     <Modal :show="voidModal.show" title="Void payment — manager approval" size="sm" @close="closeVoidModal">
       <div v-if="voidModal.payment" class="space-y-3 text-sm">
-        <div class="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
+        <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 text-xs">
           <div class="flex justify-between">
-            <span class="text-slate-600">Payment #</span>
+            <span class="text-slate-600 dark:text-slate-300">Payment #</span>
             <span class="font-mono font-semibold">{{ voidModal.payment.payment_number }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-slate-600">Amount</span>
+            <span class="text-slate-600 dark:text-slate-300">Amount</span>
             <span class="font-bold text-brand-700">{{ money(voidModal.payment.total) }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-slate-600">Recorded by</span>
+            <span class="text-slate-600 dark:text-slate-300">Recorded by</span>
             <span>{{ voidModal.payment.created_by || '—' }}</span>
           </div>
         </div>
-        <p class="text-[11px] text-slate-500">
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
           Voiding will mark the items <b>unpaid</b> so they can be re-billed. A
           store <b>manager</b> or <b>admin</b> must approve.
         </p>
@@ -1286,21 +1300,21 @@ function methodBadge(m) {
     <Modal :show="showResolve" title="Resolve arrangement" size="md"
            @close="showResolve = false">
       <div v-if="resolveTarget" class="space-y-3 text-sm">
-        <div class="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
+        <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 text-xs">
           <div class="flex justify-between">
-            <span class="text-slate-600">Payment #</span>
+            <span class="text-slate-600 dark:text-slate-300">Payment #</span>
             <span class="font-mono font-semibold">{{ resolveTarget.payment_number }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-slate-600">Method</span>
+            <span class="text-slate-600 dark:text-slate-300">Method</span>
             <span class="font-semibold">{{ PAYMENT_METHOD_LABELS[resolveTarget.payment_method] }}</span>
           </div>
           <div v-if="resolveTarget.billed_to" class="flex justify-between">
-            <span class="text-slate-600">Billed to</span>
+            <span class="text-slate-600 dark:text-slate-300">Billed to</span>
             <span>{{ resolveTarget.billed_to }}</span>
           </div>
-          <div class="flex justify-between border-t border-slate-200 pt-1 mt-1">
-            <span class="text-slate-600">Amount</span>
+          <div class="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-1 mt-1">
+            <span class="text-slate-600 dark:text-slate-300">Amount</span>
             <span class="font-bold text-brand-700">{{ money(resolveTarget.total) }}</span>
           </div>
         </div>
@@ -1394,23 +1408,32 @@ function methodBadge(m) {
    The html/body resets kill body margins that would otherwise push the
    receipt down a hair. `page-break-inside:avoid` keeps the whole bill on
    one sheet if it fits. */
+/* Receipt print rules — SCOPED to `body.printing-receipt` on purpose.
+   This <style> block is unscoped (Vue's `scoped` attribute doesn't isolate
+   `body`/`html` selectors), so it lives in the global app bundle. An
+   unscoped `body * { visibility: hidden }` used to leak into every OTHER
+   print flow in the app that shares the app bundle — including the
+   LaboratoryView / TestItemsView / PatientsView print popup, which copies
+   every <style> from the parent document into the popup and would then
+   rasterize a blank white page for lab reports.
+   printReceipt() toggles `body.printing-receipt` on before window.print()
+   and clears it on afterprint, so these rules only apply when a receipt
+   is actually being printed. The @page below is harmless in other popups
+   because they inject their own @page inline AFTER copying our styles. */
 @media print {
-  @page {
-    size: 5.5in 8.5in;
-    margin: 0.3in;
-  }
-  html, body {
+  body.printing-receipt {
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
   }
-  body * {
+  body.printing-receipt * {
     visibility: hidden !important;
   }
-  .receipt-sheet, .receipt-sheet * {
+  body.printing-receipt .receipt-sheet,
+  body.printing-receipt .receipt-sheet * {
     visibility: visible !important;
   }
-  .receipt-sheet {
+  body.printing-receipt .receipt-sheet {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -1423,5 +1446,6 @@ function methodBadge(m) {
     margin: 0 !important;
     page-break-inside: avoid;
   }
+  @page { size: 5.5in 8.5in; margin: 0.3in; }
 }
 </style>

@@ -92,30 +92,30 @@ const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYea
   <div class="card no-print-hide">
     <div class="card-body flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0">
-        <div class="text-sm font-semibold text-slate-800">{{ title }}</div>
-        <div v-if="description" class="text-xs text-slate-500">{{ description }}</div>
+        <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ title }}</div>
+        <div v-if="description" class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ description }}</div>
 
         <!-- Filter row: presets + range OR year, plus cashier filter -->
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <template v-if="mode === 'range'">
-            <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+            <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5 text-xs">
               <button v-for="p in PRESETS" :key="p.k" @click="applyPreset(p.k)"
                       class="rounded px-2.5 py-1 font-semibold transition-colors"
                       :class="activePreset === p.k
-                              ? 'bg-white text-brand-700 shadow-sm'
-                              : 'text-slate-500 hover:text-slate-800'">
+                              ? 'bg-white dark:bg-slate-900 text-brand-700 shadow-sm'
+                              : 'text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-100'">
                 {{ p.label }}
               </button>
             </div>
             <input type="date" v-model="dateFrom" @change="onCustomRange"
                    :max="dateTo || undefined" class="input !py-1 !text-xs w-36" />
-            <span class="text-xs text-slate-400">→</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500">→</span>
             <input type="date" v-model="dateTo" @change="onCustomRange"
                    :min="dateFrom || undefined" class="input !py-1 !text-xs w-36" />
           </template>
 
           <template v-else-if="mode === 'year'">
-            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Year</label>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Year</label>
             <select v-model.number="year" @change="emitChange" class="input !py-1 !text-xs w-28">
               <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
             </select>
@@ -127,7 +127,7 @@ const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYea
           </template>
 
           <template v-if="categories && categories.length">
-            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">{{ categoryLabel }}</label>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ categoryLabel }}</label>
             <select v-model="category" @change="emitChange" class="input !py-1 !text-xs w-40">
               <option value="">All</option>
               <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>

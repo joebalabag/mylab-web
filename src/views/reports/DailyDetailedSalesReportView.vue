@@ -94,7 +94,7 @@ function exportRows() {
     <div class="print-area space-y-3">
       <div class="hidden print:block text-center">
         <h1 class="text-lg font-bold">{{ tenant.current?.name || 'Laboratory' }} — Daily Detailed Sales</h1>
-        <p class="text-xs text-slate-500">
+        <p class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
           {{ filters.date_from ? formatDate(filters.date_from) : 'earliest' }} to
           {{ filters.date_to ? formatDate(filters.date_to) : 'latest' }}
         </p>
@@ -103,38 +103,38 @@ function exportRows() {
       <!-- Grand totals card. Sits at the top so it prints on page 1. -->
       <div v-if="!loading" class="grid grid-cols-2 gap-3">
         <div class="card"><div class="card-body">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Payments</div>
-          <div class="mt-1 text-2xl font-bold text-slate-800">{{ grandCount }}</div>
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Payments</div>
+          <div class="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">{{ grandCount }}</div>
         </div></div>
         <div class="card"><div class="card-body">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total Sales</div>
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Total Sales</div>
           <div class="mt-1 text-2xl font-bold text-emerald-600 tabular-nums">{{ money(grandTotal) }}</div>
         </div></div>
       </div>
 
-      <div v-if="loading" class="card"><div class="card-body h-40 animate-pulse rounded bg-slate-50"></div></div>
+      <div v-if="loading" class="card"><div class="card-body h-40 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div></div>
 
-      <div v-else-if="!rows.length" class="card"><div class="card-body py-8 text-center text-xs text-slate-400">
+      <div v-else-if="!rows.length" class="card"><div class="card-body py-8 text-center text-xs text-slate-400 dark:text-slate-500">
         No sales in this range.
       </div></div>
 
       <!-- One card per day. Each payment row is followed by its item lines. -->
       <div v-for="day in groupedByDay" :key="day.date" class="card overflow-hidden">
-        <div class="card-header flex items-center justify-between bg-slate-50">
+        <div class="card-header flex items-center justify-between bg-slate-50 dark:bg-slate-800">
           <div>
-            <div class="text-sm font-semibold text-slate-800">{{ formatDate(day.date) }}</div>
-            <div class="text-xs text-slate-500">
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ formatDate(day.date) }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
               {{ day.count }} payment(s) · {{ day.items_count }} test line(s)
             </div>
           </div>
           <div class="text-right">
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Day Total</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Day Total</div>
             <div class="text-base font-bold text-emerald-700 tabular-nums">{{ money(day.subtotal) }}</div>
           </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-xs">
-            <thead class="bg-slate-100 text-slate-500">
+            <thead class="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:text-slate-500">
               <tr>
                 <th class="px-2 py-1.5 text-left">Time / PAY#</th>
                 <th class="px-2 py-1.5 text-left hidden sm:table-cell">Patient</th>
@@ -148,16 +148,16 @@ function exportRows() {
             <tbody>
               <template v-for="p in day.payments" :key="p.uuid">
                 <!-- Payment header row (spans the item lines below) -->
-                <tr class="border-t border-slate-200 bg-slate-50/50 font-semibold">
+                <tr class="border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 font-semibold">
                   <td class="px-2 py-1.5 align-top">
                     <div class="font-mono text-[11px] text-brand-700">{{ p.payment_number }}</div>
-                    <div class="text-[10px] text-slate-500">{{ formatDateTime(p.payment_date) }}</div>
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(p.payment_date) }}</div>
                   </td>
                   <td class="px-2 py-1.5 align-top hidden sm:table-cell">
                     <div>{{ patientName(p) }}</div>
-                    <div class="text-[10px] text-slate-500 font-mono">{{ p.patient_case_number || '—' }}</div>
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 font-mono">{{ p.patient_case_number || '—' }}</div>
                   </td>
-                  <td colspan="2" class="px-2 py-1.5 text-[10px] text-slate-500 uppercase">
+                  <td colspan="2" class="px-2 py-1.5 text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase">
                     {{ p.items?.length || 0 }} test(s)
                     <span v-if="p.discount_code" class="ml-1 text-amber-700">· discount {{ p.discount_code }}</span>
                   </td>
@@ -167,20 +167,20 @@ function exportRows() {
                   </td>
                   <td class="px-2 py-1.5 align-top hidden lg:table-cell">
                     <div class="text-[10px] uppercase">{{ PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method }}</div>
-                    <div v-if="p.channel" class="text-[10px] text-slate-500">{{ p.channel }}</div>
-                    <div v-if="p.reference" class="text-[10px] font-mono text-slate-400">{{ p.reference }}</div>
+                    <div v-if="p.channel" class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ p.channel }}</div>
+                    <div v-if="p.reference" class="text-[10px] font-mono text-slate-400 dark:text-slate-500">{{ p.reference }}</div>
                   </td>
-                  <td class="px-2 py-1.5 align-top hidden lg:table-cell text-slate-700">{{ p.created_by || '—' }}</td>
+                  <td class="px-2 py-1.5 align-top hidden lg:table-cell text-slate-700 dark:text-slate-200">{{ p.created_by || '—' }}</td>
                 </tr>
                 <!-- Itemized test rows -->
                 <tr v-for="(it, i) in p.items" :key="p.uuid + '-' + i"
-                    class="border-t border-slate-100 text-slate-700">
+                    class="border-t border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200">
                   <td class="px-2 py-1"></td>
                   <td class="px-2 py-1 hidden sm:table-cell"></td>
                   <td class="px-2 py-1">
-                    <span class="font-mono text-[10px] text-slate-500">{{ it.code }}</span>
+                    <span class="font-mono text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ it.code }}</span>
                     <span class="ml-1">{{ it.name }}</span>
-                    <span v-if="it.package_code" class="ml-1 text-[10px] italic text-slate-400">(via {{ it.package_code }})</span>
+                    <span v-if="it.package_code" class="ml-1 text-[10px] italic text-slate-400 dark:text-slate-500">(via {{ it.package_code }})</span>
                   </td>
                   <td class="px-2 py-1 text-right tabular-nums">{{ it.quantity }}</td>
                   <td class="px-2 py-1 text-right tabular-nums">{{ money(it.line_selling_price) }}</td>
@@ -188,7 +188,7 @@ function exportRows() {
                   <td class="px-2 py-1 hidden lg:table-cell"></td>
                 </tr>
                 <tr v-if="!p.items?.length"
-                    class="border-t border-slate-100 italic text-slate-400 text-[10px]">
+                    class="border-t border-slate-100 dark:border-slate-800 italic text-slate-400 dark:text-slate-500 text-[10px]">
                   <td colspan="7" class="px-4 py-1">No line items on this payment.</td>
                 </tr>
               </template>

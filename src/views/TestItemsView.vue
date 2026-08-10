@@ -463,8 +463,14 @@ function actionsFor(t) {
 // ═══════════════════════════════════════════════════════════════════════════
 // PRINT PREVIEW — renders a mock lab report so operators can see what a
 // test item will look like on the printout without creating a real report.
-// Supports adding more items (from the same or another category) to preview
-// a combined result page.
+// Supports adding more items from the same category so the preview matches
+// what a real combined-result page will look like.
+//
+// The preview + print flow mirrors LaboratoryView.doPrint(): render
+// LabReportPrintable at true paper width, and print by opening an isolated
+// popup that copies the app's stylesheets and holds only the report markup.
+// That's what keeps the printed page free of sidebar / modal chrome and
+// paginates identically to a real report.
 // ═══════════════════════════════════════════════════════════════════════════
 const showPrint = ref(false)
 const printItems = ref([])       // Array<full test-item objects (with components + matrix_config)>
@@ -476,6 +482,39 @@ const addPickerOpen = ref(false)
 const addSearch = ref('')
 const addResults = ref([])
 const addSearching = ref(false)
+
+// Paper size the printer will actually be told to use. Starts from the
+// primary item's category setting, then automatically upgrades when the
+// preview content wouldn't fit. Same maps as LaboratoryView so behavior
+// matches the real print flow.
+const effectivePaperKey   = ref('letter')
+const recommendedPaperKey = ref('letter')
+
+const PAPER_LABELS = {
+  full:                  'Full page (A4)',
+  half:                  'Half page (A5)',
+  letter:                'Letter — 8.5″ × 11″',
+  legal:                 'Legal — 8.5″ × 14″',
+  half_letter:           'Half Letter — 5.5″ × 8.5″',
+  half_letter_crosswise: 'Half Letter — 8.5″ × 5.5″ crosswise',
+  half_legal_crosswise:  'Half Legal — 8.5″ × 7″ crosswise',
+}
+const PAPER_UPGRADE = {
+  half:                  'full',
+  half_letter:           'letter',
+  half_letter_crosswise: 'letter',
+  half_legal_crosswise:  'legal',
+  letter:                'legal',
+}
+const PAPER_PX = {
+  full:                  { w: 794,  h: 1123 },
+  half:                  { w: 559,  h: 794  },
+  letter:                { w: 816,  h: 1056 },
+  legal:                 { w: 816,  h: 1344 },
+  half_letter:           { w: 528,  h: 816  },
+  half_letter_crosswise: { w: 816,  h: 528  },
+  half_legal_crosswise:  { w: 816,  h: 672  },
+}
 
 async function openPrintPreview(t) {
   printError.value = ''
@@ -493,6 +532,14 @@ async function openPrintPreview(t) {
   } finally {
     printLoading.value = false
   }
+  // Preview DOM only mounts after `printLoading` flips to false — measure
+  // and predict paper size after images have settled so the scale wrapper
+  // gets a real content height (same pattern as LaboratoryView.openPrint).
+  await nextTick()
+  await new Promise((r) => requestAnimationFrame(r))
+  await waitForImages(document.getElementById('lab-print-area'))
+  computeEffectivePaper()
+  remeasurePreview()
 }
 
 function closePrint() {
@@ -544,9 +591,19 @@ async function addPrintItem(t) {
     // eslint-disable-next-line no-console
     console.warn('Failed to load added item', e)
   }
+  // The added item changes the content volume — re-run the fit predictor
+  // so the printer picks up the right paper size.
+  await nextTick()
+  await new Promise((r) => requestAnimationFrame(r))
+  await waitForImages(document.getElementById('lab-print-area'))
+  computeEffectivePaper()
+  remeasurePreview()
 }
-function removePrintItem(uuid) {
+async function removePrintItem(uuid) {
   printItems.value = printItems.value.filter(i => i.uuid !== uuid)
+  await nextTick()
+  computeEffectivePaper()
+  remeasurePreview()
 }
 
 // ─── Sample-value helpers ────────────────────────────────────────────────
@@ -659,7 +716,12 @@ const previewReport = computed(() => {
     finalized_at: null,
     remarks: '',
     // Category snapshot fields — same shape LabReportPrintable reads.
+    // item_category_code is load-bearing: LabReportPrintable's `isChemistryFlat`
+    // switches to the flat one-table layout when it equals 'CHEM'. Without
+    // it, a CHEM test-item preview would render as per-item blocks and
+    // wouldn't match the real report.
     item_category_uuid: first.item_category_uuid || null,
+    item_category_code: first.item_category_code || '',
     item_category_name: first.item_category_name || first.category_name || 'Uncategorized',
     item_category_print_title: first.item_category_print_title || '',
     item_category_color: first.item_category_color || '#64748b',
@@ -676,29 +738,20 @@ const previewReport = computed(() => {
   }
 })
 
-// Print the preview: use window.print() with a scoped print stylesheet that
-// only surfaces the .print-preview-sheet element. Cheaper than a new-window
-// popup and preserves the exact styling the user just previewed.
-async function doPrintPreview() {
-  await nextTick()
-  window.print()
-}
-
 // ─── Scaled on-screen preview ─────────────────────────────────────────
 // Same pattern as LaboratoryView: render LabReportPrintable at true paper
-// width (letter = 816px) so the preview matches the printout exactly,
-// then shrink with CSS transform on narrow modals (phones) instead of
-// letting Tailwind flex/grid classes collapse into a mobile layout.
-// The `lab-preview-scale-*` classes are reset by `@media print` below
-// so the transform doesn't get baked into the printed output.
-const PAPER_PREVIEW_W = 816
-const PAPER_PREVIEW_H = 1056
+// width so the preview matches the printout exactly, then shrink with
+// CSS transform on narrow modals (phones) instead of letting Tailwind
+// flex/grid classes collapse into a mobile layout.
 const previewFrameWidth    = ref(0)
 const previewContentHeight = ref(0)
 let previewWidthObs  = null
 let previewHeightObs = null
+let previewFrameEl   = null
+let previewContentEl = null
 function setPreviewFrame(el) {
   if (previewWidthObs) { previewWidthObs.disconnect(); previewWidthObs = null }
+  previewFrameEl = el || null
   if (!el) { previewFrameWidth.value = 0; return }
   previewFrameWidth.value = el.clientWidth
   if (typeof ResizeObserver !== 'undefined') {
@@ -710,8 +763,12 @@ function setPreviewFrame(el) {
 }
 function setPreviewContent(el) {
   if (previewHeightObs) { previewHeightObs.disconnect(); previewHeightObs = null }
+  previewContentEl = el || null
   if (!el) { previewContentHeight.value = 0; return }
-  previewContentHeight.value = el.getBoundingClientRect().height
+  // offsetHeight = layout size pre-transform; getBoundingClientRect() would
+  // return the scaled height and understate the natural page size when the
+  // modal is narrower than the paper.
+  previewContentHeight.value = el.offsetHeight
   if (typeof ResizeObserver !== 'undefined') {
     previewHeightObs = new ResizeObserver((entries) => {
       for (const e of entries) previewContentHeight.value = e.contentRect.height
@@ -719,20 +776,280 @@ function setPreviewContent(el) {
     previewHeightObs.observe(el)
   }
 }
+function remeasurePreview() {
+  if (previewFrameEl)   previewFrameWidth.value    = previewFrameEl.clientWidth
+  if (previewContentEl) previewContentHeight.value = previewContentEl.offsetHeight
+}
 onBeforeUnmount(() => {
   if (previewWidthObs)  previewWidthObs.disconnect()
   if (previewHeightObs) previewHeightObs.disconnect()
 })
+const previewPaperPx = computed(() => PAPER_PX[effectivePaperKey.value] || PAPER_PX.letter)
 const previewScale = computed(() => {
   const w = previewFrameWidth.value
   if (!w) return 1
-  return Math.min(1, w / PAPER_PREVIEW_W)
+  return Math.min(1, w / previewPaperPx.value.w)
 })
-const previewFrameWidthPx = computed(() => Math.ceil(PAPER_PREVIEW_W * previewScale.value))
+const previewFrameWidthPx = computed(() => Math.ceil(previewPaperPx.value.w * previewScale.value))
 const previewFrameHeightPx = computed(() => {
-  const contentH = previewContentHeight.value || PAPER_PREVIEW_H
+  const contentH = previewContentHeight.value || previewPaperPx.value.h
   return Math.ceil(contentH * previewScale.value)
 })
+
+const effectivePaperLabel   = computed(() => PAPER_LABELS[effectivePaperKey.value]   || PAPER_LABELS.letter)
+const recommendedPaperLabel = computed(() => PAPER_LABELS[recommendedPaperKey.value] || PAPER_LABELS.letter)
+const configuredPaperKey    = computed(() => previewReport.value?.item_category_print_paper_size || 'letter')
+const configuredPaperLabel  = computed(() => PAPER_LABELS[configuredPaperKey.value]  || PAPER_LABELS.letter)
+const paperWasUpgraded      = computed(() => recommendedPaperKey.value !== configuredPaperKey.value)
+
+// Wait until every <img> inside `root` has either loaded or errored — the
+// scale wrapper's height would otherwise be captured before the tenant
+// logo contributes its real pixels and stick at a too-small value.
+function waitForImages(root) {
+  if (!root) return Promise.resolve()
+  const imgs = Array.from(root.querySelectorAll('img'))
+  if (!imgs.length) return Promise.resolve()
+  return Promise.all(
+    imgs.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise((res) => {
+            img.addEventListener('load', res, { once: true })
+            img.addEventListener('error', res, { once: true })
+          }),
+    ),
+  )
+}
+
+// Predict the smallest paper size the preview fits on using the same
+// content-volume heuristic LaboratoryView uses. Off-screen DOM measurement
+// drifted 30-100 px from the print popup in either direction, so we sum
+// the pixel budget from the actual report shape.
+function computeEffectivePaper() {
+  const report = previewReport.value
+  const configured = report?.item_category_print_paper_size || 'letter'
+  effectivePaperKey.value   = configured
+  recommendedPaperKey.value = configured
+  if (!report) return
+
+  const OVERHEAD = 130 + 28 + 130 + 22
+  const ITEM_HEADER    = 42
+  const ROW_HEIGHT     = 17
+  const SECTION_ROW    = 22
+  const NARRATIVE_LINE = 15
+  const NARRATIVE_CPL  = 90
+
+  let estimated = OVERHEAD
+  const items = report.items || []
+  for (const it of items) {
+    estimated += ITEM_HEADER
+    if (it.result_type === 'single' || it.result_type === 'panel') {
+      const values = it.values || []
+      const sections = new Set(values.map((v) => v.section).filter(Boolean))
+      estimated += sections.size * SECTION_ROW
+      estimated += values.length * ROW_HEIGHT
+      if (values.length === 0) estimated += ROW_HEIGHT
+    } else if (it.result_type === 'matrix') {
+      const cfg  = it.matrix_config || {}
+      const rows = Array.isArray(cfg.rows) ? cfg.rows : []
+      estimated += ROW_HEIGHT + rows.length * ROW_HEIGHT
+    } else {
+      const text = String(it.narrative_text || '—')
+      const lines = Math.max(1, Math.ceil(text.length / NARRATIVE_CPL))
+      estimated += lines * NARRATIVE_LINE
+    }
+  }
+
+  const USABLE_PAD = 45 + 15
+  const SAFETY_PX  = 30
+  const fits = (key) => {
+    const paper = PAPER_PX[key] || PAPER_PX.letter
+    return estimated + SAFETY_PX <= paper.h - USABLE_PAD
+  }
+
+  let key = configured
+  const seen = new Set()
+  const trace = []
+  for (let i = 0; i < 5 && !seen.has(key); i++) {
+    seen.add(key)
+    const paper = PAPER_PX[key] || PAPER_PX.letter
+    const cap = paper.h - USABLE_PAD
+    const ok  = fits(key)
+    trace.push({ key, estimated, cap, fits: ok })
+    if (ok) break
+    const next = PAPER_UPGRADE[key]
+    if (!next) break
+    key = next
+  }
+  // eslint-disable-next-line no-console
+  console.debug('[test-item-print] paper prediction', { configured, picked: key, trace })
+  recommendedPaperKey.value = key
+  effectivePaperKey.value   = key
+}
+
+// Print the preview by opening an isolated popup — same approach as
+// LaboratoryView.doPrint. Copies the app's stylesheets so Tailwind classes
+// stay intact, wraps the report in a table so <thead> repeats on every
+// physical page, and pins signatures to the bottom of the last page.
+function doPrint() {
+  const src = document.getElementById('lab-print-area')
+  if (!src) { window.print(); return }
+
+  const _paperMap = {
+    'A4':          { w: 794,  h: 1123 },
+    'A5':          { w: 559,  h: 794  },
+    'letter':      { w: 816,  h: 1056 },
+    '8.5in 14in':  { w: 816,  h: 1344 },
+    '5.5in 8.5in': { w: 528,  h: 816  },
+    '8.5in 5.5in': { w: 816,  h: 528  },
+    '8.5in 7in':   { w: 816,  h: 672  },
+  }
+  const _winPaper = _paperMap[
+    ({ full:'A4', half:'A5', letter:'letter', legal:'8.5in 14in', half_letter:'5.5in 8.5in',
+       half_letter_crosswise:'8.5in 5.5in', half_legal_crosswise:'8.5in 7in' })[
+      effectivePaperKey.value || 'letter'
+    ]
+  ] || { w: 816, h: 1056 }
+  const winW = _winPaper.w + 20
+  const winH = Math.min(_winPaper.h + 40, screen.availHeight - 40)
+
+  const win = window.open('', '_blank', `width=${winW},height=${winH}`)
+  if (!win) { window.print(); return }
+
+  const styleTags = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+    .map((n) => n.outerHTML)
+    .join('\n')
+
+  const title = `Test Item Preview ${previewReport.value?.items?.[0]?.test_code || ''}`
+
+  const paperSpec = ({
+    full:                   { size: 'A4',           orientation: 'portrait'  },
+    half:                   { size: 'A5',           orientation: 'portrait'  },
+    letter:                 { size: 'letter',       orientation: 'portrait'  },
+    legal:                  { size: '8.5in 14in',   orientation: 'portrait'  },
+    half_letter:            { size: '5.5in 8.5in',  orientation: 'portrait'  },
+    half_letter_crosswise:  { size: '8.5in 5.5in',  orientation: 'landscape' },
+    half_legal_crosswise:   { size: '8.5in 7in',    orientation: 'landscape' },
+  })[effectivePaperKey.value || 'letter'] || { size: 'letter', orientation: 'portrait' }
+
+  const clone = src.cloneNode(true)
+  const headerEl = clone.querySelector('#lab-print-header')
+  const bodyEl   = clone.querySelector('#lab-print-body')
+  let printMarkup = clone.outerHTML
+
+  const paperPxMap = {
+    'A4':          { w: 794,  h: 1123 },
+    'A5':          { w: 559,  h: 794  },
+    'letter':      { w: 816,  h: 1056 },
+    '8.5in 14in':  { w: 816,  h: 1344 },
+    '5.5in 8.5in': { w: 528,  h: 816  },
+    '8.5in 5.5in': { w: 816,  h: 528  },
+    '8.5in 7in':   { w: 816,  h: 672  },
+  }
+  const paperPx = paperPxMap[paperSpec.size] || paperPxMap['letter']
+
+  if (headerEl && bodyEl) {
+    printMarkup = `
+      <div id="lab-print-area" class="relative bg-white dark:bg-slate-900 p-6 text-sm text-slate-900 dark:text-slate-100" style="padding: 0 12mm 12mm; margin: 0 auto; width: ${paperPx.w}px; box-sizing: border-box;">
+        ${clone.querySelector('.pointer-events-none.absolute')?.outerHTML || ''}
+        <table class="lab-print-table" style="width:100%; border-collapse: collapse;">
+          <thead class="lab-print-thead">
+            <tr><td class="lab-print-cell">${headerEl.innerHTML}</td></tr>
+          </thead>
+          <tbody class="lab-print-tbody">
+            <tr><td class="lab-print-cell">${bodyEl.innerHTML}</td></tr>
+          </tbody>
+        </table>
+      </div>`
+  }
+
+  const closeScript = '<' + '/scr' + 'ipt>'
+  const css = `
+    html, body { background: #fff; margin: 0; padding: 0; }
+    #lab-print-area { padding: 0 12mm 12mm; margin: 0; }
+    @page { size: ${paperSpec.size} ${paperSpec.orientation}; margin: 0; }
+
+    #lab-print-area, #lab-print-area * {
+      overflow: visible !important;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    #lab-print-area .line-clamp-1,
+    #lab-print-area .line-clamp-2,
+    #lab-print-area .line-clamp-3,
+    #lab-print-area .truncate {
+      -webkit-line-clamp: unset !important;
+      display: block !important;
+      white-space: normal !important;
+      text-overflow: clip !important;
+    }
+    .lab-print-thead { display: table-header-group; }
+    .lab-print-cell  { padding: 0; }
+    .lab-print-thead .lab-print-cell { padding-top: 0.2in; }
+
+    html, body { height: 100%; }
+    #lab-print-area {
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .lab-print-table { height: 100%; }
+    .lab-print-tbody, .lab-print-tbody tr, .lab-print-tbody .lab-print-cell {
+      height: 100%;
+      vertical-align: top;
+    }
+    #lab-print-body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    .lab-signature-block { margin-top: auto; }
+  `
+
+  win.document.open()
+  win.document.write(
+    `<!doctype html><html><head><meta charset="utf-8" /><title>${title}</title>${styleTags}<style>${css}</style><script>${closeScript}</head><body>${printMarkup}</body></html>`
+  )
+  win.document.close()
+
+  async function waitForPopupReady(w) {
+    const doc = w.document
+    const perResourceTimeout = 3000
+    const withTimeout = (p) => Promise.race([
+      p, new Promise((res) => setTimeout(res, perResourceTimeout)),
+    ])
+    const linkWaits = Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map((l) => {
+      if (l.sheet) return Promise.resolve()
+      return withTimeout(new Promise((res) => {
+        l.addEventListener('load',  res, { once: true })
+        l.addEventListener('error', res, { once: true })
+      }))
+    })
+    const imgWaits = Array.from(doc.images).map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+      if (typeof img.decode === 'function') return withTimeout(img.decode().catch(() => {}))
+      return withTimeout(new Promise((res) => {
+        img.addEventListener('load',  res, { once: true })
+        img.addEventListener('error', res, { once: true })
+      }))
+    })
+    await Promise.all([...linkWaits, ...imgWaits])
+    if (doc.fonts && typeof doc.fonts.ready?.then === 'function') {
+      await withTimeout(doc.fonts.ready)
+    }
+    await new Promise((r) => w.requestAnimationFrame(() => w.requestAnimationFrame(r)))
+  }
+
+  const trigger = async () => {
+    await waitForPopupReady(win)
+    const cleanup = () => { try { win.close() } catch (_) { /* already closed */ } }
+    win.addEventListener('afterprint', cleanup, { once: true })
+    setTimeout(cleanup, 15000)
+    win.focus()
+    win.print()
+  }
+  if (win.document.readyState === 'complete') trigger()
+  else win.addEventListener('load', trigger, { once: true })
+}
 
 function typeBadgeClass(t) {
   switch (t) {
@@ -740,7 +1057,7 @@ function typeBadgeClass(t) {
     case 'panel':     return 'bg-brand-100 text-brand-700'
     case 'narrative': return 'bg-amber-100 text-amber-700'
     case 'culture':   return 'bg-fuchsia-100 text-fuchsia-700'
-    default:          return 'bg-slate-100 text-slate-700'
+    default:          return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
   }
 }
 </script>
@@ -749,11 +1066,11 @@ function typeBadgeClass(t) {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-2 gap-3 shrink-0">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Total Test Items</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Total Test Items</div>
         <div class="mt-1 text-2xl font-bold">{{ totalCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Active</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Active</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ activeCount }}</div>
       </div></div>
     </div>
@@ -761,8 +1078,8 @@ function typeBadgeClass(t) {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Test Items</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Test Items</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ filtered.length }} shown
             <span v-if="tests.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -832,7 +1149,7 @@ function typeBadgeClass(t) {
           :columns="['bar','lines','lines','pill','pill','bar','dot']"
         />
         <table class="table" v-else-if="filtered.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-24">Code</th>
               <th>Name</th>
@@ -845,7 +1162,7 @@ function typeBadgeClass(t) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in filtered" :key="t.uuid" :class="t.status !== 'active' && 'bg-slate-50/50'">
+            <tr v-for="t in filtered" :key="t.uuid" :class="t.status !== 'active' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td class="font-mono text-xs font-semibold">
                 <button type="button"
                         class="text-brand-600 hover:text-brand-800 hover:underline"
@@ -853,15 +1170,15 @@ function typeBadgeClass(t) {
                         :title="`View ${t.code}`">{{ t.code }}</button>
               </td>
               <td>
-                <span class="font-medium text-slate-800">{{ t.name }}</span>
-                <div v-if="t.reference_range" class="text-[11px] text-slate-500">Ref: {{ t.reference_range }}</div>
+                <span class="font-medium text-slate-800 dark:text-slate-100">{{ t.name }}</span>
+                <div v-if="t.reference_range" class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">Ref: {{ t.reference_range }}</div>
                 <div v-if="t.status !== 'active'" class="text-[10px] font-semibold uppercase tracking-wider text-rose-600">
                   Hidden
                 </div>
               </td>
               <td>
-                <div class="text-sm text-slate-700">{{ t.item_category_name || '—' }}</div>
-                <div class="text-[11px] text-slate-500">{{ t.item_group_name || '' }}</div>
+                <div class="text-sm text-slate-700 dark:text-slate-200">{{ t.item_category_name || '—' }}</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ t.item_group_name || '' }}</div>
               </td>
               <td>
                 <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
@@ -869,9 +1186,9 @@ function typeBadgeClass(t) {
                   {{ t.result_type }}
                 </span>
               </td>
-              <td class="text-sm text-slate-600">
+              <td class="text-sm text-slate-600 dark:text-slate-300">
                 {{ t.specimen || '—' }}
-                <span v-if="t.unit_of_measure" class="ml-1 text-[11px] text-slate-400">· {{ t.unit_of_measure }}</span>
+                <span v-if="t.unit_of_measure" class="ml-1 text-[11px] text-slate-400 dark:text-slate-500">· {{ t.unit_of_measure }}</span>
               </td>
               <td class="text-right font-semibold">{{ money(t.price) }}</td>
               <td>
@@ -897,10 +1214,10 @@ function typeBadgeClass(t) {
     <Modal :show="showView" :title="'View Test Item'" size="lg" @close="closeView">
       <div v-if="viewing" class="space-y-4">
         <!-- Header block: name + category badge + status -->
-        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div class="min-w-0">
             <div class="flex items-center gap-2">
-              <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">{{ viewing.code }}</span>
+              <span class="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 dark:text-slate-200">{{ viewing.code }}</span>
               <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
                     :class="typeBadgeClass(viewing.result_type)">
                 {{ viewing.result_type }}
@@ -911,67 +1228,67 @@ function typeBadgeClass(t) {
                 {{ viewing.status === 'active' ? 'Active' : 'Inactive' }}
               </span>
             </div>
-            <h3 class="mt-1 text-lg font-bold text-slate-800">{{ viewing.name }}</h3>
-            <div class="mt-0.5 text-xs text-slate-500">
+            <h3 class="mt-1 text-lg font-bold text-slate-800 dark:text-slate-100">{{ viewing.name }}</h3>
+            <div class="mt-0.5 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
               <span v-if="viewing.item_group_name">{{ viewing.item_group_name }} · </span>
               <span>{{ viewing.item_category_name || '—' }}</span>
             </div>
           </div>
           <div class="text-right">
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Price</div>
-            <div class="text-xl font-bold text-slate-800">{{ money(viewing.price) }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Price</div>
+            <div class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ money(viewing.price) }}</div>
           </div>
         </div>
 
         <!-- Detail grid -->
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Result Type</div>
-            <div class="mt-0.5 text-sm text-slate-800">{{ resultTypeLabel(viewing.result_type) }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Result Type</div>
+            <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">{{ resultTypeLabel(viewing.result_type) }}</div>
           </div>
           <div>
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Specimen / Modality</div>
-            <div class="mt-0.5 text-sm text-slate-800">{{ viewing.specimen || '—' }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Specimen / Modality</div>
+            <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">{{ viewing.specimen || '—' }}</div>
           </div>
           <div>
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Unit of Measure</div>
-            <div class="mt-0.5 text-sm text-slate-800">{{ viewing.unit_of_measure || '—' }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Unit of Measure</div>
+            <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">{{ viewing.unit_of_measure || '—' }}</div>
           </div>
           <div class="sm:col-span-2">
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reference Range</div>
-            <div class="mt-0.5 text-sm text-slate-800">{{ viewing.reference_range || '—' }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Reference Range</div>
+            <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">{{ viewing.reference_range || '—' }}</div>
           </div>
           <div>
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Created</div>
-            <div class="mt-0.5 text-xs text-slate-600">{{ formatDateTime(viewing.created_at) }}</div>
-            <div v-if="viewing.created_by" class="text-[11px] text-slate-500">by {{ viewing.created_by }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Created</div>
+            <div class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{{ formatDateTime(viewing.created_at) }}</div>
+            <div v-if="viewing.created_by" class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">by {{ viewing.created_by }}</div>
           </div>
         </div>
 
         <div v-if="viewing.description">
-          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Description</div>
-          <p class="mt-0.5 whitespace-pre-line text-sm text-slate-700">{{ viewing.description }}</p>
+          <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Description</div>
+          <p class="mt-0.5 whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{{ viewing.description }}</p>
         </div>
 
         <!-- Components — panel-only, mirrors the edit-modal layout so users see
              the same table shape whether they're viewing or editing. -->
         <div v-if="viewing.result_type === 'panel'"
-             class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+             class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3">
           <div class="mb-2 flex items-center justify-between">
-            <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
+            <div class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Components ({{ viewComponents.length }})
             </div>
             <span v-if="viewLoading" class="text-[11px] text-brand-600">Loading…</span>
           </div>
 
           <div v-if="!viewLoading && !viewComponents.length"
-               class="rounded-md border border-dashed border-slate-300 bg-white p-3 text-center text-xs text-slate-500">
+               class="rounded-md border border-dashed border-slate-300 bg-white dark:bg-slate-900 p-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No components defined for this panel yet.
           </div>
 
-          <div v-else-if="viewComponents.length" class="overflow-hidden rounded-md border border-slate-200 bg-white">
+          <div v-else-if="viewComponents.length" class="overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <table class="w-full text-xs">
-              <thead class="bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-8 px-2 py-1.5 text-left">#</th>
                   <th class="w-24 px-2 py-1.5 text-left">Code</th>
@@ -981,12 +1298,12 @@ function typeBadgeClass(t) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(c, i) in viewComponents" :key="c.uuid" class="border-t border-slate-100">
-                  <td class="px-2 py-1 text-slate-400">{{ i + 1 }}</td>
-                  <td class="px-2 py-1 font-mono font-semibold text-slate-700">{{ c.code }}</td>
-                  <td class="px-2 py-1 text-slate-800">{{ c.name }}</td>
-                  <td class="px-2 py-1 text-slate-600">{{ c.unit_of_measure || '—' }}</td>
-                  <td class="px-2 py-1 text-slate-600">{{ c.reference_range || '—' }}</td>
+                <tr v-for="(c, i) in viewComponents" :key="c.uuid" class="border-t border-slate-100 dark:border-slate-800">
+                  <td class="px-2 py-1 text-slate-400 dark:text-slate-500">{{ i + 1 }}</td>
+                  <td class="px-2 py-1 font-mono font-semibold text-slate-700 dark:text-slate-200">{{ c.code }}</td>
+                  <td class="px-2 py-1 text-slate-800 dark:text-slate-100">{{ c.name }}</td>
+                  <td class="px-2 py-1 text-slate-600 dark:text-slate-300">{{ c.unit_of_measure || '—' }}</td>
+                  <td class="px-2 py-1 text-slate-600 dark:text-slate-300">{{ c.reference_range || '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1008,7 +1325,7 @@ function typeBadgeClass(t) {
               <option value="">All groups</option>
               <option v-for="g in activeGroups" :key="g.uuid" :value="g.uuid">{{ g.code }} · {{ g.name }}</option>
             </select>
-            <p class="mt-1 text-[11px] text-slate-500">Narrows the category picker. Optional.</p>
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">Narrows the category picker. Optional.</p>
           </div>
           <div>
             <label class="label">Item Category</label>
@@ -1032,7 +1349,7 @@ function typeBadgeClass(t) {
             <select v-model="form.result_type" required class="input">
               <option v-for="t in RESULT_TYPES" :key="t" :value="t">{{ RESULT_TYPE_LABELS[t] }}</option>
             </select>
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               The report renderer picks its template automatically from this value — no manual template choice.
             </p>
           </div>
@@ -1055,33 +1372,33 @@ function typeBadgeClass(t) {
               <input v-model="form.reference_range" maxlength="500" placeholder="70-110 mg/dL" class="input" />
             </div>
             <div class="sm:col-span-2">
-              <label class="label">Result values <span class="text-slate-400">(optional)</span></label>
+              <label class="label">Result values <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
               <input v-model="form.lookup_values" maxlength="1000" placeholder="Positive,Negative,Indeterminate"
                      class="input" />
-              <p class="mt-1 text-[11px] text-slate-500">
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Comma-separated allowed values. When set, the result editor renders a dropdown; leave blank for free-text.
               </p>
             </div>
           </template>
           <div class="sm:col-span-2">
-            <label class="label">Method <span class="text-slate-400">(optional)</span></label>
+            <label class="label">Method <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
             <input v-model="form.method" maxlength="500"
                    placeholder="Qualitative Immunochromatographic Assay" class="input" />
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Printed under the test name on the report.
             </p>
           </div>
           <template v-if="form.result_type === 'matrix'">
             <div>
-              <label class="label">Matrix rows <span class="text-slate-400">(comma-separated)</span></label>
+              <label class="label">Matrix rows <span class="text-slate-400 dark:text-slate-500">(comma-separated)</span></label>
               <input v-model="form.matrix_rows" class="input"
                      placeholder="Ascaris, Hookworm, Trichuris, E. histolytica, E. coli" />
             </div>
             <div>
-              <label class="label">Matrix columns <span class="text-slate-400">(comma-separated)</span></label>
+              <label class="label">Matrix columns <span class="text-slate-400 dark:text-slate-500">(comma-separated)</span></label>
               <input v-model="form.matrix_cols" class="input"
                      placeholder="Cyst, Trophozoite" />
-              <p class="mt-1 text-[11px] text-slate-500">
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Renders as a rows × cols grid on the result editor.
               </p>
             </div>
@@ -1089,7 +1406,7 @@ function typeBadgeClass(t) {
         </div>
 
         <div>
-          <label class="label">Description <span class="text-slate-400">(optional)</span></label>
+          <label class="label">Description <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
           <textarea v-model="form.description" rows="3" maxlength="2000" class="input"></textarea>
         </div>
 
@@ -1099,9 +1416,9 @@ function typeBadgeClass(t) {
              parent item is created first, then the components sync using
              the returned uuid. -->
         <div v-if="form.result_type === 'panel'"
-             class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+             class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3">
           <div class="mb-2 flex items-center justify-between">
-            <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
+            <div class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Components ({{ components.length }})
             </div>
             <div class="flex items-center gap-2">
@@ -1113,15 +1430,15 @@ function typeBadgeClass(t) {
           </div>
 
           <div v-if="!componentsLoading && !components.length"
-               class="rounded-md border border-dashed border-slate-300 bg-white p-3 text-center text-xs text-slate-500">
+               class="rounded-md border border-dashed border-slate-300 bg-white dark:bg-slate-900 p-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No components yet. Click <b>+ Add component</b> to define the sub-analytes for this panel.
           </div>
 
           <!-- Compact read-only list. Click a row (or Edit) to open the
                component modal where each field gets full modal width. -->
-          <div v-else-if="components.length" class="rounded-md border border-slate-200 bg-white">
+          <div v-else-if="components.length" class="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <table class="w-full text-xs">
-              <thead class="bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-16 px-2 py-1.5 text-left">Order</th>
                   <th class="px-2 py-1.5 text-left">Component</th>
@@ -1131,18 +1448,18 @@ function typeBadgeClass(t) {
               </thead>
               <tbody>
                 <tr v-for="(c, i) in components" :key="c.uuid || `new-${i}`"
-                    class="border-t border-slate-100 align-middle hover:bg-brand-50/30">
+                    class="border-t border-slate-100 dark:border-slate-800 align-middle hover:bg-brand-50/30">
                   <td class="px-2 py-1.5">
                     <div class="flex items-center gap-0.5">
-                      <span class="w-4 text-right text-[11px] text-slate-400">{{ i + 1 }}</span>
+                      <span class="w-4 text-right text-[11px] text-slate-400 dark:text-slate-500">{{ i + 1 }}</span>
                       <button type="button"
-                              class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                              class="rounded p-0.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-30"
                               :disabled="i === 0" @click.stop="moveComponentRow(i, -1)" title="Move up">
                         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5"
                              stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
                       </button>
                       <button type="button"
-                              class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                              class="rounded p-0.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-30"
                               :disabled="i === components.length - 1" @click.stop="moveComponentRow(i, 1)" title="Move down">
                         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5"
                              stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1150,22 +1467,22 @@ function typeBadgeClass(t) {
                     </div>
                   </td>
                   <td class="cursor-pointer px-2 py-1.5" @click="openEditComponent(i)">
-                    <div class="text-slate-800">
+                    <div class="text-slate-800 dark:text-slate-100">
                       <span class="font-mono text-[11px] font-semibold">{{ c.code || '—' }}</span>
                       <span class="ml-2">{{ c.name || '—' }}</span>
                     </div>
-                    <div class="text-[10px] text-slate-500">
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                       <span v-if="c.section">{{ c.section }}</span>
                       <span v-if="c.section && c.unit_of_measure"> · </span>
                       <span v-if="c.unit_of_measure">unit: {{ c.unit_of_measure }}</span>
                     </div>
                   </td>
-                  <td class="cursor-pointer px-2 py-1.5 text-slate-600" @click="openEditComponent(i)">
+                  <td class="cursor-pointer px-2 py-1.5 text-slate-600 dark:text-slate-300" @click="openEditComponent(i)">
                     <div v-if="c.reference_range" class="truncate">{{ c.reference_range }}</div>
-                    <div v-if="c.lookup_values" class="text-[10px] text-slate-500 truncate">
+                    <div v-if="c.lookup_values" class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 truncate">
                       Options: {{ c.lookup_values }}
                     </div>
-                    <div v-if="!c.reference_range && !c.lookup_values" class="text-slate-400">—</div>
+                    <div v-if="!c.reference_range && !c.lookup_values" class="text-slate-400 dark:text-slate-500">—</div>
                   </td>
                   <td class="px-2 py-1.5 text-right">
                     <button type="button" class="btn-secondary !py-0.5 !text-[11px]" @click="openEditComponent(i)">Edit</button>
@@ -1188,7 +1505,7 @@ function typeBadgeClass(t) {
           <div v-if="componentsError" class="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] text-rose-700">
             {{ componentsError }}
           </div>
-          <p class="mt-2 text-[11px] text-slate-500">
+          <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Row order is the display order on the printed report. Changes save with the parent item.
           </p>
         </div>
@@ -1222,10 +1539,10 @@ function typeBadgeClass(t) {
             <input v-model="componentDraft.name" maxlength="500" placeholder="White Blood Cell Count" class="input" />
           </div>
           <div class="sm:col-span-2">
-            <label class="label">Section <span class="text-slate-400">(sub-heading)</span></label>
+            <label class="label">Section <span class="text-slate-400 dark:text-slate-500">(sub-heading)</span></label>
             <input v-model="componentDraft.section" maxlength="100"
                    placeholder="Chemical Properties / Differential Count / …" class="input" />
-            <p class="mt-1 text-[11px] text-slate-500">
+            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Optional. Rows sharing the same section group under a bolded sub-heading on the printout.
             </p>
           </div>
@@ -1239,10 +1556,10 @@ function typeBadgeClass(t) {
           </div>
         </div>
         <div>
-          <label class="label">Result values <span class="text-slate-400">(optional)</span></label>
+          <label class="label">Result values <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
           <input v-model="componentDraft.lookup_values" maxlength="1000"
                  placeholder="Positive,Negative,Indeterminate" class="input" />
-          <p class="mt-1 text-[11px] text-slate-500">
+          <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Comma-separated. When set, the result editor renders a dropdown; blank = free-text input.
           </p>
         </div>
@@ -1284,20 +1601,20 @@ function typeBadgeClass(t) {
 
     <!-- ═══ Print Preview modal ═══
          Mock lab report so ops can see how a test item will render on the
-         printout without creating a real report. The `.print-preview-sheet`
-         inside is the only element that gets printed (see the @media print
-         rules at the bottom of the file). Users can add more items to the
-         preview from the picker at the top — grouped by category, same
-         layout as the actual laboratory report. -->
-    <Modal :show="showPrint" title="Print Preview" size="xl" @close="closePrint">
+         printout without creating a real report. Printing goes through an
+         isolated popup window (see doPrint()) — same flow as the real
+         LaboratoryView print, so the result is chrome-free and paginates
+         identically. Users can add more items from the same category to
+         preview a combined result page. -->
+    <Modal :show="showPrint" title="Print Preview" size="2xl" @close="closePrint">
       <div v-if="printError" class="mb-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
         {{ printError }}
       </div>
 
       <!-- Preview toolbar — Add another item + list of items in preview -->
-      <div class="no-print mb-3 flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 sm:flex-row sm:items-center sm:justify-between">
+      <div class="mb-3 flex flex-col gap-2 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex flex-wrap items-center gap-1 text-xs">
-          <span class="font-semibold text-slate-600">In preview:</span>
+          <span class="font-semibold text-slate-600 dark:text-slate-300">In preview:</span>
           <span v-for="it in printItems" :key="it.uuid"
                 class="inline-flex items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-brand-800">
             <span class="font-mono text-[10px]">{{ it.code }}</span>
@@ -1316,12 +1633,12 @@ function typeBadgeClass(t) {
       <!-- Item picker (search + click to add). Renders only when open. Scoped
            to the primary item's category — real lab reports are one category
            per report, so mixing them here would misrepresent the printout. -->
-      <div v-if="addPickerOpen" class="no-print mb-3 rounded-md border border-slate-200 p-2">
-        <div class="mb-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-600">
+      <div v-if="addPickerOpen" class="mb-3 rounded-md border border-slate-200 dark:border-slate-700 p-2">
+        <div class="mb-2 rounded bg-slate-50 dark:bg-slate-800 px-2 py-1 text-[11px] text-slate-600 dark:text-slate-300">
           Only items in the same category as
           <b>{{ printItems[0]?.name || 'the primary item' }}</b>
           <span v-if="printItems[0]?.item_category_name">
-            (<span class="text-slate-800">{{ printItems[0].item_category_name }}</span>)
+            (<span class="text-slate-800 dark:text-slate-100">{{ printItems[0].item_category_name }}</span>)
           </span>
           can be added.
         </div>
@@ -1333,93 +1650,91 @@ function typeBadgeClass(t) {
             {{ addSearching ? 'Searching…' : 'Search' }}
           </button>
         </div>
-        <div class="mt-2 max-h-56 overflow-auto rounded border border-slate-100">
+        <div class="mt-2 max-h-56 overflow-auto rounded border border-slate-100 dark:border-slate-800">
           <div v-if="!addResults.length && !addSearching"
-               class="p-3 text-center text-xs text-slate-400">
+               class="p-3 text-center text-xs text-slate-400 dark:text-slate-500">
             No matches in this category. Try a different keyword.
           </div>
           <button v-for="r in addResults" :key="r.uuid" type="button"
-                  class="flex w-full items-center justify-between border-b border-slate-100 px-2.5 py-1.5 text-left text-xs hover:bg-slate-50 last:border-none"
+                  class="flex w-full items-center justify-between border-b border-slate-100 dark:border-slate-800 px-2.5 py-1.5 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 last:border-none"
                   @click="addPrintItem(r)">
             <span class="min-w-0 flex-1 truncate">
-              <span class="font-mono text-[10px] text-slate-500">{{ r.code }}</span>
+              <span class="font-mono text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ r.code }}</span>
               <span class="ml-1">{{ r.name }}</span>
-              <span v-if="r.item_category_name" class="ml-2 text-slate-400">· {{ r.item_category_name }}</span>
+              <span v-if="r.item_category_name" class="ml-2 text-slate-400 dark:text-slate-500">· {{ r.item_category_name }}</span>
             </span>
             <span class="ml-2 text-[10px] font-semibold text-brand-600">+ Add</span>
           </button>
         </div>
       </div>
 
-      <!-- Sample lab report — SAME template LaboratoryView uses. The
-           `print-preview-sheet` wrapper is what the @media print rule below
-           surfaces; the LabReportPrintable inside carries the standard IDs
-           and full layout.
-           Wrapped in a scale frame so the mobile modal shows the true
-           printable layout shrunk to fit, instead of letting Tailwind
-           reflow into a narrow one-column mess. The `.lab-preview-scale-*`
-           classes are neutralized by `@media print` below so the transform
-           does NOT get baked into the printed output. -->
-      <div v-if="printLoading" class="h-40 animate-pulse rounded bg-slate-50"></div>
-      <div v-else-if="previewReport"
-           class="print-preview-sheet mx-auto rounded border border-slate-200 bg-white"
-           style="max-width: 820px;">
-        <div class="no-print bg-amber-50 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-widest text-amber-700">
+      <div v-if="printLoading" class="h-40 animate-pulse rounded bg-slate-50 dark:bg-slate-800"></div>
+      <template v-else-if="previewReport">
+        <!-- Paper-size note. Same predictor as LaboratoryView — measures the
+             content at the configured paper's width and recommends a larger
+             size when the content would overflow. Operator picks which one
+             to print. -->
+        <div class="mb-3 rounded-md border px-3 py-2 text-xs"
+             :class="paperWasUpgraded
+                     ? 'border-amber-200 bg-amber-50 text-amber-800'
+                     : 'border-brand-100 bg-brand-50/50 text-brand-800'">
+          <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <div>
+              <span class="font-semibold">Load into printer:</span>
+              <span class="ml-1">{{ effectivePaperLabel }}</span>
+            </div>
+            <template v-if="paperWasUpgraded">
+              <div class="text-[11px] italic">
+                Predicted: content wouldn't fit on {{ configuredPaperLabel }} — recommend {{ recommendedPaperLabel }}.
+              </div>
+              <div class="ml-auto flex gap-2">
+                <button type="button"
+                        class="rounded px-2 py-0.5 text-[11px] font-semibold"
+                        :class="effectivePaperKey === configuredPaperKey
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
+                        @click="effectivePaperKey = configuredPaperKey">
+                  Configured
+                </button>
+                <button type="button"
+                        class="rounded px-2 py-0.5 text-[11px] font-semibold"
+                        :class="effectivePaperKey === recommendedPaperKey
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
+                        @click="effectivePaperKey = recommendedPaperKey">
+                  Recommended
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="mb-2 rounded bg-amber-50 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-widest text-amber-700">
           Sample · Preview only · Not a real lab report
         </div>
-        <div :ref="setPreviewFrame" class="lab-preview-scale-frame">
-          <div class="lab-preview-scale-middle mx-auto overflow-hidden"
+
+        <!-- Scaled preview — mirrors LaboratoryView. Renders at true paper
+             width so the preview matches the print exactly; the outer scale
+             frame shrinks it on narrow modals instead of letting Tailwind
+             reflow into a mobile layout. -->
+        <div :ref="setPreviewFrame">
+          <div class="mx-auto overflow-hidden"
                :style="`width: ${previewFrameWidthPx}px; height: ${previewFrameHeightPx}px;`">
-            <div :ref="setPreviewContent" class="lab-preview-scale-inner"
-                 :style="`width: ${PAPER_PREVIEW_W}px;
+            <div :ref="setPreviewContent"
+                 :style="`width: ${previewPaperPx.w}px;
                           transform: scale(${previewScale});
                           transform-origin: top left;`">
-              <LabReportPrintable :report="previewReport" :tenant="tenant.current" :paper-height="PAPER_PREVIEW_H" />
+              <LabReportPrintable :report="previewReport" :tenant="tenant.current"
+                                  :paper-height="previewPaperPx.h" />
             </div>
           </div>
         </div>
-      </div>
+      </template>
 
       <template #footer>
         <button class="btn-secondary" @click="closePrint">Close</button>
-        <button class="btn-primary" @click="doPrintPreview">⎙ Print</button>
+        <button class="btn-primary" @click="doPrint">Print</button>
       </template>
     </Modal>
   </div>
 </template>
-
-<style scoped>
-/* Only the .print-preview-sheet element is printed. Hide the modal chrome
-   (title bar, buttons, add-picker) and the app frame so the sample report
-   comes out clean. */
-@media print {
-  @page { size: letter portrait; margin: 0.5in; }
-  html, body { background: white !important; }
-  body * { visibility: hidden !important; }
-  .print-preview-sheet, .print-preview-sheet * { visibility: visible !important; }
-  .print-preview-sheet {
-    position: fixed !important;
-    top: 0; left: 0; right: 0;
-    width: 100%;
-    max-width: none !important;
-    margin: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0.25in !important;
-  }
-  .no-print { display: none !important; }
-
-  /* Undo the on-screen scale wrapper for printing. Without this the
-     transform would rasterize the report at ~40% on mobile, and the
-     fixed pixel widths/heights on the middle box would clip content. */
-  .lab-preview-scale-middle {
-    width: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-  .lab-preview-scale-inner {
-    width: auto !important;
-    transform: none !important;
-  }
-}
-</style>

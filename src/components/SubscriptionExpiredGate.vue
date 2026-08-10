@@ -76,7 +76,7 @@ const shouldBlock = computed(() =>
 <template>
   <Modal :show="shouldBlock" title="Subscription expired" size="md" @close="() => {}">
     <div class="space-y-4">
-      <div class="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+      <div class="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-900/30 dark:text-rose-200">
         <svg viewBox="0 0 24 24" class="mt-0.5 h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
           <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -92,15 +92,15 @@ const shouldBlock = computed(() =>
       </div>
 
       <div class="grid grid-cols-2 gap-3 text-xs">
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <div class="text-[10px] uppercase tracking-widest text-slate-500">Expired on</div>
-          <div class="mt-0.5 text-sm font-semibold text-slate-800">
+        <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3 dark:border-slate-800 dark:bg-slate-800/60">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Expired on</div>
+          <div class="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
             {{ formatDate(subscriptionExpiryDate) }}
           </div>
         </div>
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <div class="text-[10px] uppercase tracking-widest text-slate-500">Overdue by</div>
-          <div class="mt-0.5 text-sm font-semibold text-rose-700">
+        <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3 dark:border-slate-800 dark:bg-slate-800/60">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Overdue by</div>
+          <div class="mt-0.5 text-sm font-semibold text-rose-700 dark:text-rose-300">
             <template v-if="subscriptionDaysRemaining != null">
               {{ -subscriptionDaysRemaining }} day{{ subscriptionDaysRemaining === -1 ? '' : 's' }}
             </template>
@@ -109,7 +109,7 @@ const shouldBlock = computed(() =>
         </div>
       </div>
 
-      <div class="text-[11px] text-slate-500">
+      <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
         Need to check what happened? Ask your platform administrator, or go to the Subscription page to review payment history.
       </div>
     </div>

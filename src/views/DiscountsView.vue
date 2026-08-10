@@ -181,11 +181,11 @@ function actionsFor(d) {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-2 gap-3 shrink-0">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Total Discounts</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Total Discounts</div>
         <div class="mt-1 text-2xl font-bold">{{ totalCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Active</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Active</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ activeCount }}</div>
       </div></div>
     </div>
@@ -193,8 +193,8 @@ function actionsFor(d) {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Discounts</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Discounts</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ filtered.length }} shown
             <span v-if="discounts.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -251,7 +251,7 @@ function actionsFor(d) {
           :columns="['bar','lines','pill','bar','pill','dot']"
         />
         <table class="table" v-else-if="filtered.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-24">Code</th>
               <th>Name</th>
@@ -263,10 +263,10 @@ function actionsFor(d) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="d in filtered" :key="d.uuid" :class="d.status !== 'active' && 'bg-slate-50/50'">
+            <tr v-for="d in filtered" :key="d.uuid" :class="d.status !== 'active' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td class="font-mono text-xs font-semibold">{{ d.code }}</td>
               <td>
-                <span class="font-medium text-slate-800">{{ d.name }}</span>
+                <span class="font-medium text-slate-800 dark:text-slate-100">{{ d.name }}</span>
                 <div v-if="d.status !== 'active'" class="text-[10px] font-semibold uppercase tracking-wider text-rose-600">
                   Hidden
                 </div>
@@ -280,7 +280,7 @@ function actionsFor(d) {
               <td class="text-right font-semibold">
                 <span v-if="d.discount_type === 'percent'">{{ Number(d.value) }}%</span>
                 <span v-else-if="d.discount_type === 'fix'">{{ money(d.value) }}</span>
-                <span v-else class="text-slate-400 italic">set at use time</span>
+                <span v-else class="text-slate-400 dark:text-slate-500 italic">set at use time</span>
               </td>
               <td>
                 <span class="badge" :class="d.status === 'active' ? 'badge-success' : 'badge-danger'">
@@ -289,7 +289,7 @@ function actionsFor(d) {
                   {{ d.status === 'active' ? 'Active' : 'Inactive' }}
                 </span>
               </td>
-              <td class="hidden md:table-cell text-xs text-slate-500">{{ formatDateTime(d.created_at) }}</td>
+              <td class="hidden md:table-cell text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(d.created_at) }}</td>
               <td class="text-right">
                 <RowActionMenu :actions="actionsFor(d)" />
               </td>
@@ -328,13 +328,13 @@ function actionsFor(d) {
               :placeholder="form.discount_type === 'open_amount' ? 'Set at use time' : ''"
               class="input"
             />
-            <p v-if="form.discount_type === 'percent'" class="mt-1 text-xs text-slate-500">
+            <p v-if="form.discount_type === 'percent'" class="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
               0–100 percent.
             </p>
-            <p v-else-if="form.discount_type === 'fix'" class="mt-1 text-xs text-slate-500">
+            <p v-else-if="form.discount_type === 'fix'" class="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Fixed peso amount subtracted from the subtotal.
             </p>
-            <p v-else class="mt-1 text-xs text-slate-500">
+            <p v-else class="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Amount is entered at the moment the discount is applied.
             </p>
           </div>

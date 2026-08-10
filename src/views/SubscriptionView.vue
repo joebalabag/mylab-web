@@ -622,8 +622,8 @@ onBeforeUnmount(() => {
     <div class="card">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Subscription</div>
-          <div class="text-xs text-slate-500">Your current plan, renewal, and payment history</div>
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Subscription</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Your current plan, renewal, and payment history</div>
         </div>
         <div class="flex items-center gap-2">
           <span v-if="loading" class="text-xs text-brand-600">Refreshing…</span>
@@ -650,41 +650,41 @@ onBeforeUnmount(() => {
 
       <!-- Status block -->
       <div class="card-body grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <div class="text-[10px] uppercase tracking-widest text-slate-500">Plan</div>
-          <div class="mt-0.5 text-sm font-semibold text-slate-800 break-words">
+        <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Plan</div>
+          <div class="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100 break-words">
             {{ planLabel(subscription.current_subscription_plan_uuid)?.name
                || planLabel(subscription.current_subscription_plan_uuid)?.code
                || (subscription.current_subscription_plan_uuid ? '—' : 'No plan on file') }}
           </div>
           <div v-if="planLabel(subscription.current_subscription_plan_uuid)?.code"
-               class="text-[11px] font-mono text-slate-500">
+               class="text-[11px] font-mono text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ planLabel(subscription.current_subscription_plan_uuid).code }}
           </div>
         </div>
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <div class="text-[10px] uppercase tracking-widest text-slate-500">Amount</div>
-          <div class="mt-0.5 text-sm font-semibold text-slate-800">
+        <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Amount</div>
+          <div class="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
             {{ subscription.current_subscription_plan_amount ? money(subscription.current_subscription_plan_amount) : '—' }}
           </div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ subscription.current_subscription_days ? `${subscription.current_subscription_days} days` : '' }}
           </div>
         </div>
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <div class="text-[10px] uppercase tracking-widest text-slate-500">Started</div>
-          <div class="mt-0.5 text-sm text-slate-800">{{ formatDate(subscription.current_subscription_start) || '—' }}</div>
+        <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Started</div>
+          <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">{{ formatDate(subscription.current_subscription_start) || '—' }}</div>
         </div>
         <div class="rounded-lg border p-3"
              :class="subscriptionState === 'expired' ? 'border-rose-200 bg-rose-50'
                       : subscriptionState === 'expiring-soon' ? 'border-amber-200 bg-amber-50'
-                      : 'border-slate-100 bg-slate-50'">
-          <div class="text-[10px] uppercase tracking-widest text-slate-500">Expires</div>
-          <div class="mt-0.5 text-sm text-slate-800">{{ formatDate(subscription.current_subscription_expiry) || '—' }}</div>
+                      : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800'">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Expires</div>
+          <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">{{ formatDate(subscription.current_subscription_expiry) || '—' }}</div>
           <div v-if="subscriptionDaysRemaining != null" class="text-[11px]"
                :class="subscriptionState === 'expired' ? 'text-rose-700'
                         : subscriptionState === 'expiring-soon' ? 'text-amber-700'
-                        : 'text-slate-500'">
+                        : 'text-slate-500 dark:text-slate-400 dark:text-slate-500'">
             <template v-if="subscriptionDaysRemaining < 0">
               Expired {{ -subscriptionDaysRemaining }} day{{ subscriptionDaysRemaining === -1 ? '' : 's' }} ago
             </template>
@@ -712,7 +712,7 @@ onBeforeUnmount(() => {
           </svg>
           <div class="min-w-0 flex-1">
             <div class="text-xs font-bold uppercase tracking-widest text-brand-700">Next subscription queued</div>
-            <div class="mt-0.5 text-sm text-slate-800">
+            <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">
               <b>{{ scheduledCycle.subscription_plan_name || scheduledCycle.subscription_plan_code || 'Subscription plan' }}</b>
               <span v-if="scheduledCycle.subscription_plan_amount">
                 · {{ money(scheduledCycle.subscription_plan_amount) }}
@@ -721,12 +721,12 @@ onBeforeUnmount(() => {
                 · {{ scheduledCycle.subscription_days }} day{{ scheduledCycle.subscription_days === 1 ? '' : 's' }}
               </span>
             </div>
-            <div class="text-xs text-slate-600">
+            <div class="text-xs text-slate-600 dark:text-slate-300">
               Activates on <b>{{ formatDate(scheduledCycle.subscription_start) || '—' }}</b>
               (when your current plan expires) and runs until
               <b>{{ formatDate(scheduledCycle.subscription_end) || '—' }}</b>.
             </div>
-            <div class="mt-1 text-[11px] text-slate-500">
+            <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               You've already paid — no need to submit another payment until this cycle nears its own expiry.
             </div>
           </div>
@@ -734,17 +734,17 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Renewal form -->
-      <div class="border-t border-slate-100 px-4 py-4">
+      <div class="border-t border-slate-100 dark:border-slate-800 px-4 py-4">
         <button type="button"
                 class="flex w-full items-center justify-between text-left"
                 :aria-expanded="renewOpen"
                 aria-controls="renew-form-body"
                 @click="renewOpen = !renewOpen">
           <div>
-            <div class="text-sm font-semibold text-slate-800">Submit Payment (Renew / Continue)</div>
-            <div class="text-xs text-slate-500">Attach your GCash / bank-transfer receipt. Platform will review and activate.</div>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Submit Payment (Renew / Continue)</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Attach your GCash / bank-transfer receipt. Platform will review and activate.</div>
           </div>
-          <span class="ml-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+          <span class="ml-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 dark:text-slate-500 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                 :title="renewOpen ? 'Collapse' : 'Expand'">
             <svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform"
                  :class="renewOpen ? 'rotate-180' : ''"
@@ -760,10 +760,10 @@ onBeforeUnmount(() => {
              class="mt-3 rounded-md border px-3 py-2 text-xs"
              :class="scheduledCycle
                      ? 'border-brand-200 bg-brand-50 text-brand-900'
-                     : 'border-slate-200 bg-slate-50 text-slate-700'">
+                     : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200'">
           <div class="flex items-start gap-2">
             <svg viewBox="0 0 24 24" class="mt-0.5 h-4 w-4 shrink-0"
-                 :class="scheduledCycle ? 'text-brand-600' : 'text-slate-500'"
+                 :class="scheduledCycle ? 'text-brand-600' : 'text-slate-500 dark:text-slate-400 dark:text-slate-500'"
                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"/>
               <line x1="12" y1="16" x2="12" y2="12"/>
@@ -779,13 +779,13 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div v-else-if="subscriptionState === 'none'">
-              <div class="font-semibold text-slate-800">No subscription plan on file</div>
+              <div class="font-semibold text-slate-800 dark:text-slate-100">No subscription plan on file</div>
               <div class="mt-0.5">
                 Your account hasn't been assigned a plan yet. The platform will provision an initial plan for you — payment submission opens once that plan enters its near-expiry window.
               </div>
             </div>
             <div v-else>
-              <div class="font-semibold text-slate-800">Renewal not yet available</div>
+              <div class="font-semibold text-slate-800 dark:text-slate-100">Renewal not yet available</div>
               <div class="mt-0.5">
                 Your subscription is still active. You'll be able to submit a payment once your plan enters its near-expiry window<span
                   v-if="Number(subscription.current_subscription_expiry_warning_days) > 0">
@@ -812,8 +812,8 @@ onBeforeUnmount(() => {
                 @click="pickPlan(p.uuid)"
                 class="relative rounded-xl border p-4 text-left transition"
                 :class="selectedPlanUuid === p.uuid
-                        ? 'border-brand-500 ring-2 ring-brand-200 bg-white shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-brand-300 hover:shadow-sm'"
+                        ? 'border-brand-500 ring-2 ring-brand-200 bg-white dark:bg-slate-900 shadow-sm'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-brand-300 hover:shadow-sm'"
               >
                 <svg v-if="selectedPlanUuid === p.uuid"
                      viewBox="0 0 24 24" class="absolute right-2 top-2 h-4 w-4 text-brand-600"
@@ -825,19 +825,19 @@ onBeforeUnmount(() => {
                   <span class="rounded bg-brand-100 px-2 py-0.5 font-mono text-[10px] font-bold text-brand-700">{{ p.code }}</span>
                   <span v-if="p.uuid === subscription.current_subscription_plan_uuid" class="badge-success">Current</span>
                 </div>
-                <div class="mt-1 text-base font-bold text-slate-800">{{ p.name }}</div>
+                <div class="mt-1 text-base font-bold text-slate-800 dark:text-slate-100">{{ p.name }}</div>
                 <div class="mt-2 flex items-baseline gap-1">
-                  <span class="text-xl font-black text-slate-900">{{ money(p.price) }}</span>
-                  <span class="text-xs text-slate-500">
+                  <span class="text-xl font-black text-slate-900 dark:text-slate-100">{{ money(p.price) }}</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     / {{ p.days_duration }} day{{ p.days_duration === 1 ? '' : 's' }}
                   </span>
                 </div>
 
-                <div v-if="p.days_warning_for_near_expiry" class="mt-1 text-[11px] text-slate-500">
+                <div v-if="p.days_warning_for_near_expiry" class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   🔔 Warn {{ p.days_warning_for_near_expiry }} day{{ p.days_warning_for_near_expiry === 1 ? '' : 's' }} before expiry
                 </div>
 
-                <ul v-if="featuresToList(p.features).length" class="mt-3 space-y-1 text-xs text-slate-600">
+                <ul v-if="featuresToList(p.features).length" class="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
                   <li v-for="(f, i) in featuresToList(p.features)" :key="i" class="flex items-start gap-1.5">
                     <svg viewBox="0 0 24 24" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.5"
                          stroke-linecap="round" stroke-linejoin="round">
@@ -860,19 +860,19 @@ onBeforeUnmount(() => {
                   </span>
                   <span v-if="selectedPlanUuid === subscription.current_subscription_plan_uuid" class="badge-success">Current</span>
                 </div>
-                <div class="mt-1 text-base font-bold text-slate-800">
+                <div class="mt-1 text-base font-bold text-slate-800 dark:text-slate-100">
                   {{ planLabel(selectedPlanUuid).name || 'Subscription plan' }}
                 </div>
                 <div class="mt-2 flex items-baseline gap-1">
-                  <span class="text-xl font-black text-slate-900">{{ money(planLabel(selectedPlanUuid).price) }}</span>
-                  <span class="text-xs text-slate-500">
+                  <span class="text-xl font-black text-slate-900 dark:text-slate-100">{{ money(planLabel(selectedPlanUuid).price) }}</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     / {{ planLabel(selectedPlanUuid).days }} day{{ planLabel(selectedPlanUuid).days === 1 ? '' : 's' }}
                   </span>
                 </div>
               </div>
               <input v-model="renewForm.subscription_plan_uuid" class="input font-mono"
                      placeholder="Paste subscription plan UUID" />
-              <p class="text-[11px] text-slate-500">
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Enter any plan UUID to switch. The platform will confirm the plan on approval.
               </p>
             </div>
@@ -886,8 +886,8 @@ onBeforeUnmount(() => {
                class="sm:col-span-2 rounded-lg border border-brand-200 bg-brand-50/40 p-4">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <div class="text-sm font-semibold text-slate-800">Pay instantly with PayPal</div>
-                <div class="mt-0.5 text-xs text-slate-600">
+                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Pay instantly with PayPal</div>
+                <div class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
                   Skip the receipt upload — your subscription activates automatically as soon as PayPal confirms the payment.
                   <span v-if="selectedPlan">
                     You'll be charged <b>{{ money(selectedPlan.price) }}</b>
@@ -904,27 +904,27 @@ onBeforeUnmount(() => {
                  class="mt-2 rounded-md border px-3 py-2 text-xs"
                  :class="paypalStatusTone === 'emerald' ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                           : paypalStatusTone === 'rose' ? 'border-rose-200 bg-rose-50 text-rose-800'
-                          : 'border-slate-200 bg-white text-slate-700'">
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200'">
               {{ paypalStatus }}
             </div>
-            <div class="mt-3 flex items-center gap-2 text-[11px] text-slate-500">
-              <div class="h-px flex-1 bg-slate-200"></div>
+            <div class="mt-3 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+              <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
               <span>or upload a receipt below</span>
-              <div class="h-px flex-1 bg-slate-200"></div>
+              <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
             </div>
           </div>
 
           <!-- LEFT: Payment instructions -->
-          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <div class="text-sm font-semibold text-slate-800">Payment Instructions</div>
+          <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Payment Instructions</div>
 
             <!-- QR -->
             <div class="mt-3 flex flex-col items-center">
-              <div class="flex aspect-square w-40 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white sm:w-48">
+              <div class="flex aspect-square w-40 items-center justify-center overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 sm:w-48">
                 <transition name="fade" mode="out-in">
                   <img v-if="qrImageForPayment" :key="qrImageForPayment"
                        :src="qrImageForPayment" class="h-full w-full object-contain" alt="Payment QR" />
-                  <div v-else class="p-4 text-center text-xs text-slate-500">
+                  <div v-else class="p-4 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     <svg viewBox="0 0 24 24" class="mx-auto h-10 w-10 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5"
                          stroke-linecap="round" stroke-linejoin="round">
                       <rect x="3" y="3" width="7" height="7" rx="1"/>
@@ -933,38 +933,38 @@ onBeforeUnmount(() => {
                       <path d="M14 14h3v3h-3zM17 17h4M14 20h3M20 14v7"/>
                     </svg>
                     <div class="mt-2">Payment QR</div>
-                    <div class="text-[10px] text-slate-400">
+                    <div class="text-[10px] text-slate-400 dark:text-slate-500">
                       Select a plan first.
                     </div>
                   </div>
                 </transition>
               </div>
               <div v-if="selectedPlan" class="mt-2 text-center">
-                <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Scan for</div>
-                <div class="text-sm font-semibold text-slate-800">{{ selectedPlan.name }}</div>
-                <div class="font-mono text-[10px] text-slate-500">{{ selectedPlan.code }} · {{ money(selectedPlan.price) }}</div>
+                <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Scan for</div>
+                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ selectedPlan.name }}</div>
+                <div class="font-mono text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ selectedPlan.code }} · {{ money(selectedPlan.price) }}</div>
               </div>
-              <div v-else-if="!selectedPlanUuid" class="mt-2 text-center text-[11px] text-slate-500">
+              <div v-else-if="!selectedPlanUuid" class="mt-2 text-center text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Pick a plan above to load its QR.
               </div>
             </div>
 
             <!-- Steps + account -->
             <div class="mt-4 space-y-3 text-sm">
-              <ol class="list-inside list-decimal space-y-1 text-slate-700">
+              <ol class="list-inside list-decimal space-y-1 text-slate-700 dark:text-slate-200">
                 <li>Select subscription plan.</li>
                 <li>Scan the QR code for payment using your payment app.</li>
                 <li>Take a screenshot of the confirmation page (must show reference number).</li>
                 <li>Fill in the form on the right and upload the screenshot. Platform will approve within 1–2 business day.</li>
               </ol>
               <div v-if="selectedPlan?.account_type || selectedPlan?.account_name || selectedPlan?.account_number"
-                   class="rounded-md border border-slate-200 bg-white p-3 text-xs">
-                <div class="font-semibold text-slate-700">
+                   class="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-xs">
+                <div class="font-semibold text-slate-700 dark:text-slate-200">
                   {{ selectedPlan.account_type
                      ? `Pay via ${accountTypeLabel(selectedPlan.account_type)}`
                      : 'Payee account' }}
                 </div>
-                <div class="mt-1 text-slate-600">
+                <div class="mt-1 text-slate-600 dark:text-slate-300">
                   <b v-if="selectedPlan.account_name">{{ selectedPlan.account_name }}</b>
                   <br v-if="selectedPlan.account_name" />
                   <template v-if="selectedPlan.account_number">
@@ -981,11 +981,11 @@ onBeforeUnmount(() => {
             <div>
               <label class="label">Receipt image *</label>
               <div class="flex items-start gap-3">
-                <div class="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                <div class="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-800">
                   <img v-if="renewFileUrl" :src="renewFileUrl" class="h-full w-full object-contain" />
-                  <div v-else class="text-center text-[10px] text-slate-500 px-1">Upload a screenshot</div>
+                  <div v-else class="text-center text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 px-1">Upload a screenshot</div>
                   <div v-if="extractionBusy"
-                       class="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                       class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
                     <svg viewBox="0 0 24 24" class="h-6 w-6 animate-spin text-brand-600" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M21 12a9 9 0 11-6.219-8.56"/>
                     </svg>
@@ -997,7 +997,7 @@ onBeforeUnmount(() => {
                     <input id="renew-receipt-input" type="file" accept="image/*" class="hidden" @change="onReceiptPick" />
                   </label>
                   <button v-if="renewFile" type="button" class="btn-ghost !text-xs" @click="discardReceiptPick">Discard</button>
-                  <p class="text-[11px] text-slate-500">
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     JPG/PNG/WebP, up to 10 MB. We'll try to auto-fill the fields below from the image.
                   </p>
                 </div>
@@ -1007,7 +1007,7 @@ onBeforeUnmount(() => {
                    class="mt-2 rounded-md border px-3 py-2 text-xs"
                    :class="extractionTone === 'emerald' ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                             : extractionTone === 'rose' ? 'border-rose-200 bg-rose-50 text-rose-800'
-                            : 'border-slate-200 bg-slate-50 text-slate-700'">
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200'">
                 <div class="flex items-start gap-2">
                   <svg v-if="extractionBusy" viewBox="0 0 24 24" class="mt-0.5 h-3.5 w-3.5 animate-spin shrink-0" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 12a9 9 0 11-6.219-8.56"/>
@@ -1025,7 +1025,7 @@ onBeforeUnmount(() => {
               <div class="sm:col-span-2">
                 <label class="label">Amount paid *</label>
                 <div class="relative">
-                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-slate-500">₱</span>
+                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500">₱</span>
                   <input v-model.number="renewForm.amount_paid" type="number" min="0" step="0.01"
                          class="input pl-7 font-mono" placeholder="0.00" required />
                 </div>
@@ -1068,11 +1068,11 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Payment history -->
-      <div class="border-t border-slate-100 px-4 py-4">
+      <div class="border-t border-slate-100 dark:border-slate-800 px-4 py-4">
         <div class="flex items-center justify-between">
           <div>
-            <div class="text-sm font-semibold text-slate-800">Payment history</div>
-            <div class="text-xs text-slate-500">Most recent submissions</div>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Payment history</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Most recent submissions</div>
           </div>
           <button class="btn-ghost !text-xs" :disabled="paymentsLoading" @click="loadPaymentHistory">Refresh</button>
         </div>
@@ -1095,19 +1095,19 @@ onBeforeUnmount(() => {
             </thead>
             <tbody>
               <tr v-if="paymentsLoading && !payments.length">
-                <td colspan="8" class="py-4 text-center text-sm text-slate-500">Loading…</td>
+                <td colspan="8" class="py-4 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500">Loading…</td>
               </tr>
               <tr v-else-if="!payments.length">
-                <td colspan="8" class="py-4 text-center text-sm text-slate-500">No payments submitted yet.</td>
+                <td colspan="8" class="py-4 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500">No payments submitted yet.</td>
               </tr>
               <tr v-for="p in payments" :key="p.uuid">
-                <td class="text-xs text-slate-600">{{ formatDateTime(p.created_at) }}</td>
+                <td class="text-xs text-slate-600 dark:text-slate-300">{{ formatDateTime(p.created_at) }}</td>
                 <td>
-                  <div class="font-semibold text-slate-800">{{ p.subscription_plan_name || p.subscription_plan_code || '—' }}</div>
-                  <div class="text-[10px] text-slate-500 font-mono">{{ p.subscription_plan_code }}</div>
+                  <div class="font-semibold text-slate-800 dark:text-slate-100">{{ p.subscription_plan_name || p.subscription_plan_code || '—' }}</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 font-mono">{{ p.subscription_plan_code }}</div>
                 </td>
-                <td class="text-right text-slate-700">{{ money(p.subscription_plan_amount) }}</td>
-                <td class="text-right font-semibold text-slate-800">
+                <td class="text-right text-slate-700 dark:text-slate-200">{{ money(p.subscription_plan_amount) }}</td>
+                <td class="text-right font-semibold text-slate-800 dark:text-slate-100">
                   {{ p.amount_paid != null ? money(p.amount_paid) : '—' }}
                   <div v-if="p.amount_paid != null && Number(p.amount_paid) !== Number(p.subscription_plan_amount)"
                        class="text-[10px] font-normal"
@@ -1129,7 +1129,7 @@ onBeforeUnmount(() => {
                   <button v-if="p.payment_attachment_file" type="button"
                           class="text-xs font-semibold text-brand-600 hover:underline"
                           @click="openReceiptView(p)">View</button>
-                  <span v-else class="text-xs text-slate-400">—</span>
+                  <span v-else class="text-xs text-slate-400 dark:text-slate-500">—</span>
                 </td>
               </tr>
             </tbody>
@@ -1138,11 +1138,11 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Subscription history -->
-      <div class="border-t border-slate-100 px-4 py-4">
+      <div class="border-t border-slate-100 dark:border-slate-800 px-4 py-4">
         <div class="flex items-center justify-between">
           <div>
-            <div class="text-sm font-semibold text-slate-800">Subscription history</div>
-            <div class="text-xs text-slate-500">Every activated cycle for this store</div>
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Subscription history</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Every activated cycle for this store</div>
           </div>
           <button class="btn-ghost !text-xs" :disabled="historyLoading" @click="loadSubscriptionHistory">Refresh</button>
         </div>
@@ -1163,33 +1163,33 @@ onBeforeUnmount(() => {
             </thead>
             <tbody>
               <tr v-if="historyLoading && !subscriptionCycles.length">
-                <td colspan="6" class="py-4 text-center text-sm text-slate-500">Loading…</td>
+                <td colspan="6" class="py-4 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500">Loading…</td>
               </tr>
               <tr v-else-if="!subscriptionCycles.length">
-                <td colspan="6" class="py-4 text-center text-sm text-slate-500">
+                <td colspan="6" class="py-4 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   No subscription cycles on record yet.
                 </td>
               </tr>
               <tr v-for="c in subscriptionCycles" :key="c.uuid"
                   :class="c._state === 'current' ? 'bg-emerald-50/40' : ''">
                 <td>
-                  <div class="font-semibold text-slate-800">
+                  <div class="font-semibold text-slate-800 dark:text-slate-100">
                     {{ c.subscription_plan_name || c.subscription_plan_code || '—' }}
                   </div>
-                  <div class="text-[10px] text-slate-500 font-mono">{{ c.subscription_plan_code }}</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 font-mono">{{ c.subscription_plan_code }}</div>
                 </td>
-                <td class="text-xs text-slate-700">
+                <td class="text-xs text-slate-700 dark:text-slate-200">
                   {{ formatDate(c.subscription_start || c.start_date) }}
-                  <span class="text-slate-400"> → </span>
+                  <span class="text-slate-400 dark:text-slate-500"> → </span>
                   {{ c._end ? formatDate(c._end.toISOString()) : '—' }}
                 </td>
-                <td class="text-right text-xs text-slate-700">
+                <td class="text-right text-xs text-slate-700 dark:text-slate-200">
                   {{ c.subscription_days ? `${c.subscription_days} days` : '—' }}
                 </td>
-                <td class="text-right font-semibold text-slate-800">
+                <td class="text-right font-semibold text-slate-800 dark:text-slate-100">
                   {{ c.amount_paid != null ? money(c.amount_paid) : money(c.subscription_plan_amount) }}
                 </td>
-                <td class="text-xs text-slate-600">
+                <td class="text-xs text-slate-600 dark:text-slate-300">
                   {{ formatDateTime(c.activated_at || c.reviewed_at || c.updated_at || c.created_at) }}
                 </td>
                 <td>
@@ -1208,7 +1208,7 @@ onBeforeUnmount(() => {
     <Modal :show="receiptView.show" :title="receiptView.title" size="xl" @close="closeReceiptView">
       <!-- Zoom toolbar -->
       <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-sm">
+        <div class="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-sm">
           <button type="button" class="btn-icon !h-7 !w-7" :disabled="receiptZoom <= ZOOM_MIN"
                   title="Zoom out" @click="zoomOut">
             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
@@ -1218,7 +1218,7 @@ onBeforeUnmount(() => {
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
           </button>
-          <div class="min-w-[3.5rem] px-2 text-center font-mono text-xs text-slate-700 select-none">
+          <div class="min-w-[3.5rem] px-2 text-center font-mono text-xs text-slate-700 dark:text-slate-200 select-none">
             {{ Math.round(receiptZoom * 100) }}%
           </div>
           <button type="button" class="btn-icon !h-7 !w-7" :disabled="receiptZoom >= ZOOM_MAX"
@@ -1231,7 +1231,7 @@ onBeforeUnmount(() => {
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
           </button>
-          <div class="mx-1 h-4 w-px bg-slate-200" />
+          <div class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700" />
           <button type="button" class="btn-icon !h-7 !w-7" :disabled="receiptZoom === 1"
                   title="Reset zoom" @click="zoomReset">
             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
@@ -1241,10 +1241,10 @@ onBeforeUnmount(() => {
             </svg>
           </button>
         </div>
-        <div class="text-[10px] text-slate-500">Scroll wheel to zoom · drag scrollbars to pan</div>
+        <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">Scroll wheel to zoom · drag scrollbars to pan</div>
       </div>
 
-      <div class="max-h-[75vh] overflow-auto bg-slate-100 rounded-lg"
+      <div class="max-h-[75vh] overflow-auto bg-slate-100 dark:bg-slate-800 rounded-lg"
            @wheel="onWheelZoom">
         <div class="flex min-h-[50vh] items-center justify-center p-2">
           <img v-if="receiptView.url" :src="receiptView.url"

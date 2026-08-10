@@ -1,9 +1,10 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import Sidebar from '../components/Sidebar.vue'
 import Topbar from '../components/Topbar.vue'
 import SubscriptionExpiredGate from '../components/SubscriptionExpiredGate.vue'
+import { useThemeStore } from '../stores/theme'
 
 const sidebarOpen = ref(false)  // mobile drawer
 const collapsed   = ref(JSON.parse(localStorage.getItem('pos_sidebar_collapsed') || 'false'))
@@ -12,6 +13,22 @@ const route = useRoute()
 watch(collapsed, v => localStorage.setItem('pos_sidebar_collapsed', JSON.stringify(v)))
 
 function toggleCollapse() { collapsed.value = !collapsed.value }
+
+// Dark mode is scoped to MainLayout only — super-admin and public routes
+// never receive the 'dark' class on <html>, so they always render light.
+const theme = useThemeStore()
+let stopThemeWatch = null
+onMounted(() => {
+  theme.startWatchingSystem()
+  stopThemeWatch = watchEffect(() => {
+    document.documentElement.classList.toggle('dark', theme.isDark)
+  })
+})
+onBeforeUnmount(() => {
+  if (stopThemeWatch) stopThemeWatch()
+  document.documentElement.classList.remove('dark')
+  theme.stopWatchingSystem()
+})
 </script>
 
 <template>

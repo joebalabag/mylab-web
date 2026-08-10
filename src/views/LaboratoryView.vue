@@ -911,7 +911,7 @@ function doPrint() {
     // scrollHeight paginates identically. Without it the JS below can't
     // reliably know where physical page breaks land.
     printMarkup = `
-      <div id="lab-print-area" class="relative bg-white p-6 text-sm text-slate-900" style="padding: 0 12mm 12mm; margin: 0 auto; width: {{PAPER_W}}px; box-sizing: border-box;">
+      <div id="lab-print-area" class="relative bg-white dark:bg-slate-900 p-6 text-sm text-slate-900 dark:text-slate-100" style="padding: 0 12mm 12mm; margin: 0 auto; width: {{PAPER_W}}px; box-sizing: border-box;">
         ${clone.querySelector('.pointer-events-none.absolute')?.outerHTML || ''}
         <table class="lab-print-table" style="width:100%; border-collapse: collapse;">
           <thead class="lab-print-thead">
@@ -1272,7 +1272,7 @@ function categoryHeaderStyle(report) {
 }
 
 function statusBadge(s) {
-  if (s === 'draft')     return { text: 'Draft',     cls: 'badge bg-slate-100 text-slate-700', dot: 'bg-slate-400' }
+  if (s === 'draft')     return { text: 'Draft',     cls: 'badge bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200', dot: 'bg-slate-400' }
   if (s === 'finalized') return { text: 'Final',     cls: 'badge badge-success',               dot: 'bg-emerald-500' }
   if (s === 'voided')    return { text: 'Voided',    cls: 'badge badge-danger',                dot: 'bg-rose-500' }
   return { text: s || '—', cls: 'badge', dot: 'bg-slate-300' }
@@ -1305,15 +1305,15 @@ function patientDisplay(r) {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-3 gap-3 shrink-0 print:hidden">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Total</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Total</div>
         <div class="mt-1 text-2xl font-bold">{{ lab.total || lab.items.length }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Drafts</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Drafts</div>
         <div class="mt-1 text-2xl font-bold text-amber-600">{{ draftCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Finalized</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Finalized</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ finalizedCount }}</div>
       </div></div>
     </div>
@@ -1321,8 +1321,8 @@ function patientDisplay(r) {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden print:hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Laboratory</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Laboratory</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ lab.items.length }} shown
             <span v-if="lab.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -1354,7 +1354,7 @@ function patientDisplay(r) {
           <div class="flex items-center gap-1">
             <input v-model="dateFrom" type="date" @change="onFilterChange"
                    class="input w-full sm:w-36" :max="dateTo || undefined" title="From" />
-            <span class="text-xs text-slate-400">–</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">–</span>
             <input v-model="dateTo" type="date" @change="onFilterChange"
                    class="input w-full sm:w-36" :min="dateFrom || undefined" title="To" />
           </div>
@@ -1396,7 +1396,7 @@ function patientDisplay(r) {
           :columns="['bar','lines','lines','pill','pill','dot']"
         />
         <table class="table" v-else-if="lab.items.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-40">Lab # / Req #</th>
               <th>Patient</th>
@@ -1409,7 +1409,7 @@ function patientDisplay(r) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in lab.items" :key="r.uuid" :class="r.status === 'voided' && 'bg-slate-50/50'">
+            <tr v-for="r in lab.items" :key="r.uuid" :class="r.status === 'voided' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td>
                 <button type="button"
                         class="font-mono text-xs font-semibold text-brand-700 hover:text-brand-900 hover:underline"
@@ -1417,43 +1417,43 @@ function patientDisplay(r) {
                         @click="openEditor(r.uuid)">
                   {{ r.lab_number }}
                 </button>
-                <div class="font-mono text-[10px] text-slate-500">{{ r.requisition_number || '—' }}</div>
+                <div class="font-mono text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ r.requisition_number || '—' }}</div>
               </td>
-              <td class="text-sm text-slate-700">
+              <td class="text-sm text-slate-700 dark:text-slate-200">
                 <div class="font-medium">
                   {{ [r.patient_first_name, r.patient_last_name].filter(Boolean).join(' ') || '—' }}
                   <span v-if="ageFromBirthdate(r.patient_birthdate) !== '' || r.patient_sex"
-                        class="text-[11px] font-normal text-slate-500">
+                        class="text-[11px] font-normal text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     · {{ ageFromBirthdate(r.patient_birthdate) !== '' ? `${ageFromBirthdate(r.patient_birthdate)} y/o` : '' }}<span
                       v-if="r.patient_sex" class="capitalize">{{ ageFromBirthdate(r.patient_birthdate) !== '' ? ' ' : '' }}{{ r.patient_sex }}</span>
                   </span>
                 </div>
-                <div v-if="r.patient_number" class="font-mono text-[10px] text-slate-500">{{ r.patient_number }}</div>
+                <div v-if="r.patient_number" class="font-mono text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ r.patient_number }}</div>
               </td>
-              <td class="text-sm text-slate-600">{{ r.item_category_name || '—' }}</td>
-              <td class="max-w-xs text-xs text-slate-600" :title="r.test_items_summary || ''">
+              <td class="text-sm text-slate-600 dark:text-slate-300">{{ r.item_category_name || '—' }}</td>
+              <td class="max-w-xs text-xs text-slate-600 dark:text-slate-300" :title="r.test_items_summary || ''">
                 <div class="line-clamp-2">{{ r.test_items_summary || '—' }}</div>
-                <div class="mt-0.5 text-[10px] text-slate-400">{{ r.item_count ?? 0 }} item(s)</div>
+                <div class="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ r.item_count ?? 0 }} item(s)</div>
               </td>
               <td class="hidden lg:table-cell text-xs">
-                <div class="text-slate-700">
-                  <span class="text-slate-400">MT:</span> {{ r.medtech_name || '—' }}
+                <div class="text-slate-700 dark:text-slate-200">
+                  <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">MT:</span> {{ r.medtech_name || '—' }}
                 </div>
-                <div class="text-slate-700">
-                  <span class="text-slate-400">Path:</span> {{ r.pathologist_name || '—' }}
+                <div class="text-slate-700 dark:text-slate-200">
+                  <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Path:</span> {{ r.pathologist_name || '—' }}
                 </div>
               </td>
-              <td class="hidden md:table-cell text-[11px] text-slate-500">
+              <td class="hidden md:table-cell text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <div>
-                  <span class="text-slate-400">Created:</span>
+                  <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Created:</span>
                   {{ formatDate(r.created_at) }}
-                  <span v-if="r.created_by" class="text-slate-400"> · {{ r.created_by }}</span>
+                  <span v-if="r.created_by" class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500"> · {{ r.created_by }}</span>
                 </div>
                 <div>
-                  <span class="text-slate-400">Final:</span>
+                  <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Final:</span>
                   <template v-if="r.finalized_at">
                     {{ formatDate(r.finalized_at) }}
-                    <span v-if="r.pathologist_name" class="text-slate-400"> · {{ r.pathologist_name }}</span>
+                    <span v-if="r.pathologist_name" class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500"> · {{ r.pathologist_name }}</span>
                   </template>
                   <template v-else>—</template>
                 </div>
@@ -1487,13 +1487,13 @@ function patientDisplay(r) {
         <div v-if="addError" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {{ addError }}
         </div>
-        <div v-if="eligibleLoading" class="text-sm text-slate-500">Loading…</div>
-        <div v-else-if="!eligibleList.length" class="rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        <div v-if="eligibleLoading" class="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Loading…</div>
+        <div v-else-if="!eligibleList.length" class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
           No paid requisitions with uncovered tests were found.
         </div>
-        <div v-else class="overflow-hidden rounded-md border border-slate-200">
+        <div v-else class="overflow-hidden rounded-md border border-slate-200 dark:border-slate-700">
           <table class="table">
-            <thead class="bg-slate-50">
+            <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th class="w-44">Requisition / Date</th>
                 <th>Patient</th>
@@ -1508,21 +1508,21 @@ function patientDisplay(r) {
             <tbody>
               <tr v-for="req in eligibleList" :key="req.patient_requisition_uuid" class="hover:bg-brand-50/40">
                 <td>
-                  <div class="font-mono text-xs font-semibold text-slate-800">{{ req.requisition_number }}</div>
-                  <div class="text-[10px] text-slate-500">{{ formatDateTime(req.requisition_date) }}</div>
+                  <div class="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100">{{ req.requisition_number }}</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(req.requisition_date) }}</div>
                 </td>
                 <td class="text-sm">
-                  <div class="text-slate-800">{{ [req.patient_first_name, req.patient_last_name].filter(Boolean).join(' ') || '—' }}</div>
-                  <div class="text-[11px] font-mono text-slate-500">{{ req.patient_number || '' }}</div>
+                  <div class="text-slate-800 dark:text-slate-100">{{ [req.patient_first_name, req.patient_last_name].filter(Boolean).join(' ') || '—' }}</div>
+                  <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ req.patient_number || '' }}</div>
                 </td>
-                <td class="hidden md:table-cell text-sm text-slate-600">{{ req.patient_case_number || '—' }}</td>
-                <td class="max-w-[16rem] text-xs text-slate-600" :title="req.uncovered_categories || ''">
+                <td class="hidden md:table-cell text-sm text-slate-600 dark:text-slate-300">{{ req.patient_case_number || '—' }}</td>
+                <td class="max-w-[16rem] text-xs text-slate-600 dark:text-slate-300" :title="req.uncovered_categories || ''">
                   <div class="line-clamp-2">{{ req.uncovered_categories || '—' }}</div>
                 </td>
-                <td class="max-w-[20rem] text-xs text-slate-600" :title="req.uncovered_items || ''">
+                <td class="max-w-[20rem] text-xs text-slate-600 dark:text-slate-300" :title="req.uncovered_items || ''">
                   <div class="line-clamp-2">{{ req.uncovered_items || '—' }}</div>
                 </td>
-                <td class="hidden lg:table-cell text-xs text-slate-600">{{ req.requested_by || '—' }}</td>
+                <td class="hidden lg:table-cell text-xs text-slate-600 dark:text-slate-300">{{ req.requested_by || '—' }}</td>
                 <td class="text-center text-sm">{{ req.uncovered_count }}</td>
                 <td class="text-right">
                   <button class="btn-primary py-1 text-xs" :disabled="addLoading" @click="pickRequisition(req)">Proceed →</button>
@@ -1534,14 +1534,14 @@ function patientDisplay(r) {
       </div>
 
       <div v-else class="space-y-4">
-        <div v-if="selectedRequisition" class="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+        <div v-if="selectedRequisition" class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-sm">
           <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <div><span class="text-slate-500">Requisition:</span>
+            <div><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Requisition:</span>
               <span class="ml-1 font-mono font-semibold">{{ selectedRequisition.requisition_number }}</span></div>
-            <div><span class="text-slate-500">Patient:</span>
+            <div><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Patient:</span>
               <span class="ml-1 font-medium">{{ [selectedRequisition.patient_first_name, selectedRequisition.patient_last_name].filter(Boolean).join(' ') || '—' }}</span>
-              <span class="ml-1 text-[11px] font-mono text-slate-500">{{ selectedRequisition.patient_number }}</span></div>
-            <div><span class="text-slate-500">Case:</span>
+              <span class="ml-1 text-[11px] font-mono text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ selectedRequisition.patient_number }}</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Case:</span>
               <span class="ml-1">{{ selectedRequisition.patient_case_number || '—' }}</span></div>
           </div>
         </div>
@@ -1553,35 +1553,35 @@ function patientDisplay(r) {
           Each group below becomes one lab report with its own Lab number. The default groupings follow each item category's <b>Combine in one print-out</b> setting — untick a test to move it into its own report, or uncheck all tests in a group to skip it.
         </div>
 
-        <div v-if="!uncoveredGroups.length" class="rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+        <div v-if="!uncoveredGroups.length" class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
           No uncovered tests on this requisition.
         </div>
 
         <div v-for="group in uncoveredGroups" :key="group.key"
-             class="rounded-md border border-slate-200">
-          <div class="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+             class="rounded-md border border-slate-200 dark:border-slate-700">
+          <div class="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-3 py-2">
             <input type="checkbox"
                    :checked="isGroupAllSelected(group)"
                    :indeterminate="isGroupPartiallySelected(group)"
                    @change="toggleGroup(group)" />
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-semibold text-slate-800">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {{ group.item_category_name || 'Uncategorized' }}
                 <span v-if="group.combine" class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">Combined</span>
-                <span v-else class="ml-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-700">Individual</span>
+                <span v-else class="ml-1 rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-700 dark:text-slate-200">Individual</span>
               </div>
-              <div class="text-[11px] text-slate-500">
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 {{ groupSelectedCount(group) }} of {{ group.items.length }} selected
               </div>
             </div>
           </div>
           <div>
             <label v-for="it in group.items" :key="it.uuid"
-                   class="flex items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0 hover:bg-slate-50">
+                   class="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-3 py-2 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800">
               <input type="checkbox" :checked="group.selected.has(it.uuid)" @change="toggleItem(group, it.uuid)" />
               <div class="min-w-0 flex-1">
-                <div class="text-sm text-slate-800">{{ it.test_name }}</div>
-                <div class="text-[11px] text-slate-500">
+                <div class="text-sm text-slate-800 dark:text-slate-100">{{ it.test_name }}</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                   <span class="font-mono">{{ it.test_code }}</span>
                   <span v-if="it.result_type" class="ml-2 uppercase">· {{ it.result_type }}</span>
                 </div>
@@ -1590,7 +1590,7 @@ function patientDisplay(r) {
           </div>
         </div>
 
-        <div class="text-xs text-slate-600">
+        <div class="text-xs text-slate-600 dark:text-slate-300">
           Will create <b>{{ finalGroups.length }}</b> lab report{{ finalGroups.length === 1 ? '' : 's' }}.
         </div>
       </div>
@@ -1608,34 +1608,34 @@ function patientDisplay(r) {
 
     <!-- ─── Editor modal (result entry) ─── -->
     <Modal :show="showEditor" :title="`Lab Report ${editorReport?.lab_number || ''}`" size="2xl" @close="showEditor = false">
-      <div v-if="editorLoading" class="p-6 text-center text-sm text-slate-500">Loading…</div>
+      <div v-if="editorLoading" class="p-6 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Loading…</div>
       <div v-else-if="editorError" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
         {{ editorError }}
       </div>
       <div v-else-if="editorReport" class="space-y-5">
-        <div class="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs sm:text-sm">
+        <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs sm:text-sm">
           <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <div><span class="text-slate-500">Patient:</span>
+            <div><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Patient:</span>
               <span class="ml-1 font-medium">{{ [editorReport.patient_first_name, editorReport.patient_last_name].filter(Boolean).join(' ') || '—' }}</span>
-              <span class="ml-1 text-[11px] font-mono text-slate-500">{{ editorReport.patient_number }}</span>
+              <span class="ml-1 text-[11px] font-mono text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ editorReport.patient_number }}</span>
               <span v-if="ageFromBirthdate(editorReport.patient_birthdate) !== '' || editorReport.patient_sex"
-                    class="ml-2 text-slate-600">
+                    class="ml-2 text-slate-600 dark:text-slate-300">
                 · {{ ageFromBirthdate(editorReport.patient_birthdate) !== '' ? `${ageFromBirthdate(editorReport.patient_birthdate)} y/o` : '' }}
                 <span v-if="editorReport.patient_sex" class="capitalize">{{ ageFromBirthdate(editorReport.patient_birthdate) !== '' ? '· ' : '' }}{{ editorReport.patient_sex }}</span>
               </span>
             </div>
-            <div><span class="text-slate-500">Requisition:</span>
+            <div><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Requisition:</span>
               <span class="ml-1 font-mono">{{ editorReport.requisition_number || '—' }}</span></div>
-            <div><span class="text-slate-500">Category:</span>
+            <div><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Category:</span>
               <span class="ml-1">{{ editorReport.item_category_name || '—' }}</span></div>
-            <div><span class="text-slate-500">Status:</span>
+            <div><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Status:</span>
               <span :class="statusBadge(editorReport.status).cls" class="ml-1">
                 <span class="mr-1 inline-block h-1.5 w-1.5 rounded-full" :class="statusBadge(editorReport.status).dot"></span>
                 {{ statusBadge(editorReport.status).text }}
               </span></div>
-            <div v-if="editorReport.medtech_name"><span class="text-slate-500">Medtech:</span>
+            <div v-if="editorReport.medtech_name"><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Medtech:</span>
               <span class="ml-1">{{ editorReport.medtech_name }}</span></div>
-            <div v-if="editorReport.pathologist_name"><span class="text-slate-500">Pathologist:</span>
+            <div v-if="editorReport.pathologist_name"><span class="text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Pathologist:</span>
               <span class="ml-1">{{ editorReport.pathologist_name }}</span></div>
           </div>
         </div>
@@ -1655,12 +1655,12 @@ function patientDisplay(r) {
                  :disabled="editorReport.status !== 'draft'" class="input w-full sm:w-64" />
         </div>
 
-        <div v-for="it in editorReport.items" :key="it.uuid" class="rounded-md border border-slate-200">
-          <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+        <div v-for="it in editorReport.items" :key="it.uuid" class="rounded-md border border-slate-200 dark:border-slate-700">
+          <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-3 py-2">
             <div>
-              <div class="text-sm font-semibold text-slate-800">{{ it.test_name }}</div>
-              <div v-if="it.method" class="text-[11px] italic text-slate-600">Method: {{ it.method }}</div>
-              <div class="text-[11px] text-slate-500">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ it.test_name }}</div>
+              <div v-if="it.method" class="text-[11px] italic text-slate-600 dark:text-slate-300">Method: {{ it.method }}</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <span class="font-mono">{{ it.test_code }}</span>
                 <span class="ml-2 uppercase">· {{ it.result_type }}</span>
                 <span v-if="it.specimen" class="ml-2">· specimen: {{ it.specimen }}</span>
@@ -1674,7 +1674,7 @@ function patientDisplay(r) {
                for that field. Flag column is hidden for now. -->
           <div v-if="it.result_type === 'single' || it.result_type === 'panel'" class="p-3">
             <table class="w-full text-sm">
-              <thead class="text-[11px] uppercase text-slate-500">
+              <thead class="text-[11px] uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-1/3 text-left font-semibold">Analyte</th>
                   <th class="text-left font-semibold">Result</th>
@@ -1684,15 +1684,15 @@ function patientDisplay(r) {
               </thead>
               <tbody>
                 <template v-for="grp in groupValuesBySection(it.values)" :key="grp.section || 'none'">
-                  <tr v-if="grp.section" class="bg-slate-50">
-                    <td colspan="4" class="py-1 pl-2 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  <tr v-if="grp.section" class="bg-slate-50 dark:bg-slate-800">
+                    <td colspan="4" class="py-1 pl-2 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                       {{ grp.section }}
                     </td>
                   </tr>
-                  <tr v-for="v in grp.values" :key="v.uuid" class="border-t border-slate-100">
-                    <td class="py-1.5 text-slate-800">
+                  <tr v-for="v in grp.values" :key="v.uuid" class="border-t border-slate-100 dark:border-slate-800">
+                    <td class="py-1.5 text-slate-800 dark:text-slate-100">
                       {{ v.component_name }}
-                      <span class="ml-1 font-mono text-[10px] text-slate-400">{{ v.component_code }}</span>
+                      <span class="ml-1 font-mono text-[10px] text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ v.component_code }}</span>
                     </td>
                     <td class="py-1.5">
                       <select v-if="lookupOptions(v).length"
@@ -1705,8 +1705,8 @@ function patientDisplay(r) {
                              v-model="v.value_text" :disabled="editorReport.status !== 'draft'"
                              class="input w-full py-1 text-sm" placeholder="—" />
                     </td>
-                    <td v-if="anyUnit(it)" class="py-1.5 text-[11px] text-slate-500">{{ v.unit_of_measure || '' }}</td>
-                    <td v-if="anyReference(it)" class="py-1.5 text-[11px] text-slate-600">{{ v.reference_range || '' }}</td>
+                    <td v-if="anyUnit(it)" class="py-1.5 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ v.unit_of_measure || '' }}</td>
+                    <td v-if="anyReference(it)" class="py-1.5 text-[11px] text-slate-600 dark:text-slate-300">{{ v.reference_range || '' }}</td>
                   </tr>
                 </template>
               </tbody>
@@ -1716,15 +1716,15 @@ function patientDisplay(r) {
           <!-- matrix — rows × cols grid, one editable input per cell -->
           <div v-else-if="it.result_type === 'matrix'" class="p-3 overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="text-[11px] uppercase text-slate-500">
+              <thead class="text-[11px] uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="text-left font-semibold"></th>
                   <th v-for="c in buildMatrixGrid(it).cols" :key="c" class="text-left font-semibold px-2">{{ c }}</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="r in buildMatrixGrid(it).rows" :key="r" class="border-t border-slate-100">
-                  <td class="py-1.5 pr-3 font-medium text-slate-700">{{ r }}</td>
+                <tr v-for="r in buildMatrixGrid(it).rows" :key="r" class="border-t border-slate-100 dark:border-slate-800">
+                  <td class="py-1.5 pr-3 font-medium text-slate-700 dark:text-slate-200">{{ r }}</td>
                   <td v-for="c in buildMatrixGrid(it).cols" :key="c" class="py-1 px-1">
                     <input v-model="(buildMatrixGrid(it).cells.get(r+'|'+c) || {}).value_text"
                            :disabled="editorReport.status !== 'draft'"
@@ -1768,11 +1768,11 @@ function patientDisplay(r) {
     <Modal :show="confirmFinal.show" title="Tag as Final" size="md"
            @close="resetConfirmFinal()">
       <div class="space-y-3">
-        <p class="text-sm text-slate-700">
+        <p class="text-sm text-slate-700 dark:text-slate-200">
           Finalizing <span class="font-mono font-semibold">{{ confirmFinal.report?.lab_number }}</span> will lock it.
           To correct results later you'll need to void this report and re-issue a new one.
         </p>
-        <div v-if="confirmFinal.loadingDoctor" class="text-xs italic text-slate-500">Loading default signatory…</div>
+        <div v-if="confirmFinal.loadingDoctor" class="text-xs italic text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Loading default signatory…</div>
         <div v-else-if="confirmFinal.defaultDoctor"
              class="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
           <span class="font-semibold">Signatory (from item group):</span>
@@ -1798,9 +1798,9 @@ function patientDisplay(r) {
              resolve to the same user who created the report, the report
              collapses back to a single printed signature (not an error). -->
         <div v-if="twoTesterSignatories"
-             class="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
-          <div class="text-xs font-semibold text-slate-700">Second tester signatory</div>
-          <p class="text-[11px] text-slate-600">
+             class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-3 space-y-2">
+          <div class="text-xs font-semibold text-slate-700 dark:text-slate-200">Second tester signatory</div>
+          <p class="text-[11px] text-slate-600 dark:text-slate-300">
             Enter another lab user's credentials to sign as the finalizer.
             If it's the same user who created the report, only one signature will print.
           </p>
@@ -1835,7 +1835,7 @@ function patientDisplay(r) {
     <Modal :show="confirmVoid.show" title="Void lab report" size="md"
            @close="confirmVoid = { show: false, report: null, reason: '', username: '', password: '', authError: '', verifying: false }">
       <div class="space-y-3">
-        <p class="text-sm text-slate-700">
+        <p class="text-sm text-slate-700 dark:text-slate-200">
           Voiding <span class="font-mono font-semibold">{{ confirmVoid.report?.lab_number }}</span> keeps the record for
           audit but releases the requisition items so you can re-issue a new lab report for them.
         </p>
@@ -1876,7 +1876,7 @@ function patientDisplay(r) {
     <Modal :show="confirmUnsetFinal.show" title="Untag as Final" size="md"
            @close="confirmUnsetFinal = { show: false, report: null, username: '', password: '', authError: '', verifying: false }">
       <div class="space-y-3">
-        <p class="text-sm text-slate-700">
+        <p class="text-sm text-slate-700 dark:text-slate-200">
           Reopening <span class="font-mono font-semibold">{{ confirmUnsetFinal.report?.lab_number }}</span>
           will move it back to <span class="font-semibold text-amber-700">draft</span> so you can amend the results.
           The pathologist signature will be cleared and you'll need to Tag as Final again after editing.
@@ -1913,8 +1913,8 @@ function patientDisplay(r) {
     <!-- ─── Print preview (draft w/ watermark, final w/ signatures) ─── -->
     <Modal :show="showPrint" :title="`Print Preview — ${printReport?.lab_number || ''}`" size="2xl"
            @close="showPrint = false">
-      <div v-if="printLoading" class="p-6 text-center text-sm text-slate-500">Loading…</div>
-      <div v-else-if="!printReport" class="p-6 text-center text-sm text-slate-500">
+      <div v-if="printLoading" class="p-6 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Loading…</div>
+      <div v-else-if="!printReport" class="p-6 text-center text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
         No report loaded. Close and try again.
       </div>
       <template v-else>
@@ -1939,7 +1939,7 @@ function patientDisplay(r) {
                         class="rounded px-2 py-0.5 text-[11px] font-semibold"
                         :class="effectivePaperKey === configuredPaperKey
                                 ? 'bg-amber-600 text-white'
-                                : 'bg-white text-amber-800 border border-amber-300'"
+                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
                         @click="effectivePaperKey = configuredPaperKey">
                   Configured
                 </button>
@@ -1947,7 +1947,7 @@ function patientDisplay(r) {
                         class="rounded px-2 py-0.5 text-[11px] font-semibold"
                         :class="effectivePaperKey === recommendedPaperKey
                                 ? 'bg-amber-600 text-white'
-                                : 'bg-white text-amber-800 border border-amber-300'"
+                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
                         @click="effectivePaperKey = recommendedPaperKey">
                   Recommended
                 </button>

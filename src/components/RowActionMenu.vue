@@ -70,13 +70,13 @@ const iconColor = (v) => ({
   danger:  'text-rose-500',
   success: 'text-emerald-500',
   warn:    'text-amber-500'
-}[v] || 'text-slate-500')
+}[v] || 'text-slate-500 dark:text-slate-400 dark:text-slate-500')
 </script>
 
 <template>
   <button
-    class="row-action-trigger inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-    :class="open && 'bg-slate-100 text-slate-800'"
+    class="row-action-trigger inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100"
+    :class="open && 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100'"
     @click.stop="toggle"
     aria-label="Row actions"
   >
@@ -91,15 +91,15 @@ const iconColor = (v) => ({
     <transition name="fade">
       <div
         v-if="open"
-        class="row-action-panel fixed z-50 w-56 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+        class="row-action-panel fixed z-50 w-56 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg"
         :style="{ top: pos.y + 'px', left: pos.x + 'px' }"
         @click.stop
       >
         <template v-for="(a, i) in actions" :key="i">
-          <div v-if="a.divider" class="my-1 h-px bg-slate-100"></div>
+          <div v-if="a.divider" class="my-1 h-px bg-slate-100 dark:bg-slate-800"></div>
           <button
             v-else
-            class="menu-item flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            class="menu-item flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             :class="variantClass(a.variant)"
             :disabled="a.disabled"
             @click="fire(a)"

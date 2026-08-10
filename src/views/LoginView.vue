@@ -6,6 +6,7 @@ import { version as appVersion } from '../../package.json'
 import HelpModal from '../components/HelpModal.vue'
 import Modal from '../components/Modal.vue'
 import { resendVerification } from '../api/publicRegistration'
+import { requestPasswordReset } from '../api/auth'
 import { usePwaInstall } from '../composables/usePwaInstall'
 import MyLabLoginLogo from '../assets/MyLab-logo-login.png'
 
@@ -73,6 +74,45 @@ async function submitResend() {
     resendError.value = e?.message || 'Could not send the verification email — try again in a bit.'
   } finally {
     resendLoading.value = false
+  }
+}
+
+/* ─── Forgot password ─── */
+// Backend returns generic success whether or not the username matches, so we
+// always show the same "check your email" confirmation regardless of what
+// the API says — no username enumeration.
+const showForgot = ref(false)
+const forgotUsername = ref('')
+const forgotLoading = ref(false)
+const forgotError = ref('')
+const forgotDone = ref(false)
+
+function openForgot() {
+  forgotUsername.value = username.value.trim()  // pre-fill from the sign-in field if any
+  forgotError.value = ''
+  forgotDone.value = false
+  showForgot.value = true
+}
+function closeForgot() {
+  showForgot.value = false
+}
+async function submitForgot() {
+  const u = forgotUsername.value.trim()
+  forgotError.value = ''
+  if (!u) {
+    forgotError.value = 'Enter your username.'
+    return
+  }
+  forgotLoading.value = true
+  try {
+    await requestPasswordReset(u)
+    forgotDone.value = true
+  } catch (e) {
+    // Only 429 (rate limit) or 400 (validation) should get here — the
+    // endpoint swallows account-existence errors server-side.
+    forgotError.value = e?.message || 'Could not start the reset. Try again in a bit.'
+  } finally {
+    forgotLoading.value = false
   }
 }
 </script>
@@ -205,7 +245,15 @@ async function submitResend() {
             <input v-model="username" class="input" autocomplete="username" required />
           </div>
           <div>
-            <label class="label">Password</label>
+            <div class="flex items-baseline justify-between gap-2">
+              <label class="label">Password</label>
+              <button type="button"
+                      tabindex="-1"
+                      class="text-[11px] font-semibold text-brand-700 hover:underline"
+                      @click="openForgot">
+                Forgot password?
+              </button>
+            </div>
             <div class="relative">
               <input :type="showPw ? 'text' : 'password'" v-model="password" class="input pr-10"
                      autocomplete="current-password" required />
@@ -359,6 +407,67 @@ async function submitResend() {
         {{ resendLoading ? 'Sending…' : 'Send verification email' }}
       </button>
       <button v-else class="btn-primary" @click="closeResend">Done</button>
+    </template>
+  </Modal>
+
+  <!-- Forgot password -->
+  <Modal :show="showForgot" title="Forgot your password?" @close="closeForgot">
+    <div v-if="!forgotDone" class="space-y-3">
+      <p class="text-sm text-slate-600">
+        Enter your <b>username</b>. If there's a MyLab account for it with an
+        email on file, we'll send a link to set a new password.
+      </p>
+      <form id="forgotForm" @submit.prevent="submitForgot" class="space-y-3">
+        <div>
+          <label class="label">Username</label>
+          <input
+            v-model="forgotUsername"
+            autocomplete="username"
+            required
+            class="input"
+            placeholder="admin.ABC123"
+          />
+        </div>
+        <div v-if="forgotError"
+             class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {{ forgotError }}
+        </div>
+      </form>
+      <p class="text-[11px] text-slate-500">
+        The reset link expires in one hour. If you didn't request this, you can
+        safely ignore the email — your current password stays valid.
+      </p>
+    </div>
+    <div v-else class="flex flex-col items-center gap-3 py-2 text-center">
+      <div class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+        <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+      </div>
+      <div class="text-base font-semibold text-slate-800">Check your inbox</div>
+      <p class="max-w-sm text-sm text-slate-600">
+        If a MyLab account matches <b class="font-mono">{{ forgotUsername }}</b>
+        and has an email on file, a reset link is on its way. It expires in one
+        hour. Check your spam folder if it doesn't arrive.
+      </p>
+    </div>
+    <template #footer>
+      <button v-if="!forgotDone"
+              class="btn-secondary"
+              :disabled="forgotLoading"
+              @click="closeForgot">
+        Cancel
+      </button>
+      <button v-if="!forgotDone"
+              class="btn-primary"
+              :disabled="forgotLoading"
+              form="forgotForm"
+              type="submit">
+        {{ forgotLoading ? 'Sending…' : 'Send reset link' }}
+      </button>
+      <button v-else class="btn-primary" @click="closeForgot">Done</button>
     </template>
   </Modal>
 </template>

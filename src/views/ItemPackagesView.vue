@@ -419,11 +419,11 @@ function itemLabel(row) {
   <div class="flex h-full flex-col gap-4">
     <div class="grid grid-cols-2 gap-3 shrink-0">
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Total Packages</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Total Packages</div>
         <div class="mt-1 text-2xl font-bold">{{ totalCount }}</div>
       </div></div>
       <div class="card"><div class="card-body">
-        <div class="text-xs font-semibold uppercase text-slate-500">Active</div>
+        <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500">Active</div>
         <div class="mt-1 text-2xl font-bold text-emerald-600">{{ activeCount }}</div>
       </div></div>
     </div>
@@ -431,8 +431,8 @@ function itemLabel(row) {
     <div class="card flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="card-header">
         <div>
-          <div class="text-sm font-semibold text-slate-800">Item Packages</div>
-          <div class="text-xs text-slate-500">
+          <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Item Packages</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             {{ filtered.length }} shown
             <span v-if="packages.loading" class="ml-1 text-brand-600">· loading…</span>
           </div>
@@ -490,7 +490,7 @@ function itemLabel(row) {
           :columns="['bar','lines','pill','bar','pill','dot']"
         />
         <table class="table" v-else-if="filtered.length">
-          <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
+          <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="w-28">Code</th>
               <th>Name</th>
@@ -502,7 +502,7 @@ function itemLabel(row) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in filtered" :key="p.uuid" :class="p.status !== 'active' && 'bg-slate-50/50'">
+            <tr v-for="p in filtered" :key="p.uuid" :class="p.status !== 'active' && 'bg-slate-50/50 dark:bg-slate-800/50'">
               <td class="font-mono text-xs font-semibold">
                 <button type="button"
                         class="text-brand-600 hover:text-brand-800 hover:underline"
@@ -510,13 +510,13 @@ function itemLabel(row) {
                         :title="`View ${p.code}`">{{ p.code }}</button>
               </td>
               <td>
-                <div class="font-medium text-slate-800">{{ p.name }}</div>
-                <div v-if="p.description" class="text-[11px] text-slate-500 truncate max-w-md">{{ p.description }}</div>
+                <div class="font-medium text-slate-800 dark:text-slate-100">{{ p.name }}</div>
+                <div v-if="p.description" class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 truncate max-w-md">{{ p.description }}</div>
                 <div v-if="p.status !== 'active'" class="text-[10px] font-semibold uppercase tracking-wider text-rose-600">
                   Hidden
                 </div>
               </td>
-              <td class="text-right text-sm text-slate-700">{{ p.item_count || 0 }}</td>
+              <td class="text-right text-sm text-slate-700 dark:text-slate-200">{{ p.item_count || 0 }}</td>
               <td class="text-right font-semibold">{{ money(p.package_price) }}</td>
               <td>
                 <span class="badge" :class="p.status === 'active' ? 'badge-success' : 'badge-danger'">
@@ -525,7 +525,7 @@ function itemLabel(row) {
                   {{ p.status === 'active' ? 'Active' : 'Inactive' }}
                 </span>
               </td>
-              <td class="hidden md:table-cell text-xs text-slate-500">{{ formatDateTime(p.created_at) }}</td>
+              <td class="hidden md:table-cell text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{{ formatDateTime(p.created_at) }}</td>
               <td class="text-right">
                 <RowActionMenu :actions="actionsFor(p)" />
               </td>
@@ -549,7 +549,7 @@ function itemLabel(row) {
             <input v-model="form.name" required maxlength="500" placeholder="Executive Check-up" class="input" />
           </div>
           <div class="sm:col-span-3">
-            <label class="label">Description <span class="text-slate-400">(optional)</span></label>
+            <label class="label">Description <span class="text-slate-400 dark:text-slate-500">(optional)</span></label>
             <textarea v-model="form.description" rows="2" maxlength="2000" class="input"></textarea>
           </div>
         </div>
@@ -557,9 +557,9 @@ function itemLabel(row) {
         <!-- Package items — editable table. Current price snapshots from the
              test item's catalog price when picked; new price is the discounted
              price within this package. Sum of new prices = package_price. -->
-        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+        <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 p-3">
           <div class="mb-2 flex items-center justify-between">
-            <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
+            <div class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Package Items ({{ lines.length }})
             </div>
             <div class="flex items-center gap-2">
@@ -582,7 +582,7 @@ function itemLabel(row) {
                 <label class="text-[10px] font-bold uppercase tracking-widest text-brand-700">
                   Target package price
                 </label>
-                <span class="text-xs text-slate-500">₱</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">₱</span>
                 <input type="number" min="0" step="0.01"
                        v-model.number="targetPackagePrice"
                        @input="markTargetDirty"
@@ -595,7 +595,7 @@ function itemLabel(row) {
                 </button>
               </div>
 
-              <span class="text-[10px] font-semibold text-slate-400">— OR —</span>
+              <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500">— OR —</span>
 
               <!-- Uniform discount % -->
               <div class="flex flex-wrap items-center gap-1.5">
@@ -606,7 +606,7 @@ function itemLabel(row) {
                        v-model.number="discountPct"
                        @keyup.enter.prevent="applyDiscountToAll"
                        class="input !py-1 !text-xs w-20 text-right" />
-                <span class="text-xs text-slate-500">%</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">%</span>
                 <button type="button" class="btn-primary !py-1 !text-[11px]"
                         :disabled="!lines.length"
                         @click="applyDiscountToAll">
@@ -618,7 +618,7 @@ function itemLabel(row) {
                 Target unapplied — click Distribute
               </span>
             </div>
-            <p class="mt-1 text-[10px] text-slate-500">
+            <p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               <b>Distribute</b> splits the target across items proportionally by current price.
               <b>Apply to all</b> stamps every new price as current × (1 − %).
               Rows stay individually editable after either.
@@ -626,14 +626,14 @@ function itemLabel(row) {
           </div>
 
           <div v-if="!linesLoading && !lines.length"
-               class="rounded-md border border-dashed border-slate-300 bg-white p-3 text-center text-xs text-slate-500">
+               class="rounded-md border border-dashed border-slate-300 bg-white dark:bg-slate-900 p-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No items yet. Click <b>+ Add item</b> to bundle test items into this package.
           </div>
 
           <!-- overflow-visible so the picker's dropdown can escape the box. -->
-          <div v-else-if="lines.length" class="rounded-md border border-slate-200 bg-white">
+          <div v-else-if="lines.length" class="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <table class="w-full text-xs">
-              <thead class="bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-14 px-2 py-1.5 text-left">Order</th>
                   <th class="px-2 py-1.5 text-left">Test Item</th>
@@ -644,18 +644,18 @@ function itemLabel(row) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(r, i) in lines" :key="r.uuid || `new-${i}`" class="border-t border-slate-100 align-middle">
+                <tr v-for="(r, i) in lines" :key="r.uuid || `new-${i}`" class="border-t border-slate-100 dark:border-slate-800 align-middle">
                   <td class="px-1 py-1">
                     <div class="flex items-center gap-0.5">
-                      <span class="w-4 text-right text-[11px] text-slate-400">{{ i + 1 }}</span>
+                      <span class="w-4 text-right text-[11px] text-slate-400 dark:text-slate-500">{{ i + 1 }}</span>
                       <button type="button"
-                              class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                              class="rounded p-0.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-30"
                               :disabled="i === 0" @click="moveLineRow(i, -1)" title="Move up">
                         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5"
                              stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
                       </button>
                       <button type="button"
-                              class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                              class="rounded p-0.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-30"
                               :disabled="i === lines.length - 1" @click="moveLineRow(i, 1)" title="Move down">
                         <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5"
                              stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -670,13 +670,13 @@ function itemLabel(row) {
                          click registers before the input's blur handler fires. -->
                     <div class="relative">
                       <div v-if="r.test_item_uuid"
-                           class="flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-1">
+                           class="flex items-center gap-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-1">
                         <span class="flex-1 truncate text-xs">
-                          <span class="font-mono font-semibold text-slate-700">{{ (activeTestItems.find(t => t.uuid === r.test_item_uuid) || {}).code || '—' }}</span>
-                          <span class="ml-1 text-slate-700">{{ (activeTestItems.find(t => t.uuid === r.test_item_uuid) || {}).name || '' }}</span>
+                          <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ (activeTestItems.find(t => t.uuid === r.test_item_uuid) || {}).code || '—' }}</span>
+                          <span class="ml-1 text-slate-700 dark:text-slate-200">{{ (activeTestItems.find(t => t.uuid === r.test_item_uuid) || {}).name || '' }}</span>
                         </span>
                         <button type="button"
-                                class="rounded p-0.5 text-slate-400 hover:bg-white hover:text-rose-600"
+                                class="rounded p-0.5 text-slate-400 dark:text-slate-500 hover:bg-white dark:hover:bg-slate-800 hover:text-rose-600"
                                 @click="clearLinePick(r)"
                                 title="Change item">
                           <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5"
@@ -693,16 +693,16 @@ function itemLabel(row) {
                                placeholder="Search code or name…"
                                class="input !py-1 !text-xs" />
                         <div v-if="r._focus"
-                             class="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                             class="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-auto rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
                           <button v-for="m in matchesFor(r)" :key="m.uuid"
                                   type="button"
                                   @mousedown.prevent="pickLineItem(r, m)"
                                   class="block w-full px-2 py-1 text-left text-xs hover:bg-brand-50">
-                            <span class="font-mono font-semibold text-slate-700">{{ m.code }}</span>
-                            <span class="ml-1 text-slate-800">{{ m.name }}</span>
-                            <span class="ml-1 text-slate-500">· {{ money(m.price) }}</span>
+                            <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ m.code }}</span>
+                            <span class="ml-1 text-slate-800 dark:text-slate-100">{{ m.name }}</span>
+                            <span class="ml-1 text-slate-500 dark:text-slate-400 dark:text-slate-500">· {{ money(m.price) }}</span>
                           </button>
-                          <div v-if="!matchesFor(r).length" class="px-2 py-2 text-xs text-slate-500">
+                          <div v-if="!matchesFor(r).length" class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
                             No matches.
                           </div>
                         </div>
@@ -720,7 +720,7 @@ function itemLabel(row) {
                            class="input !py-1 !text-xs text-right font-semibold" />
                   </td>
                   <td class="px-1 py-1 text-right text-xs"
-                      :class="(Number(r.current_price) - Number(r.new_price)) > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-400'">
+                      :class="(Number(r.current_price) - Number(r.new_price)) > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-400 dark:text-slate-500'">
                     {{ money(Math.max(0, Number(r.current_price) - Number(r.new_price))) }}
                   </td>
                   <td class="px-1 py-1 text-right">
@@ -737,11 +737,11 @@ function itemLabel(row) {
                   </td>
                 </tr>
               </tbody>
-              <tfoot v-if="lines.length" class="bg-slate-50 text-xs">
-                <tr class="border-t border-slate-200">
+              <tfoot v-if="lines.length" class="bg-slate-50 dark:bg-slate-800 text-xs">
+                <tr class="border-t border-slate-200 dark:border-slate-700">
                   <td class="px-2 py-1.5"></td>
-                  <td class="px-2 py-1.5 text-right font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Original total (sum of current)</td>
-                  <td class="px-2 py-1.5 text-right font-mono text-slate-500 line-through">{{ money(originalTotal) }}</td>
+                  <td class="px-2 py-1.5 text-right font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider text-[10px]">Original total (sum of current)</td>
+                  <td class="px-2 py-1.5 text-right font-mono text-slate-500 dark:text-slate-400 dark:text-slate-500 line-through">{{ money(originalTotal) }}</td>
                   <td class="px-2 py-1.5"></td>
                   <td class="px-2 py-1.5"></td>
                   <td></td>
@@ -764,7 +764,7 @@ function itemLabel(row) {
           <div v-if="linesError" class="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] text-rose-700">
             {{ linesError }}
           </div>
-          <p class="mt-2 text-[11px] text-slate-500">
+          <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Current price snapshots from the test item's catalog price on pick. New price is what this package charges for that item — the totals above drive the package's saved price.
           </p>
         </div>
@@ -784,21 +784,21 @@ function itemLabel(row) {
     <!-- ═══ View (read-only) ═════════════════════════════════════════════════ -->
     <Modal :show="showView" title="Item Package" size="lg" @close="closeView">
       <div v-if="viewing" class="space-y-4">
-        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <div class="flex items-center gap-2">
-              <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">{{ viewing.code }}</span>
+              <span class="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 dark:text-slate-200">{{ viewing.code }}</span>
               <span class="badge" :class="viewing.status === 'active' ? 'badge-success' : 'badge-danger'">
                 <span class="mr-1 inline-block h-1.5 w-1.5 rounded-full"
                       :class="viewing.status === 'active' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
                 {{ viewing.status === 'active' ? 'Active' : 'Inactive' }}
               </span>
             </div>
-            <h3 class="mt-1 text-lg font-bold text-slate-800">{{ viewing.name }}</h3>
-            <p v-if="viewing.description" class="mt-0.5 whitespace-pre-line text-sm text-slate-600">{{ viewing.description }}</p>
+            <h3 class="mt-1 text-lg font-bold text-slate-800 dark:text-slate-100">{{ viewing.name }}</h3>
+            <p v-if="viewing.description" class="mt-0.5 whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">{{ viewing.description }}</p>
           </div>
           <div class="text-right">
-            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Package Price</div>
+            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Package Price</div>
             <div class="text-xl font-bold text-brand-700">{{ money(viewing.package_price) }}</div>
             <div v-if="viewSavings > 0" class="text-[11px] font-semibold text-emerald-700">
               Saves {{ money(viewSavings) }} vs. individual
@@ -807,13 +807,13 @@ function itemLabel(row) {
         </div>
 
         <div>
-          <div class="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <div class="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Items ({{ viewing.items?.length || 0 }})
             <span v-if="viewLoading" class="ml-1 text-brand-600">· Loading…</span>
           </div>
-          <div v-if="viewing.items?.length" class="overflow-hidden rounded-md border border-slate-200 bg-white">
+          <div v-if="viewing.items?.length" class="overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <table class="w-full text-xs">
-              <thead class="bg-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <thead class="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <tr>
                   <th class="w-8 px-2 py-1.5 text-left">#</th>
                   <th class="px-2 py-1.5 text-left">Test Item</th>
@@ -823,13 +823,13 @@ function itemLabel(row) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(r, i) in viewing.items" :key="r.uuid" class="border-t border-slate-100">
-                  <td class="px-2 py-1 text-slate-400">{{ i + 1 }}</td>
-                  <td class="px-2 py-1 text-slate-800">
-                    <span class="font-mono font-semibold text-slate-700">{{ r.test_item_code || '—' }}</span>
+                <tr v-for="(r, i) in viewing.items" :key="r.uuid" class="border-t border-slate-100 dark:border-slate-800">
+                  <td class="px-2 py-1 text-slate-400 dark:text-slate-500">{{ i + 1 }}</td>
+                  <td class="px-2 py-1 text-slate-800 dark:text-slate-100">
+                    <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ r.test_item_code || '—' }}</span>
                     <span v-if="r.test_item_name" class="ml-1">· {{ r.test_item_name }}</span>
                   </td>
-                  <td class="px-2 py-1 text-right text-slate-500 line-through">{{ money(r.current_price) }}</td>
+                  <td class="px-2 py-1 text-right text-slate-500 dark:text-slate-400 dark:text-slate-500 line-through">{{ money(r.current_price) }}</td>
                   <td class="px-2 py-1 text-right font-semibold text-brand-700">{{ money(r.new_price) }}</td>
                   <td class="px-2 py-1 text-right text-emerald-700 font-semibold">
                     {{ money(Math.max(0, Number(r.current_price) - Number(r.new_price))) }}
@@ -838,12 +838,12 @@ function itemLabel(row) {
               </tbody>
             </table>
           </div>
-          <div v-else class="rounded-md border border-dashed border-slate-300 bg-white p-3 text-center text-xs text-slate-500">
+          <div v-else class="rounded-md border border-dashed border-slate-300 bg-white dark:bg-slate-900 p-3 text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
             No items in this package yet.
           </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+        <div class="border-t border-slate-100 dark:border-slate-800 pt-2 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
           Created {{ formatDateTime(viewing.created_at) }}<span v-if="viewing.created_by"> by {{ viewing.created_by }}</span>
         </div>
       </div>
