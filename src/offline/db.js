@@ -40,6 +40,10 @@ const SCHEMA_V1 = {
   patient_cases:   'uuid, client_uuid, tenant_uuid, patient_uuid, case_number, updated_at',
   payments:        'uuid, client_uuid, tenant_uuid, patient_case_uuid, payment_number, updated_at',
   lab_reports:     'uuid, client_uuid, tenant_uuid, patient_case_uuid, lab_number, status, updated_at',
+  // Full-detail lab report snapshots (items + values). Populated on demand
+  // when a report is opened online, so the tech can enter typed values
+  // offline against the freshest structure. Keyed by report uuid.
+  lab_report_details: 'uuid, tenant_uuid, updated_at',
 
   // Outbox — auto-incrementing id so drain order matches capture order.
   // Composite index on (status, id) supports the "give me next N pending"
