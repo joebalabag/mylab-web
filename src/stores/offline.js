@@ -15,7 +15,7 @@ import {
   enableOfflineDevice, fetchOfflineBootstrap, fetchOfflinePull,
   postOfflineSync, refreshOfflineToken, revokeOfflineDevice,
 } from '../api/offline.js'
-import { closeAll, openDbFor, readSyncState } from '../offline/db.js'
+import { closeAll, deleteDbFor, openDbFor, readSyncState } from '../offline/db.js'
 import { runBootstrap } from '../offline/bootstrap.js'
 import { counts as outboxCounts, listAll as outboxListAll, retryEntry } from '../offline/outbox.js'
 import { createSyncEngine } from '../offline/syncEngine.js'
@@ -171,6 +171,49 @@ export const useOfflineStore = defineStore('offline', {
       this._buildEngine(tenant, user)
       await this.refreshCounts()
       return { ok: true }
+    },
+
+    // Nuclear reset — wipes device_id, offline_token, first-of-day flag,
+    // and the local IndexedDB. Used for testing the "first-ever station"
+    // flow without opening an incognito window; also handy for operators
+    // if the local cache ever gets into a bad state. Optionally re-runs
+    // initialize() so the auto-register kicks in immediately.
+    async resetThisStation({ reinitialize = true } = {}) {
+      const auth = useAuthStore()
+      const tenant = auth.tenantUuid
+      const user = auth.user?.uuid
+
+      // In-memory state
+      this.device_id = null
+      this.offline_token = null
+      this.enabled = false
+      this.engine = null
+      this.pendingCount = 0
+      this.errorCount = 0
+      this.conflictCount = 0
+      this.errors = []
+      this.lastPullAt = null
+      this.lastSyncAt = null
+      this.lastBootstrapAt = null
+      this.bootstrapProgress = null
+
+      // Persistent state
+      localStorage.removeItem(LS_DEVICE_ID)
+      localStorage.removeItem(LS_OFFLINE_TOKEN)
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('mylab.offline.last_bootstrap.'))
+        .forEach((k) => localStorage.removeItem(k))
+
+      // Dexie — deletes reference cache, journey cache, outbox, sync_state.
+      if (tenant && user) {
+        try { await deleteDbFor(tenant, user) } catch (_) { /* best-effort */ }
+      }
+
+      if (reinitialize) {
+        // Fires the auto-register + bootstrap path so the badge starts
+        // showing "Downloading…" immediately after the button click.
+        this.initialize().catch(() => {})
+      }
     },
 
     async disableOnThisStation({ revoke = false } = {}) {

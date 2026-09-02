@@ -67,6 +67,29 @@ async function disable() {
   }
 }
 
+// Debug / recovery. Blows away the local cache AND the "this station is
+// registered" markers so the next initialize() cycle behaves as if the
+// browser had never enabled offline mode. Confirms first because a
+// pending outbox on this station would be lost.
+async function resetStation() {
+  const pending = offline.pendingCount
+  const msg = pending
+    ? `Reset will discard ${pending} unsynced record(s). Continue?`
+    : 'Reset the local offline cache on this station? A fresh download will start immediately.'
+  if (!window.confirm(msg)) return
+  if (busy.value) return
+  busy.value = true
+  try {
+    await offline.resetThisStation({ reinitialize: true })
+    toast.value = { msg: 'Station reset — re-registering and downloading a fresh cache.', tone: 'emerald' }
+    await refreshDevices()
+  } catch (e) {
+    toast.value = { msg: e?.message || 'Reset failed', tone: 'rose' }
+  } finally {
+    busy.value = false
+  }
+}
+
 async function revoke(row) {
   if (!canManage.value) return
   const reason = window.prompt('Revoke reason (optional)') || ''
@@ -132,9 +155,20 @@ function fmt(iso) {
             <dt class="opacity-70">Bootstrapped</dt>
             <dd class="text-right">{{ fmt(offline.lastBootstrapAt) }}</dd>
           </dl>
-          <button type="button" class="btn-secondary !text-xs" :disabled="busy" @click="disable">
-            Disable on this station
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="btn-secondary !text-xs" :disabled="busy" @click="disable">
+              Disable on this station
+            </button>
+            <button
+              type="button"
+              class="rounded-md border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/60 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-900/20"
+              :disabled="busy"
+              :title="'Wipes local cache + re-registers this browser as a fresh station. Handy for testing the first-login flow.'"
+              @click="resetStation"
+            >
+              Reset this station
+            </button>
+          </div>
         </div>
 
         <div v-if="offline.bootstrapProgress"
