@@ -26,13 +26,29 @@ const busy = ref(false)
 const visible = computed(() => !!auth.isAuthenticated)
 
 const tone = computed(() => {
+  if (offline.bootstrapProgress) return 'busy'
   if (offline.errorCount) return 'error'
   if (!offline.isOnline)  return 'offline'
   if (offline.pendingCount) return 'warn'
   return 'ok'
 })
 
+// Human-readable progress detail when bootstrap is running. Shows the
+// current table + row count so the user can see the download advancing
+// instead of guessing whether the app is stuck.
+const bootstrapDetail = computed(() => {
+  const p = offline.bootstrapProgress
+  if (!p) return ''
+  if (p.stage === 'downloading') return 'contacting server…'
+  if (p.stage === 'writing') return p.table ? `${p.table} (${p.count ?? 0})` : 'writing…'
+  return ''
+})
+
 const label = computed(() => {
+  if (offline.bootstrapProgress) {
+    const d = bootstrapDetail.value
+    return d ? `Downloading · ${d}` : 'Downloading offline data…'
+  }
   if (offline.syncing) return 'Syncing…'
   if (!offline.isOnline) return offline.pendingCount ? `Offline · ${offline.pendingCount}` : 'Offline'
   if (offline.errorCount) return `Sync errors · ${offline.errorCount}`
@@ -82,6 +98,7 @@ function fmt(iso) {
         'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/30 dark:text-emerald-300': tone === 'ok',
         'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-900/30 dark:text-amber-300': tone === 'warn' || tone === 'offline',
         'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-900/30 dark:text-rose-300': tone === 'error',
+        'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-900/30 dark:text-sky-300': tone === 'busy',
       }"
       :title="label"
       @click.stop="togglePanel"
@@ -92,6 +109,7 @@ function fmt(iso) {
           'bg-emerald-500': tone === 'ok',
           'bg-amber-500': tone === 'warn' || tone === 'offline',
           'bg-rose-500': tone === 'error',
+          'bg-sky-500 animate-pulse': tone === 'busy',
         }"
       />
       <span class="hidden sm:inline">{{ label }}</span>

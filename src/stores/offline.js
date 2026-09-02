@@ -55,11 +55,19 @@ export const useOfflineStore = defineStore('offline', {
     // Bootstrap progress (populated during the initial big pull)
     bootstrapProgress: null,        // { stage, table?, count? }
     clockSkewSeconds: null,         // warning surfaced by the last refresh
+    // In-flight guard for auto-enable — prevents a MainLayout+LoginView
+    // race from double-registering the same browser as two devices.
+    _enableInFlight: false,
   }),
   getters: {
     isOffline: (s) => !s.isOnline,
     isEnabled: (s) => !!s.device_id && !!s.offline_token,
+    isBootstrapping: (s) => !!s.bootstrapProgress,
     statusLabel: (s) => {
+      if (s.bootstrapProgress) {
+        const t = s.bootstrapProgress?.table
+        return t ? `Downloading · ${t}…` : 'Downloading offline data…'
+      }
       if (s.syncing) return 'Syncing…'
       if (!s.isOnline) return 'Offline'
       if (s.pendingCount) return `Online — ${s.pendingCount} pending`
@@ -96,7 +104,35 @@ export const useOfflineStore = defineStore('offline', {
         await this.refreshCounts()
         // If we booted straight into offline mode, don't try to sync;
         // when the browser flips online our handler will fire drainOnce.
-        if (this.isOnline) this.drainNow()
+        if (this.isOnline) {
+          this.drainNow()
+          // First-of-day incremental bootstrap so the cache doesn't age
+          // beyond the server's rolling window. Fire-and-forget — the
+          // badge surfaces bootstrapProgress so the user sees it running.
+          this.autoBootstrapIfDue().catch(() => {})
+        }
+      } else if (this.isOnline) {
+        // Station has never been registered — auto-enable in the background
+        // so the user can keep working online while the initial cache
+        // downloads. Silent failures are non-fatal; the next login retries.
+        this._autoEnableIfEligible().catch(() => {})
+      }
+    },
+
+    // Guarded auto-register. Runs at most once at a time per browser tab —
+    // stops MainLayout.onMounted + LoginView.submit from double-firing on
+    // the same login and creating two offline_devices rows.
+    async _autoEnableIfEligible() {
+      if (this._enableInFlight || this.isEnabled) return
+      this._enableInFlight = true
+      try {
+        await this.enableOnThisStation()
+      } catch (_) {
+        // Common causes: tenant offline_mode_enabled=false, or transient
+        // network. The Settings panel's Enable button still works as a
+        // manual retry.
+      } finally {
+        this._enableInFlight = false
       }
     },
 

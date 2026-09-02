@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useOfflineStore } from '../stores/offline'
 import { version as appVersion } from '../../package.json'
 import HelpModal from '../components/HelpModal.vue'
 import Modal from '../components/Modal.vue'
@@ -34,17 +33,9 @@ async function submit() {
   const res = await auth.login(username.value.trim(), password.value)
   loading.value = false
   if (!res.ok) { error.value = res.message; return }
-
-  // First-of-day auto-bootstrap. Fire-and-forget — the user should not
-  // wait on it. The offline store's progress state feeds a subtle chip
-  // in the top bar so they can see it running. Only fires on stations
-  // that have already opted into offline mode.
-  try {
-    const offline = useOfflineStore()
-    await offline.initialize()
-    offline.autoBootstrapIfDue().catch(() => {})
-  } catch (_) { /* offline is best-effort; never block sign-in */ }
-
+  // Offline auto-enable + first-of-day bootstrap runs from the offline
+  // store's initialize(), which MainLayout.onMounted fires immediately
+  // after the redirect below. No need to trigger it here.
   const redirect = route.query.redirect || '/home'
   router.push(redirect)
 }
