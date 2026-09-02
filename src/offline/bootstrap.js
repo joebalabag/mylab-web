@@ -20,6 +20,8 @@ const CACHED_TABLES = [
   ['users',           'users'],
   ['patients',        'patients'],
   ['patient_cases',   'patient_cases'],
+  ['patient_requisitions',      'patient_requisitions'],
+  ['patient_requisition_items', 'patient_requisition_items'],
   ['payments',        'payments'],
   ['lab_reports',     'lab_reports'],
 ]

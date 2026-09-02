@@ -8,6 +8,7 @@ import {
   shouldRouteThroughOfflineStack,
 } from '../offline/storeSupport.js'
 import { enqueue } from '../offline/outbox.js'
+import { newUuid } from '../offline/uuid.js'
 import { useOfflineStore } from './offline.js'
 
 const emptyFilters = () => ({
@@ -191,10 +192,50 @@ export const useLaboratoryStore = defineStore('laboratory', {
     clearCurrent() { this.current = null },
 
     async createBatch(payload) {
-      // Creating lab reports from a finalized requisition touches multiple
-      // domain services (test-items lookup, item-group config, lab-number
-      // sequence). Not supported offline in v1.
-      assertOnline('create a lab report batch')
+      // Offline path — pre-generate a client_uuid per group so the local
+      // Dexie cache can point at the reports immediately (result entry
+      // can proceed without waiting for sync). Server-side createBatch
+      // uses the same uuids when it eventually processes the outbox
+      // entry, so no post-sync ID remapping is needed.
+      if (shouldRouteThroughOfflineStack()) {
+        const db = getDb()
+        const groups = (payload?.groups || []).map((g) => ({
+          ...g,
+          client_uuid: g.client_uuid || newUuid(),
+        }))
+        await enqueue(db, {
+          entity_type: 'lab_report_batch',
+          // Composite entry — use the requisition's uuid as the entry's
+          // client_uuid so the outbox row is easy to correlate; individual
+          // report client_uuids live on each group inside the payload.
+          client_uuid: payload.patient_requisition_uuid,
+          payload: {
+            patient_requisition_uuid: payload.patient_requisition_uuid,
+            groups,
+          },
+        })
+        // Optimistic Dexie writes so the results list picks them up right
+        // away. lab_number is server-generated; keep it null with a
+        // __pending flag so the UI can mark them as unsynced.
+        const now = new Date().toISOString()
+        const shells = groups.map((g) => ({
+          uuid: g.client_uuid,
+          client_uuid: g.client_uuid,
+          patient_requisition_uuid: payload.patient_requisition_uuid,
+          status: 'draft',
+          lab_number: null,
+          item_category_uuid: g.item_category_uuid ?? null,
+          test_items_summary: null,
+          remarks: g.remarks ?? null,
+          created_offline_at: now,
+          created_at: now,
+          updated_at: now,
+          __pending: true,
+        }))
+        await db.table('lab_reports').bulkPut(shells)
+        try { await useOfflineStore().refreshCounts() } catch (_) {}
+        return shells
+      }
       const created = await api.createLabReportBatch(payload)
       return created || []
     },

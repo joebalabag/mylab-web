@@ -20,7 +20,12 @@ import Dexie from 'dexie'
 const DB_PREFIX = 'mylab_offline'
 
 // Schema version. Bump whenever an indexed store changes; Dexie applies
-// upgrades in order on next open. The initial ship uses v1 across the board.
+// upgrades in order on next open.
+//
+// v1 — initial offline set (patients, cases, payments, lab_reports, +details).
+// v2 — extended to cover the full journey: adds patient_requisitions and
+//      patient_requisition_items so the offline UI can render existing carts
+//      and enqueue create-+-items-+-finalize as one composite outbox entry.
 const SCHEMA_V1 = {
   // Reference data — keyed by server uuid. Indexed on tenant_uuid + a
   // status-ish column when it helps the lookup screens filter without a
@@ -55,6 +60,13 @@ const SCHEMA_V1 = {
   sync_state: 'key',
 }
 
+// v2 additions — patient_requisitions + items. `additive-only` upgrade so
+// v1 data survives.
+const SCHEMA_V2_ADDITIONS = {
+  patient_requisitions: 'uuid, client_uuid, tenant_uuid, patient_case_uuid, patient_uuid, requisition_number, status, updated_at',
+  patient_requisition_items: 'uuid, tenant_uuid, patient_requisition_uuid, source_type, source_uuid, updated_at',
+}
+
 // Cache open handles per DB name — Dexie tolerates multiple opens but
 // creating one per request is wasteful.
 const openHandles = new Map()
@@ -75,6 +87,9 @@ export function openDbFor(tenant_uuid, user_uuid) {
 
   const db = new Dexie(name)
   db.version(1).stores(SCHEMA_V1)
+  // v2 must include every table (Dexie applies stores() as the full table
+  // set for a given version, not just deltas). Merge v1 + additions.
+  db.version(2).stores({ ...SCHEMA_V1, ...SCHEMA_V2_ADDITIONS })
   openHandles.set(name, db)
   return db
 }
