@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { DOCTOR_SPECIALTIES } from '../api/doctors'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
+import OfflineModeSettings from '../components/OfflineModeSettings.vue'
 import { assetUrl } from '../api/client'
 
 const tenant  = useTenantStore()
@@ -770,5 +771,7 @@ function discard() {
       @close="confirmDeleteDoctor = { show: false, doc: null }"
       @confirm="doDeleteDoctor"
     />
+
+    <OfflineModeSettings />
   </div>
 </template>

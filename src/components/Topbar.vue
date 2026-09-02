@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useTenantStore } from '../stores/tenant'
 import { useThemeStore } from '../stores/theme'
 import ChangePasswordDialog from './ChangePasswordDialog.vue'
+import OfflineStatusBadge from './OfflineStatusBadge.vue'
 import { usePwaInstall } from '../composables/usePwaInstall'
 
 // PWA install — appears in the account dropdown as "Install app". Chrome +
@@ -223,6 +224,9 @@ const pageTitle = computed(() => {
 
     <div class="flex items-center gap-2"
          :class="(subscriptionState === 'expiring-soon' || subscriptionState === 'expired') ? '' : 'ml-auto'">
+      <!-- Offline / sync status pill — click to open the sync panel. -->
+      <OfflineStatusBadge />
+
       <!-- Theme cycle: Light → Dark → System. Icon reflects the *current*
            resolved theme so users see what they're in, not what they'll
            get next. Auto mode gets its own indicator to make it obvious. -->
