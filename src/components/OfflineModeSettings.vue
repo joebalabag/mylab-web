@@ -13,6 +13,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useOfflineStore } from '../stores/offline'
 import { useAuthStore } from '../stores/auth'
 import { listOfflineDevices, revokeOfflineDevice } from '../api/offline'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const offline = useOfflineStore()
 const auth = useAuthStore()
@@ -69,14 +70,22 @@ async function disable() {
 
 // Debug / recovery. Blows away the local cache AND the "this station is
 // registered" markers so the next initialize() cycle behaves as if the
-// browser had never enabled offline mode. Confirms first because a
-// pending outbox on this station would be lost.
-async function resetStation() {
+// browser had never enabled offline mode. Confirmed via the app's own
+// modal (not window.confirm) so it matches the rest of the destructive
+// actions in the app and picks up dark-mode styling.
+const showResetConfirm = ref(false)
+const resetMessage = computed(() => {
   const pending = offline.pendingCount
-  const msg = pending
-    ? `Reset will discard ${pending} unsynced record(s). Continue?`
+  return pending
+    ? `Reset will discard ${pending} unsynced record(s) queued on this station. Continue?`
     : 'Reset the local offline cache on this station? A fresh download will start immediately.'
-  if (!window.confirm(msg)) return
+})
+
+function openResetConfirm() { showResetConfirm.value = true }
+function closeResetConfirm() { showResetConfirm.value = false }
+
+async function resetStation() {
+  showResetConfirm.value = false
   if (busy.value) return
   busy.value = true
   try {
@@ -164,7 +173,7 @@ function fmt(iso) {
               class="rounded-md border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/60 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-900/20"
               :disabled="busy"
               :title="'Wipes local cache + re-registers this browser as a fresh station. Handy for testing the first-login flow.'"
-              @click="resetStation"
+              @click="openResetConfirm"
             >
               Reset this station
             </button>
@@ -229,5 +238,14 @@ function fmt(iso) {
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      :show="showResetConfirm"
+      title="Reset this station"
+      :message="resetMessage"
+      confirm-text="Reset"
+      @close="closeResetConfirm"
+      @confirm="resetStation"
+    />
   </div>
 </template>
