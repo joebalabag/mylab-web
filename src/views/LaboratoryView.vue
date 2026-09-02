@@ -187,7 +187,7 @@ async function loadEligible() {
   try {
     // Carry the dashboard's Item Group filter into the Add modal so only
     // requisitions with uncovered items in that group show up here.
-    const rows = await labApi.listEligibleRequisitions(
+    const rows = await lab.listEligibleRequisitions(
       eligibleQuery.value.trim() || undefined,
       { item_group_uuid: groupFilter.value || undefined },
     )
@@ -204,7 +204,7 @@ async function pickRequisition(req) {
   addError.value = ''
   addLoading.value = true
   try {
-    const res = await labApi.listUncoveredItems(req.patient_requisition_uuid)
+    const res = await lab.listUncoveredItems(req.patient_requisition_uuid)
     let items = Array.isArray(res?.items) ? res.items : []
     // Honor the dashboard's Item Group filter — hide test lines whose
     // category doesn't belong to the selected group.

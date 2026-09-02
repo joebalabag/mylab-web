@@ -14,9 +14,12 @@ import {
   PAYMENT_METHODS, PAYMENT_METHOD_LABELS,
   EWALLET_TYPES,
   isNonCashArrangement, isChanneledPayment, isSelfResolvingArrangement,
-  listUnpaidCases, listUnpaidItems, viewPayment,
+  viewPayment,
   resolveArrangement,
 } from '../api/payments'
+// listUnpaidCases / listUnpaidItems come from the store so they route
+// through Dexie when the station is offline (server-side joined queries
+// aren't reachable offline; the store rebuilds them from cached tables).
 
 const payments  = usePaymentsStore()
 const discounts = useDiscountsStore()
@@ -153,7 +156,7 @@ async function runCaseSearch() {
   caseSearchLoading.value = true
   caseSearchError.value = ''
   try {
-    const rows = await listUnpaidCases({ keywords: caseSearchKw.value.trim() || undefined })
+    const rows = await payments.listUnpaidCases({ keywords: caseSearchKw.value.trim() || undefined })
     caseResults.value = Array.isArray(rows) ? rows : []
   } catch (e) {
     caseSearchError.value = e?.message || 'Search failed'
@@ -201,7 +204,7 @@ async function selectCaseForPayment(kase) {
 
   paymentItemsLoading.value = true
   try {
-    const rows = await listUnpaidItems(kase.case_uuid)
+    const rows = await payments.listUnpaidItems(kase.case_uuid)
     paymentItems.value = (Array.isArray(rows) ? rows : []).map((r) => ({
       ...r,
       _selected: true, // default all-in; operator unchecks to exclude

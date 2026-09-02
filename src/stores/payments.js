@@ -192,6 +192,109 @@ export const usePaymentsStore = defineStore('payments', {
       return created
     },
 
+    /**
+     * Cashier picker step 1 — cases with at least one unpaid finalized (or
+     * partially_paid) requisition item. Server does one joined SQL; offline
+     * we rebuild the same shape from four Dexie tables (patient_cases,
+     * patient_requisitions, patient_requisition_items, patients).
+     */
+    async listUnpaidCases({ keywords } = {}) {
+      if (shouldRouteThroughOfflineStack()) {
+        const db = getDb()
+        const [reqs, items, cases, patients] = await Promise.all([
+          db.table('patient_requisitions').toArray(),
+          db.table('patient_requisition_items').toArray(),
+          db.table('patient_cases').toArray(),
+          db.table('patients').toArray(),
+        ])
+        const reqByUuid = new Map(reqs.map((r) => [r.uuid, r]))
+        const caseByUuid = new Map(cases.map((c) => [c.uuid, c]))
+        const patientByUuid = new Map(patients.map((p) => [p.uuid, p]))
+
+        // Group unpaid items by case, then join in case + patient identity.
+        const perCase = new Map()
+        for (const it of items) {
+          if (it.payment_uuid) continue                             // already paid
+          const req = reqByUuid.get(it.patient_requisition_uuid)
+          if (!req) continue
+          if (!['finalized', 'partially_paid'].includes(req.status)) continue
+          const c = caseByUuid.get(req.patient_case_uuid)
+          if (!c) continue
+          const bucket = perCase.get(c.uuid) || {
+            case_uuid: c.uuid,
+            case_number: c.case_number,
+            case_type: c.case_type,
+            admission_date: c.admission_date,
+            patient_uuid: c.patient_uuid,
+            unpaid_total: 0,
+            unpaid_count: 0,
+          }
+          bucket.unpaid_total += Number(it.line_selling_price ?? it.line_total ?? 0)
+          bucket.unpaid_count += 1
+          perCase.set(c.uuid, bucket)
+        }
+
+        let rows = Array.from(perCase.values()).map((b) => {
+          const p = patientByUuid.get(b.patient_uuid) || {}
+          return {
+            ...b,
+            patient_number: p.patient_number ?? null,
+            first_name: p.first_name ?? null,
+            middle_name: p.middle_name ?? null,
+            last_name: p.last_name ?? null,
+            suffix: p.suffix ?? null,
+            sex: p.sex ?? null,
+            birthdate: p.birthdate ?? null,
+          }
+        })
+        if (keywords) {
+          const kw = String(keywords).toLowerCase()
+          rows = rows.filter((r) => (
+            String(r.case_number || '').toLowerCase().includes(kw) ||
+            String(r.patient_number || '').toLowerCase().includes(kw) ||
+            String(r.first_name || '').toLowerCase().includes(kw) ||
+            String(r.last_name || '').toLowerCase().includes(kw)
+          ))
+        }
+        rows.sort((a, b) => String(b.admission_date || '').localeCompare(String(a.admission_date || '')))
+        return rows.slice(0, 40)
+      }
+      return api.listUnpaidCases({ keywords })
+    },
+
+    /**
+     * Cashier picker step 2 — the individual unpaid items for a case,
+     * grouped in the same shape the server returns (pri.* + req headers).
+     */
+    async listUnpaidItems(patient_case_uuid) {
+      if (shouldRouteThroughOfflineStack()) {
+        const db = getDb()
+        const [reqs, items] = await Promise.all([
+          db.table('patient_requisitions').where('patient_case_uuid').equals(patient_case_uuid).toArray(),
+          db.table('patient_requisition_items').toArray(),
+        ])
+        const reqByUuid = new Map(reqs.map((r) => [r.uuid, r]))
+        const rows = items
+          .filter((it) => reqByUuid.has(it.patient_requisition_uuid) && !it.payment_uuid)
+          .filter((it) => ['finalized', 'partially_paid'].includes(reqByUuid.get(it.patient_requisition_uuid).status))
+          .map((it) => {
+            const r = reqByUuid.get(it.patient_requisition_uuid)
+            return {
+              ...it,
+              requisition_number: r.requisition_number,
+              requisition_date: r.requisition_date,
+              requisition_status: r.status,
+            }
+          })
+        rows.sort((a, b) => {
+          const c = String(a.requisition_date || '').localeCompare(String(b.requisition_date || ''))
+          return c !== 0 ? c : Number(a.display_order || 0) - Number(b.display_order || 0)
+        })
+        return rows
+      }
+      return api.listUnpaidItems(patient_case_uuid)
+    },
+
     async voidPayment(uuid) {
       // Voiding a payment touches the linked requisition items' paid flags —
       // that's a server-side transaction that can't be replayed offline.

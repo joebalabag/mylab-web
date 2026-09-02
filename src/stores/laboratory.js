@@ -191,6 +191,137 @@ export const useLaboratoryStore = defineStore('laboratory', {
     },
     clearCurrent() { this.current = null },
 
+    /**
+     * Step 1 of Add-Laboratory — paid requisitions with uncovered test items.
+     * Offline branch rebuilds a lenient version of the server's joined query
+     * from Dexie: paid requisitions with at least one paid test_item line,
+     * minus items we can see are already covered by a lab_report. Coverage
+     * data isn't cached exhaustively so a locally-created lab_report may
+     * still appear here until sync — server-side createBatch rejects double
+     * coverage, so worst case is an on-sync error the sync panel surfaces.
+     */
+    async listEligibleRequisitions(keywords, opts = {}) {
+      if (shouldRouteThroughOfflineStack()) {
+        const db = getDb()
+        const [reqs, items, testItems, categories, patients, cases, reports] = await Promise.all([
+          db.table('patient_requisitions').toArray(),
+          db.table('patient_requisition_items').toArray(),
+          db.table('test_items').toArray(),
+          db.table('item_categories').toArray(),
+          db.table('patients').toArray(),
+          db.table('patient_cases').toArray(),
+          db.table('lab_reports').toArray(),
+        ])
+        const testItemByUuid = new Map(testItems.map((t) => [t.uuid, t]))
+        const categoryByUuid = new Map(categories.map((c) => [c.uuid, c]))
+        const patientByUuid = new Map(patients.map((p) => [p.uuid, p]))
+        const caseByUuid = new Map(cases.map((c) => [c.uuid, c]))
+        // Locally-known coverage: any lab_report shell (pending or server)
+        // points at a requisition. Coarse — the server tracks per-item
+        // coverage via lab_report_items which we don't cache — but good
+        // enough to hide requisitions we've already made batches for.
+        const coveredReqUuids = new Set(reports.map((r) => r.patient_requisition_uuid).filter(Boolean))
+
+        const eligibleReqs = reqs.filter((r) => r.status === 'paid' && !coveredReqUuids.has(r.uuid))
+        const itemsByReq = new Map()
+        for (const it of items) {
+          const arr = itemsByReq.get(it.patient_requisition_uuid) || []
+          arr.push(it)
+          itemsByReq.set(it.patient_requisition_uuid, arr)
+        }
+
+        let rows = eligibleReqs.map((r) => {
+          const rItems = itemsByReq.get(r.uuid) || []
+          const testLines = rItems.filter((it) => it.source_type === 'test_item' && it.payment_uuid)
+          if (opts.item_group_uuid) {
+            const scoped = testLines.filter((it) => {
+              const ti = testItemByUuid.get(it.source_uuid)
+              const cat = ti?.item_category_uuid ? categoryByUuid.get(ti.item_category_uuid) : null
+              return cat?.item_group_uuid === opts.item_group_uuid
+            })
+            if (!scoped.length) return null
+          }
+          if (!testLines.length) return null
+          const p = patientByUuid.get(r.patient_uuid) || {}
+          const c = caseByUuid.get(r.patient_case_uuid) || {}
+          const catNames = Array.from(new Set(testLines.map((it) => {
+            const ti = testItemByUuid.get(it.source_uuid)
+            const cat = ti?.item_category_uuid ? categoryByUuid.get(ti.item_category_uuid) : null
+            return cat?.name
+          }).filter(Boolean))).sort().join(', ')
+          return {
+            patient_requisition_uuid: r.uuid,
+            requisition_number: r.requisition_number,
+            requisition_date: r.requisition_date,
+            requested_by: r.created_by,
+            patient_uuid: r.patient_uuid,
+            patient_case_uuid: r.patient_case_uuid,
+            patient_number: p.patient_number ?? null,
+            patient_first_name: p.first_name ?? null,
+            patient_last_name: p.last_name ?? null,
+            patient_case_number: c.case_number ?? null,
+            uncovered_count: testLines.length,
+            uncovered_categories: catNames,
+            uncovered_items: testLines.map((it) => it.name).join(', '),
+          }
+        }).filter(Boolean)
+
+        if (keywords) {
+          const kw = String(keywords).toLowerCase()
+          rows = rows.filter((r) => [
+            r.requisition_number, r.patient_number,
+            r.patient_first_name, r.patient_last_name, r.patient_case_number,
+          ].some((v) => v && String(v).toLowerCase().includes(kw)))
+        }
+        rows.sort((a, b) => String(b.requisition_date || '').localeCompare(String(a.requisition_date || '')))
+        return rows.slice(0, 200)
+      }
+      return api.listEligibleRequisitions(keywords, opts)
+    },
+
+    /**
+     * Step 2 — uncovered test items for a specific requisition + category
+     * metadata. Offline just returns every paid test item on the requisition
+     * with category info attached; the "not-already-covered" check that the
+     * server does against lab_report_items isn't replicated (server catches
+     * duplicates on sync).
+     */
+    async listUncoveredItems(patient_requisition_uuid) {
+      if (shouldRouteThroughOfflineStack()) {
+        const db = getDb()
+        const [req, items, testItems, categories] = await Promise.all([
+          db.table('patient_requisitions').get(patient_requisition_uuid),
+          db.table('patient_requisition_items').where('patient_requisition_uuid').equals(patient_requisition_uuid).toArray(),
+          db.table('test_items').toArray(),
+          db.table('item_categories').toArray(),
+        ])
+        if (!req) {
+          const err = new Error('Requisition not found in offline cache.')
+          err.code = 'OFFLINE_MISS'
+          throw err
+        }
+        const testItemByUuid = new Map(testItems.map((t) => [t.uuid, t]))
+        const categoryByUuid = new Map(categories.map((c) => [c.uuid, c]))
+        const shaped = items
+          .filter((it) => it.source_type === 'test_item' && it.payment_uuid)
+          .map((it) => {
+            const ti = testItemByUuid.get(it.source_uuid)
+            const cat = ti?.item_category_uuid ? categoryByUuid.get(ti.item_category_uuid) : null
+            return {
+              ...it,
+              test_item_uuid: ti?.uuid ?? null,
+              test_item_name: ti?.name ?? it.name,
+              item_category_uuid: cat?.uuid ?? null,
+              item_category_code: cat?.code ?? null,
+              item_category_name: cat?.name ?? null,
+              item_category_combine_printout: cat?.combine_printout ?? false,
+            }
+          })
+        return { requisition: req, items: shaped }
+      }
+      return api.listUncoveredItems(patient_requisition_uuid)
+    },
+
     async createBatch(payload) {
       // Offline path — pre-generate a client_uuid per group so the local
       // Dexie cache can point at the reports immediately (result entry
