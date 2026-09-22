@@ -35,6 +35,23 @@ const LS_LAST_BOOT_KEY = (tenant, user) => `mylab.offline.last_bootstrap.${tenan
 function readOnlineToken()  { return localStorage.getItem('pos_token') }
 function readOfflineToken() { return localStorage.getItem(LS_OFFLINE_TOKEN) }
 
+// ── Heartbeat tuning ──────────────────────────────────────────────────
+// Frequency of the /health probe when we believe we're online. Short enough
+// to catch a broken uplink within one interaction, long enough to be cheap
+// (5 tabs × 2 pings/min = 10 req/min per active operator). Chrome
+// auto-throttles background timers, so hidden tabs actually poll slower.
+const HEARTBEAT_INTERVAL_ONLINE_MS  = 30_000
+// When confirmed offline, back off to reduce churn — one dropped ping
+// costs almost nothing but N tabs each retrying every 30s does add up.
+const HEARTBEAT_INTERVAL_OFFLINE_MS = 60_000
+// Per-probe timeout. Anything longer than this is treated as a failure so
+// a stalled TCP handshake doesn't mask the disconnect.
+const HEARTBEAT_TIMEOUT_MS = 5_000
+// Consecutive failures required before we flip the badge to Offline. Two
+// is enough to filter out the "one transient blip" case without adding a
+// full minute of latency to real disconnects.
+const HEARTBEAT_FAILURE_THRESHOLD = 2
+
 export const useOfflineStore = defineStore('offline', {
   state: () => ({
     // Session identity
@@ -43,6 +60,15 @@ export const useOfflineStore = defineStore('offline', {
     enabled: false,                 // this station has opted into offline mode
     // Network + sync
     isOnline: typeof navigator === 'undefined' ? true : navigator.onLine,
+    // Heartbeat-derived signal. Set when consecutive /health probes fail —
+    // used to catch cases where navigator.onLine lies (localhost, VPN,
+    // captive portals). isOffline getter OR's this with !isOnline so
+    // either signal flipping true engages the offline stack.
+    heartbeatFailing: false,
+    _heartbeatFailStreak: 0,
+    _heartbeatTimer: null,
+    _heartbeatVisibilityHandler: null,
+    _heartbeatStopped: false,       // stopped explicitly (logout / disable)
     mode: 'online',                 // 'online' | 'offline'
     syncing: false,
     lastPullAt: null,
@@ -58,9 +84,17 @@ export const useOfflineStore = defineStore('offline', {
     // In-flight guard for auto-enable — prevents a MainLayout+LoginView
     // race from double-registering the same browser as two devices.
     _enableInFlight: false,
+    // Last auto-register failure surfaced to the badge / settings, so a
+    // silent /offline/enable rejection (tenant flag off, network wobble
+    // at login time, etc.) doesn't leave the operator in a broken state
+    // wondering why every request fails with "check your connection".
+    enableError: null,
   }),
   getters: {
-    isOffline: (s) => !s.isOnline,
+    // Either signal being offline puts us in offline mode. Browser events
+    // give fast detection when they work; heartbeat catches the localhost
+    // and lying-navigator.onLine cases.
+    isOffline: (s) => !s.isOnline || s.heartbeatFailing,
     isEnabled: (s) => !!s.device_id && !!s.offline_token,
     isBootstrapping: (s) => !!s.bootstrapProgress,
     statusLabel: (s) => {
@@ -99,6 +133,10 @@ export const useOfflineStore = defineStore('offline', {
       this.isOnline = navigator.onLine
       this._recomputeMode()
 
+      // Start the API-reachability heartbeat. Guards on tab visibility so
+      // background tabs don't burn resources; skipped when no auth token.
+      this._startHeartbeat()
+
       if (this.isEnabled) {
         this._buildEngine(tenant, user)
         await this.refreshCounts()
@@ -127,10 +165,14 @@ export const useOfflineStore = defineStore('offline', {
       this._enableInFlight = true
       try {
         await this.enableOnThisStation()
-      } catch (_) {
+        this.enableError = null
+      } catch (e) {
         // Common causes: tenant offline_mode_enabled=false, or transient
-        // network. The Settings panel's Enable button still works as a
+        // network. Surface the reason so the operator can see WHY offline
+        // mode isn't engaging (badge popover + Settings panel both read
+        // this). The Settings panel's Enable button still works as a
         // manual retry.
+        this.enableError = e?.message || 'Offline mode registration failed.'
       } finally {
         this._enableInFlight = false
       }
@@ -306,7 +348,122 @@ export const useOfflineStore = defineStore('offline', {
       this._recomputeMode()
     },
     _recomputeMode() {
-      this.mode = this.isOnline ? 'online' : 'offline'
+      // Bind to the composite offline signal — heartbeat can flip the mode
+      // even when navigator.onLine says we're up.
+      this.mode = this.isOffline ? 'offline' : 'online'
+    },
+
+    // ── /health heartbeat ────────────────────────────────────────────
+    // Chrome/Edge report navigator.onLine=true whenever ANY interface is
+    // up (loopback, VPN, disconnected Ethernet with cached IP). That means
+    // the browser-event path misses real disconnects. This poller does the
+    // one thing the browser can't lie about: it actually tries to reach
+    // the API. Two consecutive failures flip us into offline mode; one
+    // success flips back.
+    //
+    // Guards:
+    //   • Skip when the tab is hidden — Chrome throttles background timers
+    //     to 1/min anyway, and there's nothing for the operator to see.
+    //   • Skip when there's no auth token (login page) — the app isn't
+    //     doing transactions there, no point checking.
+    //   • AbortController-based timeout so a stalled TCP handshake counts
+    //     as a failure instead of hanging the interval.
+    _startHeartbeat() {
+      if (typeof window === 'undefined') return
+      this._heartbeatStopped = false
+      // Fire an immediate probe so a page that loads while the API is
+      // already down flips to Offline within seconds instead of 30.
+      this._heartbeatTick()
+      this._scheduleNextHeartbeat()
+      // Visibility handler — when the tab is brought back into focus,
+      // probe right away so the badge is accurate the moment the operator
+      // returns.
+      if (this._heartbeatVisibilityHandler) {
+        document.removeEventListener('visibilitychange', this._heartbeatVisibilityHandler)
+      }
+      this._heartbeatVisibilityHandler = () => {
+        if (!document.hidden) this._heartbeatTick()
+      }
+      document.addEventListener('visibilitychange', this._heartbeatVisibilityHandler)
+    },
+    _stopHeartbeat() {
+      this._heartbeatStopped = true
+      if (this._heartbeatTimer) {
+        clearTimeout(this._heartbeatTimer)
+        this._heartbeatTimer = null
+      }
+      if (this._heartbeatVisibilityHandler) {
+        document.removeEventListener('visibilitychange', this._heartbeatVisibilityHandler)
+        this._heartbeatVisibilityHandler = null
+      }
+    },
+    _scheduleNextHeartbeat() {
+      if (this._heartbeatStopped) return
+      if (this._heartbeatTimer) clearTimeout(this._heartbeatTimer)
+      const delay = this.heartbeatFailing
+        ? HEARTBEAT_INTERVAL_OFFLINE_MS
+        : HEARTBEAT_INTERVAL_ONLINE_MS
+      this._heartbeatTimer = setTimeout(() => this._heartbeatTick(), delay)
+    },
+    async _heartbeatTick() {
+      if (this._heartbeatStopped) return
+      // Skip hidden tabs — no user waiting, and Chrome will throttle us
+      // anyway. The visibilitychange handler probes again on focus.
+      if (typeof document !== 'undefined' && document.hidden) {
+        this._scheduleNextHeartbeat()
+        return
+      }
+      // Skip when there's no session — we're on login/register and the
+      // API host might not even be resolvable yet.
+      const auth = useAuthStore()
+      if (!auth.tenantUuid) {
+        this._scheduleNextHeartbeat()
+        return
+      }
+
+      let ok = false
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), HEARTBEAT_TIMEOUT_MS)
+      try {
+        const base = (import.meta.env?.VITE_API_BASE || '/api').replace(/\/+$/, '')
+        const res = await fetch(`${base}/health`, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: ctrl.signal,
+        })
+        ok = res.ok
+      } catch (_) {
+        ok = false
+      } finally {
+        clearTimeout(t)
+      }
+
+      if (ok) {
+        // Recover immediately on the first success — any pending sync work
+        // can start draining right away.
+        if (this.heartbeatFailing) {
+          this.heartbeatFailing = false
+          this._heartbeatFailStreak = 0
+          this._recomputeMode()
+          if (this.isEnabled && this.isOnline) this.drainNow()
+        } else {
+          this._heartbeatFailStreak = 0
+        }
+        // If offline mode never successfully registered (auto-enable
+        // failed silently at login time, or the tenant flag was off then
+        // flipped on later), retry now that we've proven the API is
+        // reachable. Guards inside prevent duplicate registrations.
+        if (!this.isEnabled && this.isOnline) {
+          this._autoEnableIfEligible().catch(() => {})
+        }
+      } else {
+        this._heartbeatFailStreak += 1
+        if (!this.heartbeatFailing && this._heartbeatFailStreak >= HEARTBEAT_FAILURE_THRESHOLD) {
+          this.heartbeatFailing = true
+          this._recomputeMode()
+        }
+      }
+      this._scheduleNextHeartbeat()
     },
 
     _buildEngine(tenant_uuid, user_uuid) {

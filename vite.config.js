@@ -38,12 +38,41 @@ export default defineConfig({
       workbox: {
         // Precache everything Vite emits (JS, CSS, HTML, images shipped by /public).
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Default is 2 MiB; the LaboratoryView chunk is close, and the
+        // vendor / index chunks are close-ish too. Anything over the limit
+        // is SILENTLY skipped by workbox → offline navigation to that route
+        // shows the Chrome "You're not connected" page. Bumping to 6 MiB
+        // gives comfortable headroom without blowing up install size.
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Purge stale precache entries from previous builds so the browser
+        // doesn't accumulate them across deploys.
+        cleanupOutdatedCaches: true,
+        // Skip the "waiting" state — a new SW takes over as soon as it's
+        // installed instead of only on the NEXT full page load. Combined
+        // with clientsClaim, an update reaches open tabs immediately, so
+        // an operator won't run a stale precache list against new code.
+        skipWaiting: true,
+        clientsClaim: true,
         // SPA fallback so any client-side route loads from cache when offline.
         navigateFallback: '/index.html',
         // API is server-authoritative — never cache /api or auth requests. A
         // stale cached "sale succeeded" would be catastrophic for a POS.
         navigateFallbackDenylist: [/^\/api\//, /^\/public\//],
         runtimeCaching: [
+          // Safety net for lazy-loaded route chunks: if precache misses a
+          // JS/CSS asset (over the size cap, race with a new deploy, etc.),
+          // still serve from cache once it's been fetched once. Cache-first
+          // is safe here because Vite fingerprints filenames — a new build
+          // publishes new filenames, so we can't serve a stale JS by mistake.
+          {
+            urlPattern: /\/assets\/.+\.(?:js|css)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'app-assets',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           // Google Fonts: cache the stylesheet + font files so the app looks
           // right even when Google is unreachable. Fonts change rarely.
           {
