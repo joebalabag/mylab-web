@@ -55,6 +55,14 @@ export function setTenantStatus(uuid, status) {
   return api.patch(`/tenant/set-status/${uuid}`, { status })
 }
 
+// Fire a one-off test email against the supplied SMTP config to verify it
+// works before saving. `password` may be omitted to reuse whatever is
+// stored on the tenant (server-side decrypt). The backend scopes to the
+// caller's tenant automatically.
+export function testTenantSmtp({ host, port, secure, user, password, to }) {
+  return api.post('/tenant/test-smtp', { host, port, secure, user, password, to })
+}
+
 // Super-admin override: change a tenant's current subscription end date and/or
 // amount, with a mandatory reason for the audit trail. Any of the value fields
 // may be omitted to leave that field unchanged; alter_reason is always required.

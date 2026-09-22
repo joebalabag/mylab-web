@@ -12,7 +12,7 @@ import EmptyState from '../components/EmptyState.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import RowActionMenu from '../components/RowActionMenu.vue'
 import MobileFilterBar from '../components/MobileFilterBar.vue'
-import { money, formatDateTime } from '../utils/format'
+import { money, formatDateTime, todayISO, daysAgoISO } from '../utils/format'
 import { CASE_TYPES, viewPatientCase } from '../api/patientCases'
 import { searchPatients, listPatients, createPatient, viewPatient, PATIENT_SEXES } from '../api/patients'
 // Offline-aware wrapper: same call surface as api/patientRequisitions
@@ -32,7 +32,16 @@ const reqStore      = usePatientRequisitionsStore()
 
 const search       = ref('')
 const typeFilter   = ref('')
-const statusFilter = ref('')
+// Default to Open — the dashboard is primarily used to work active cases;
+// operators rarely land here to review closed / cancelled ones.
+const statusFilter = ref('open')
+// Optional date range on admission_date. Off by default so first paint
+// isn't hidden behind an unwanted filter; when the operator ticks the
+// checkbox the inputs pre-fill with a 2-day window (matches the lab-report
+// dashboard's default) they can then widen.
+const enableDateRange = ref(false)
+const dateFrom        = ref(daysAgoISO(2))
+const dateTo          = ref(todayISO())
 const listError    = ref('')
 
 async function loadCases() {
@@ -41,7 +50,9 @@ async function loadCases() {
     tenant_uuid: auth.tenantUuid || '',
     case_type: typeFilter.value || '',
     keywords: search.value.trim(),
-    status: statusFilter.value ? [statusFilter.value] : []
+    status: statusFilter.value ? [statusFilter.value] : [],
+    date_from: enableDateRange.value ? (dateFrom.value || '') : '',
+    date_to:   enableDateRange.value ? (dateTo.value   || '') : '',
   })
   try {
     await cases.fetch()
@@ -946,6 +957,22 @@ function reqStatusBadge(s) {
             <option value="closed">Closed</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          <!-- Optional admission-date range. Checkbox gates the two date
+               inputs so they only appear (and only get sent) when explicitly
+               enabled — mirrors how the Add / Void reports pages let users
+               opt into a date window without cluttering the default view. -->
+          <label class="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-slate-600 dark:text-slate-300">
+            <input type="checkbox" v-model="enableDateRange" @change="onFilterChange"
+                   class="h-4 w-4 rounded border-slate-300 dark:border-slate-600" />
+            Date range
+          </label>
+          <template v-if="enableDateRange">
+            <input type="date" v-model="dateFrom" @change="onFilterChange"
+                   class="input w-full sm:w-36" :max="dateTo || undefined" />
+            <span class="hidden sm:inline text-xs text-slate-400">→</span>
+            <input type="date" v-model="dateTo" @change="onFilterChange"
+                   class="input w-full sm:w-36" :min="dateFrom || undefined" />
+          </template>
           <button class="btn-secondary" @click="loadCases" :disabled="cases.loading" title="Refresh">
             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">

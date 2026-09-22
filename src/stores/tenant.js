@@ -57,6 +57,23 @@ const DEFAULT_TENANT = {
   // credential belongs to slot 1's user).
   testerSignatoryCount: 1,
 
+  // Tag-as-Final auto-emails the finalized PDF to the patient on file
+  // when true; when false the send is opt-in via the Resend button in
+  // Print Preview. Defaults to true (matches server default).
+  autoEmailResultOnFinalize: true,
+
+  // Per-tenant SMTP override for lab-result emails. When smtpUseOwn is
+  // false the platform default (SMTP_* env vars on the API) is used.
+  // The password itself is never round-tripped from the server — we get
+  // a smtpPasswordSet flag so the UI can show "password on file" without
+  // exposing the ciphertext.
+  smtpUseOwn: false,
+  smtpHost: '',
+  smtpPort: 587,
+  smtpSecure: false,
+  smtpUser: '',
+  smtpPasswordSet: false,
+
   // Platform / super-admin managed fields
   active: true,
   planId: 2,                                    // STARTER by default
@@ -304,6 +321,18 @@ export const useTenantStore = defineStore('tenant', {
         // on the API side but some rows may return the value as a
         // string ("1" / "2") depending on driver.
         testerSignatoryCount: Number(t.tester_signatory_count) === 2 ? 2 : 1,
+        // Default to true so an older API row that hasn't been migrated
+        // yet (auto_email_result_on_finalize NULL) preserves the existing
+        // auto-send behavior.
+        autoEmailResultOnFinalize: t.auto_email_result_on_finalize == null
+          ? true
+          : parseBool(t.auto_email_result_on_finalize),
+        smtpUseOwn:      parseBool(t.smtp_use_own),
+        smtpHost:        t.smtp_host || '',
+        smtpPort:        Number(t.smtp_port) || 587,
+        smtpSecure:      parseBool(t.smtp_secure),
+        smtpUser:        t.smtp_user || '',
+        smtpPasswordSet: parseBool(t.smtp_password_set),
         active: (t.status || '').toLowerCase() === 'active',
         // Subscription snapshot (cached from the latest approved payment on the API tenant record)
         current_subscription_plan_uuid:            t.current_subscription_plan_uuid            ?? null,

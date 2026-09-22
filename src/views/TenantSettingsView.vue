@@ -40,6 +40,43 @@ function flash(msg, tone = 'emerald') {
   toastTimer = setTimeout(() => (toast.value.show = false), 2400)
 }
 
+/* --- SMTP override state --- */
+// Kept separate from `draft` so the plaintext never persists in the reactive
+// tenant snapshot — the field is only used at save time and cleared after.
+const smtpPasswordDraft = ref('')
+const smtpTestTo = ref(auth.user?.email_address || auth.user?.email || '')
+const smtpTesting = ref(false)
+async function sendSmtpTest() {
+  if (smtpTesting.value) return
+  if (!draft.smtpHost || !draft.smtpUser || !draft.smtpPort) {
+    flash('Fill in SMTP host, port, and user first.', 'rose')
+    return
+  }
+  if (!smtpTestTo.value) {
+    flash('Enter a "Send test to" email address.', 'rose')
+    return
+  }
+  smtpTesting.value = true
+  try {
+    const { testTenantSmtp } = await import('../api/tenants.js')
+    await testTenantSmtp({
+      host:     draft.smtpHost,
+      port:     Number(draft.smtpPort),
+      secure:   !!draft.smtpSecure,
+      user:     draft.smtpUser,
+      // Only send the plaintext when the operator typed one this session —
+      // otherwise the backend decrypts and reuses the stored ciphertext.
+      password: smtpPasswordDraft.value || undefined,
+      to:       smtpTestTo.value,
+    })
+    flash(`Test email sent to ${smtpTestTo.value}. Check the inbox (and spam) to confirm.`)
+  } catch (e) {
+    flash(e?.message || 'SMTP test failed. Double-check host / port / credentials.', 'rose')
+  } finally {
+    smtpTesting.value = false
+  }
+}
+
 /* --- Load from server on mount --- */
 const loading = ref(false)
 const loadError = ref('')
@@ -307,6 +344,15 @@ async function save() {
       // but v-model on <input type=radio> can round-trip through
       // strings when the form is programmatically hydrated.
       tester_signatory_count: Number(draft.testerSignatoryCount) === 2 ? 2 : 1,
+      auto_email_result_on_finalize: !!draft.autoEmailResultOnFinalize,
+      smtp_use_own:  !!draft.smtpUseOwn,
+      smtp_host:     draft.smtpHost || '',
+      smtp_port:     Number(draft.smtpPort) || undefined,
+      smtp_secure:   !!draft.smtpSecure,
+      smtp_user:     draft.smtpUser || '',
+      // Empty password = keep the stored ciphertext; only send when the
+      // operator typed a new one this session.
+      smtp_password: smtpPasswordDraft.value || undefined,
       receipt_header:     draft.receiptHeader || ''
     }
     await tenant.updateCurrentViaApi(apiPayload, {
@@ -317,6 +363,8 @@ async function save() {
     releaseObjectUrl()
     labHeaderFile.value = null
     releaseLabHeaderObjectUrl()
+    // Wipe the plaintext SMTP password once it's safely encrypted server-side.
+    smtpPasswordDraft.value = ''
     flash('Store settings saved ✓')
   } catch (e) {
     flash(e?.message || 'Failed to save settings', 'rose')
@@ -589,6 +637,145 @@ function discard() {
               <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Recommended: <b>1600 × 400 px</b> (aspect 4:1). JPG, PNG, WebP, GIF or SVG · up to 5 MB. Renders full-width on the report; pick artwork with good contrast against white paper.
               </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Emailing Results — governs whether Tag as Final auto-sends the
+             finalized PDF to the patient's email on file. When manual, the
+             operator uses the Resend button in Print Preview instead. -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Emailing Results</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                Controls whether Tag as Final auto-emails the finalized PDF to the patient. Manual sending is always available from Print Preview.
+              </div>
+            </div>
+          </div>
+          <div class="card-body space-y-4">
+            <div class="flex flex-wrap gap-6">
+              <label class="inline-flex items-start gap-2 text-sm">
+                <input type="radio" :value="true" v-model="draft.autoEmailResultOnFinalize" :disabled="!canEdit" class="mt-1" />
+                <span>
+                  <span class="font-medium text-slate-800 dark:text-slate-100">Auto-send on Tag as Final</span>
+                  <span class="block text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                    The PDF is emailed as soon as the report is finalized. Skipped silently when the patient has no email on file.
+                  </span>
+                </span>
+              </label>
+              <label class="inline-flex items-start gap-2 text-sm">
+                <input type="radio" :value="false" v-model="draft.autoEmailResultOnFinalize" :disabled="!canEdit" class="mt-1" />
+                <span>
+                  <span class="font-medium text-slate-800 dark:text-slate-100">Manual send only</span>
+                  <span class="block text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                    Finalize just locks the report. Operator clicks <b>Resend to patient</b> in Print Preview when they're ready to send.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <!-- ── Email sender (SMTP) ─────────────────────────────
+                 Choose between the platform's default mailbox (no config
+                 needed) and the tenant's own SMTP account. When "own" is
+                 picked, the five SMTP fields become required, and a Test
+                 button lets the operator verify credentials before saving. -->
+            <div class="border-t border-slate-200 dark:border-slate-700 pt-4">
+              <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                Email sender
+              </div>
+              <div class="flex flex-wrap gap-6">
+                <label class="inline-flex items-start gap-2 text-sm">
+                  <input type="radio" :value="false" v-model="draft.smtpUseOwn" :disabled="!canEdit" class="mt-1" />
+                  <span>
+                    <span class="font-medium text-slate-800 dark:text-slate-100">Use MyLab default</span>
+                    <span class="block text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                      Emails go through the platform's shared SMTP account. Simplest — no config on your side.
+                    </span>
+                  </span>
+                </label>
+                <label class="inline-flex items-start gap-2 text-sm">
+                  <input type="radio" :value="true" v-model="draft.smtpUseOwn" :disabled="!canEdit" class="mt-1" />
+                  <span>
+                    <span class="font-medium text-slate-800 dark:text-slate-100">Use my own SMTP</span>
+                    <span class="block text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                      Route lab-result emails through your own mailbox (Gmail, Google Workspace, Outlook, custom SMTP…).
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <div v-if="draft.smtpUseOwn" class="mt-3 space-y-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-3">
+                <div class="grid gap-3 sm:grid-cols-3">
+                  <div class="sm:col-span-2">
+                    <label class="label">SMTP host</label>
+                    <input v-model="draft.smtpHost" :disabled="!canEdit" class="input"
+                           placeholder="smtp.gmail.com" maxlength="255" />
+                  </div>
+                  <div>
+                    <label class="label">Port</label>
+                    <input type="number" v-model.number="draft.smtpPort" :disabled="!canEdit"
+                           class="input" placeholder="587" min="1" max="65535" />
+                  </div>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-3">
+                  <div class="sm:col-span-2">
+                    <label class="label">Username (usually the sending email)</label>
+                    <input v-model="draft.smtpUser" :disabled="!canEdit" class="input"
+                           placeholder="lab@yourclinic.com" maxlength="255" />
+                  </div>
+                  <div class="flex items-end">
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 pb-2">
+                      <input type="checkbox" v-model="draft.smtpSecure" :disabled="!canEdit"
+                             class="h-4 w-4 rounded border-slate-300" />
+                      <span>Secure (TLS)</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label class="label">
+                    Password
+                    <span v-if="draft.smtpPasswordSet && !smtpPasswordDraft"
+                          class="ml-2 text-[10px] font-normal uppercase tracking-wider text-emerald-600">password on file</span>
+                  </label>
+                  <input v-model="smtpPasswordDraft" :disabled="!canEdit" type="password"
+                         class="input" autocomplete="new-password"
+                         :placeholder="draft.smtpPasswordSet ? '•••••••• (leave blank to keep current)' : 'App password or SMTP password'" />
+                </div>
+
+                <!-- Gmail hint -->
+                <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                  <div class="font-semibold mb-1">Using Gmail or Google Workspace?</div>
+                  <ul class="list-disc pl-4 space-y-0.5">
+                    <li>Host <b>smtp.gmail.com</b>, port <b>587</b>, <b>Secure = off</b> (STARTTLS is used automatically).</li>
+                    <li>Gmail no longer accepts your normal account password over SMTP. You must generate a <b>16-character App Password</b>:
+                      <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener"
+                         class="text-brand-600 underline hover:text-brand-700">myaccount.google.com/apppasswords</a>
+                      → sign in → App name (e.g. "MyLab") → Create → copy the 16-char string with no spaces into the Password field above.
+                    </li>
+                    <li>2-Step Verification must be enabled on the Google account before the App Passwords page unlocks.</li>
+                  </ul>
+                </div>
+
+                <!-- Test email -->
+                <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div>
+                    <label class="label">Send test to</label>
+                    <input v-model="smtpTestTo" :disabled="!canEdit" type="email"
+                           class="input" placeholder="you@example.com" />
+                  </div>
+                  <div>
+                    <button type="button" class="btn-secondary whitespace-nowrap"
+                            :disabled="!canEdit || smtpTesting"
+                            @click="sendSmtpTest">
+                      {{ smtpTesting ? 'Sending…' : 'Send test email' }}
+                    </button>
+                  </div>
+                </div>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                  The test uses whatever you've filled in right now (no save required). If you leave Password blank and one is already on file, the stored value is reused.
+                </p>
+              </div>
             </div>
           </div>
         </div>

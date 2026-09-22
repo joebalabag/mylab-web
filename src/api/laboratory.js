@@ -68,6 +68,15 @@ export function voidLabReport(uuid, reason) {
   return api.patch(`/lab-report/${uuid}/void`, { reason })
 }
 
+// Post the print-ready HTML so the backend can render it to PDF via headless
+// Chromium and email the attachment to the patient. `base_href` tells the
+// backend which origin to resolve root-relative asset URLs (Vite stylesheets,
+// `/public/uploads/*` images) against during render. Skipped silently server-side
+// when the patient has no email.
+export function emailLabReportResult(uuid, { html, base_href, filename } = {}) {
+  return api.post(`/lab-report/${uuid}/email-result`, { html, base_href, filename })
+}
+
 // Public no-auth endpoint used by the QR-code landing page.
 export function publicViewLabReport(token) {
   return api.get('/lab-report/public/view', { query: { t: token } })

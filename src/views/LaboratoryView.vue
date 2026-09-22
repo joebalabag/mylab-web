@@ -17,7 +17,7 @@ import SkeletonRows from '../components/SkeletonRows.vue'
 import RowActionMenu from '../components/RowActionMenu.vue'
 import MobileFilterBar from '../components/MobileFilterBar.vue'
 import LabReportPrintable from '../components/LabReportPrintable.vue'
-import { daysAgoISO, formatDate, formatDateTime, todayISO } from '../utils/format'
+import { formatDate, formatDateTime, todayISO } from '../utils/format'
 
 const lab        = useLaboratoryStore()
 const categories = useItemCategoriesStore()
@@ -45,16 +45,15 @@ const categoryFilter = ref(persisted.item_category_uuid || '')               // 
 // yesterday and left the filter pinned to yesterday), slide the window
 // forward to today on load so newly created reports show up without the
 // operator having to touch the filter. When we slide date_to we also
-// slide date_from to keep the 2-day window intact. An explicitly-cleared
-// upper bound (empty string) is left alone — that means "no ceiling"
-// and is a valid choice we shouldn't override.
+// slide date_from to match so the "today only" default stays consistent.
+// An explicitly-cleared upper bound (empty string) is left alone — that
+// means "no ceiling" and is a valid choice we shouldn't override.
 const _todayStr      = todayISO()
-const _twoDaysAgo    = daysAgoISO(2)
 const _persistedTo   = persisted.date_to || ''
 const _shouldSlide   = hadPersisted && _persistedTo && _persistedTo < _todayStr
 const dateFrom       = ref(hadPersisted
-  ? (_shouldSlide ? _twoDaysAgo : (persisted.date_from || ''))
-  : _twoDaysAgo)
+  ? (_shouldSlide ? _todayStr : (persisted.date_from || ''))
+  : _todayStr)
 const dateTo         = ref(hadPersisted
   ? (_shouldSlide ? _todayStr : _persistedTo)
   : _todayStr)
@@ -73,6 +72,10 @@ async function loadReports() {
   })
   try {
     await lab.fetch()
+    // Fire-and-forget the pending-creation count so the report list
+    // renders as soon as it's ready — the summary card can lag by a
+    // beat without hurting the operator's flow.
+    loadPendingCreationCount()
   } catch (e) {
     listError.value = e?.message || 'Failed to load lab reports'
   }
@@ -135,13 +138,33 @@ function clearFilters() {
   // Group is required — reset to the first active group instead of clearing.
   const firstGroup = groups.items.find((g) => g.status === 'active')
   if (firstGroup) groupFilter.value = firstGroup.uuid
-  dateFrom.value = daysAgoISO(2)
+  dateFrom.value = todayISO()
   dateTo.value   = todayISO()
   loadReports()
 }
 
 const draftCount     = computed(() => lab.items.filter(r => r.status === 'draft').length)
 const finalizedCount = computed(() => lab.items.filter(r => r.status === 'finalized').length)
+
+// "Pending for lab creation" = paid requisitions with at least one uncovered
+// test item, scoped to the current item-group filter. This matches exactly
+// what the "+ Add Laboratory → Choose Requisition" picker would show — so
+// the summary card mirrors that queue at a glance. Fetched via the same
+// endpoint the picker uses; keeping the count in sync with the list keeps
+// the operator from clicking Add and finding nothing to add.
+const pendingCreationCount = ref(0)
+async function loadPendingCreationCount() {
+  try {
+    const rows = await lab.listEligibleRequisitions('', {
+      item_group_uuid: groupFilter.value || undefined,
+    })
+    pendingCreationCount.value = Array.isArray(rows) ? rows.length : 0
+  } catch (_) {
+    // Non-fatal — if the picker endpoint is unreachable the card just
+    // shows 0 rather than blocking the whole dashboard.
+    pendingCreationCount.value = 0
+  }
+}
 
 // ─── Toast ───
 const toast = ref('')
@@ -445,12 +468,16 @@ function resetConfirmFinal() {
     show: false, report: null, pathologist: '', doctorUuid: '',
     defaultDoctor: null, loadingDoctor: false,
     signatoryUsername: '', signatoryPassword: '', authError: '', submitting: false,
+    forceTwoSignatories: false,
   }
 }
 // True when the tenant is configured for two tester signatories — drives
-// the credential prompt inside the Tag-as-Final modal.
+// the credential prompt inside the Tag-as-Final modal. Also flips true when
+// the server rejects a submission for missing second-signatory creds, so a
+// stale tenant cache never leaves the operator stuck.
 const twoTesterSignatories = computed(() =>
   Number(tenant.current?.testerSignatoryCount) === 2
+    || !!confirmFinal.value.forceTwoSignatories
 )
 async function askSetFinal(r) {
   confirmFinal.value = {
@@ -464,7 +491,14 @@ async function askSetFinal(r) {
     signatoryPassword: '',
     authError: '',
     submitting: false,
+    forceTwoSignatories: false,
   }
+  // Refresh the tenant config so the second-signatory panel matches the
+  // server's current tester_signatory_count. Without this, a session that
+  // cached count=1 before an admin bumped the tenant to count=2 would let
+  // the operator submit without credentials — the server would then reject
+  // and they'd stare at an error with no way to enter creds.
+  tenant.loadCurrentFromApi().catch(() => { /* keep working with cached value */ })
   // Preload the item group's default signatory doctor so we can pre-select
   // it on open. If the group has one configured, it becomes the default
   // choice; user can override with the picker.
@@ -505,11 +539,80 @@ async function doSetFinal() {
     // Jump straight to Print Preview so the operator can print the newly
     // finalized report without hunting for the row-action menu.
     await openPrint(report)
+    // Auto-send only when the tenant opted into it (Company Settings →
+    // Emailing Results → "Auto-send on Tag as Final"). Manual-only tenants
+    // rely on the Resend button in Print Preview instead. When the patient
+    // has no email on file this is a silent skip either way — the modal
+    // already showed the amber notice.
+    if (tenant.current?.autoEmailResultOnFinalize) {
+      await sendFinalizedResultEmail(report)
+    }
   } catch (e) {
     // 401 / 400 messages from the server surface inline so the operator
     // can re-enter credentials without losing the rest of the modal state.
     state.submitting = false
     state.authError = e?.message || 'Failed to finalize lab report'
+    // Belt-and-suspenders for a stale tenant cache: if the server says
+    // "second signatory required" but the local computed says count=1,
+    // reveal the credential inputs anyway so the operator can enter them
+    // on retry without refreshing the page.
+    if (/second signatory/i.test(state.authError)) {
+      state.forceTwoSignatories = true
+      // Refresh in the background too so the panel stays visible on
+      // subsequent opens.
+      tenant.loadCurrentFromApi().catch(() => { /* non-fatal */ })
+    }
+  }
+}
+
+// Post the print-ready HTML to the backend so headless Chromium can render
+// it to PDF and mail it to the patient. The frontend no longer generates the
+// PDF itself — Puppeteer on the server uses Chrome's real print pipeline, so
+// the attachment matches Print Preview pixel-for-pixel (fonts, spacing,
+// backgrounds, all of it). Never throws — a failed send must not undo a
+// successful finalize.
+//
+// `mode`: 'auto' (finalize) skips silently when the patient has no email
+// (the modal already warned). 'manual' (resend button) flashes an amber
+// notice so the operator gets explicit feedback for every click.
+async function sendFinalizedResultEmail(report, mode = 'auto') {
+  const email = printReport.value?.patient_email
+  if (!email) {
+    if (mode === 'manual') flash('Patient has no email on file — nothing sent.', 'amber')
+    return
+  }
+  const printDoc = buildPrintDocument()
+  if (!printDoc) {
+    if (mode === 'manual') flash('Print preview is not ready yet — try again in a moment.', 'amber')
+    return
+  }
+  try {
+    const safeNum = String(report.lab_number || 'result').replace(/[^\w.-]/g, '_')
+    const filename = `Lab Report ${safeNum}.pdf`
+    const res = await labApi.emailLabReportResult(report.uuid, {
+      html: printDoc.html,
+      base_href: printDoc.baseHref,
+      filename,
+    })
+    if (res?.sent) flash(`Result emailed to ${email}`)
+    else if (mode === 'manual') flash('Server skipped the send — nothing was emailed.', 'amber')
+  } catch (err) {
+    flashError(err, mode === 'manual'
+      ? 'Failed to email the result. Please try again.'
+      : 'Report finalized but the email to the patient failed. You can resend from Print Preview.')
+  }
+}
+
+// Wired to the "Resend to patient" button in the Print Preview footer.
+// Uses the same rendering path as the auto-send so the emailed PDF matches
+// exactly what the operator would print — no drift between the two flows.
+async function resendResultEmail() {
+  if (!printReport.value || sendingEmail.value) return
+  sendingEmail.value = true
+  try {
+    await sendFinalizedResultEmail(printReport.value, 'manual')
+  } finally {
+    sendingEmail.value = false
   }
 }
 
@@ -562,6 +665,10 @@ async function doVoid() {
 const showPrint = ref(false)
 const printLoading = ref(false)
 const printReport  = ref(null)
+// Manual-resend spinner state for the Print Preview footer button. Kept
+// separate from any auto-send that runs off Tag as Final so the two flows
+// don't step on each other's UI state.
+const sendingEmail = ref(false)
 // Data-URL of the generated QR code — regenerated per report open so the
 // image is embedded in the DOM (no extra fetch, prints reliably).
 const qrDataUrl = ref('')
@@ -843,48 +950,14 @@ function computeEffectivePaper() {
   recommendedPaperKey.value = key
   effectivePaperKey.value   = key
 }
-function doPrint() {
-  // Open the report in a fresh, isolated print window. Copying the app's
-  // stylesheets keeps every Tailwind class intact, and the popup only holds
-  // the report markup — so the printed page is just the lab report with no
-  // sidebar, modal chrome, or ancestor scroll containers to clip it.
+// Shared print-doc builder. Returns the full <!doctype html> string plus the
+// paper spec / pixel dims — so `doPrint` (popup + window.print) and the
+// email-attachment flow (backend Puppeteer render) draw from EXACTLY the
+// same source, guaranteeing the emailed PDF matches what the operator would
+// print. Returns null when the print DOM isn't mounted yet.
+function buildPrintDocument() {
   const src = document.getElementById('lab-print-area')
-  if (!src) { window.print(); return }
-
-  // Size the popup to match the paper width so the body's on-screen layout
-  // paginates the same way the printer will. Without this, scrollHeight is
-  // measured at ~900 px and the "continued" marker page-count math is off.
-  // paperPx is defined a few lines below; peek at it early via the same map.
-  const _paperMap = {
-    'A4':          { w: 794,  h: 1123 },
-    'A5':          { w: 559,  h: 794  },
-    'letter':      { w: 816,  h: 1056 },
-    '8.5in 14in':  { w: 816,  h: 1344 },
-    '5.5in 8.5in': { w: 528,  h: 816  },
-    '8.5in 5.5in': { w: 816,  h: 528  },
-    '8.5in 7in':   { w: 816,  h: 672  },
-  }
-  const _winPaper = _paperMap[
-    ({ full:'A4', half:'A5', letter:'letter', legal:'8.5in 14in', half_letter:'5.5in 8.5in',
-       half_letter_crosswise:'8.5in 5.5in', half_legal_crosswise:'8.5in 7in' })[
-      effectivePaperKey.value || 'full'
-    ]
-  ] || { w: 816, h: 1056 }
-  const winW = _winPaper.w + 20   // + scrollbar slack
-  const winH = Math.min(_winPaper.h + 40, screen.availHeight - 40)
-
-  const win = window.open('', '_blank', `width=${winW},height=${winH}`)
-  if (!win) {
-    // Popup blocked — fall back to same-window print (may include chrome).
-    window.print()
-    return
-  }
-
-  // Pull every <link rel=stylesheet> and <style> from the current document so
-  // the popup renders with the same styles as the on-screen preview.
-  const styleTags = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-    .map((n) => n.outerHTML)
-    .join('\n')
+  if (!src) return null
 
   const title = `Lab Report ${printReport.value?.lab_number || ''}`
 
@@ -925,9 +998,6 @@ function doPrint() {
   }
 
   // Pixel dimensions (@ 96 CSS DPI) the popup uses to compute page breaks.
-  // JS then inserts absolutely-positioned "continued" markers at each page
-  // boundary EXCEPT the last one — that's the only reliable cross-browser
-  // way to keep the last page marker-free without paged-media polyfills.
   const paperPxMap = {
     'A4':          { w: 794,  h: 1123 },
     'A5':          { w: 559,  h: 794  },
@@ -941,9 +1011,12 @@ function doPrint() {
   // Substitute the placeholder now that we know the paper width.
   printMarkup = printMarkup.replace('{{PAPER_W}}', String(paperPx.w))
 
-  // Split the closing script tag across a concatenation so the Vue template
-  // parser doesn't confuse this string literal for an actual close-tag.
-  const closeScript = '<' + '/scr' + 'ipt>'
+  // Pull every <link rel=stylesheet> and <style> from the current document so
+  // the popup / iframe renders with the same styles as the on-screen preview.
+  const styleTags = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+    .map((n) => n.outerHTML)
+    .join('\n')
+
   const css = `
     html, body { background: #fff; margin: 0; padding: 0; }
     #lab-print-area { padding: 0 12mm 12mm; margin: 0; }
@@ -1001,69 +1074,79 @@ function doPrint() {
     }
     .lab-signature-block { margin-top: auto; }
   `
-  const inlineScript = ''
 
-  win.document.open()
-  win.document.write(
-    `<!doctype html><html><head><meta charset="utf-8" /><title>${title}</title>${styleTags}<style>${css}</style><script>${inlineScript}${closeScript}</head><body>${printMarkup}</body></html>`
-  )
-  win.document.close()
+  // <base href> so root-relative asset URLs (Vite stylesheets, /public/uploads
+  // images) resolve when the backend loads this HTML in headless Chromium.
+  // The popup path doesn't strictly need it — the popup inherits baseURI from
+  // its opener — but having it here keeps both flows identical.
+  const baseHref = (typeof window !== 'undefined' && window.location?.origin)
+    ? window.location.origin + '/'
+    : ''
+  const baseTag = baseHref ? `<base href="${baseHref}">` : ''
 
-  // Wait for the copied stylesheets AND images (tenant logo, QR code) to
-  // finish loading before triggering print. The old code guessed a 100ms
-  // delay after the `load` event which sometimes fired before external
-  // <link rel=stylesheet> hrefs had actually resolved — the popup then
-  // printed a blank / partially-styled page. This awaits each resource
-  // explicitly with a per-resource timeout so a single stuck asset can't
-  // block the whole print flow.
-  async function waitForPopupReady(w) {
-    const doc = w.document
-    const perResourceTimeout = 3000
-    const withTimeout = (p) => Promise.race([
-      p, new Promise((res) => setTimeout(res, perResourceTimeout)),
-    ])
-    // Stylesheets — l.sheet is populated once the sheet is parsed.
-    const linkWaits = Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map((l) => {
-      if (l.sheet) return Promise.resolve()
-      return withTimeout(new Promise((res) => {
-        l.addEventListener('load',  res, { once: true })
-        l.addEventListener('error', res, { once: true })
-      }))
-    })
-    // Images — logo, QR, e-signatures. `.decode()` awaits both fetch AND
-    // pixel decoding. Broken images resolve too (catch) so they don't hang.
-    const imgWaits = Array.from(doc.images).map((img) => {
-      if (img.complete && img.naturalWidth > 0) return Promise.resolve()
-      if (typeof img.decode === 'function') return withTimeout(img.decode().catch(() => {}))
-      return withTimeout(new Promise((res) => {
-        img.addEventListener('load',  res, { once: true })
-        img.addEventListener('error', res, { once: true })
-      }))
-    })
-    await Promise.all([...linkWaits, ...imgWaits])
-    // Fonts — @font-face files referenced by the copied stylesheets load on
-    // the popup's own document, independent of the parent. Until they finish,
-    // text using them is rendered with invisible glyphs (font-display: block
-    // is Chrome's default when no override is set), which is the primary
-    // cause of "print preview came out white." document.fonts.ready resolves
-    // once every pending face is either loaded or errored. Guarded with a
-    // timeout so a single stuck font can't stall the whole print flow.
-    if (doc.fonts && typeof doc.fonts.ready?.then === 'function') {
-      await withTimeout(doc.fonts.ready)
-    }
-    // One more frame so layout settles after the last resource lands —
-    // otherwise Chrome can capture a mid-relayout snapshot for the print
-    // rasterizer and blank out the page.
-    await new Promise((r) => w.requestAnimationFrame(() => w.requestAnimationFrame(r)))
+  const html = `<!doctype html><html><head>${baseTag}<meta charset="utf-8" /><title>${title}</title>${styleTags}<style>${css}</style></head><body>${printMarkup}</body></html>`
+  return { html, paperSpec, paperPx, title, baseHref }
+}
+
+// Wait for the copied stylesheets AND images (tenant logo, QR code) to
+// finish loading before triggering print / snapshotting. Shared by the print
+// popup and the offscreen iframe used to render the emailed PDF, so both
+// paths only proceed once fonts/images have actually settled — otherwise
+// Chrome can capture a mid-relayout snapshot and produce a blank page.
+async function waitForPrintWindowReady(w) {
+  const doc = w.document
+  const perResourceTimeout = 3000
+  const withTimeout = (p) => Promise.race([
+    p, new Promise((res) => setTimeout(res, perResourceTimeout)),
+  ])
+  const linkWaits = Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map((l) => {
+    if (l.sheet) return Promise.resolve()
+    return withTimeout(new Promise((res) => {
+      l.addEventListener('load',  res, { once: true })
+      l.addEventListener('error', res, { once: true })
+    }))
+  })
+  const imgWaits = Array.from(doc.images).map((img) => {
+    if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+    if (typeof img.decode === 'function') return withTimeout(img.decode().catch(() => {}))
+    return withTimeout(new Promise((res) => {
+      img.addEventListener('load',  res, { once: true })
+      img.addEventListener('error', res, { once: true })
+    }))
+  })
+  await Promise.all([...linkWaits, ...imgWaits])
+  if (doc.fonts && typeof doc.fonts.ready?.then === 'function') {
+    await withTimeout(doc.fonts.ready)
+  }
+  await new Promise((r) => w.requestAnimationFrame(() => w.requestAnimationFrame(r)))
+}
+
+function doPrint() {
+  // Open the report in a fresh, isolated print window. The popup only holds
+  // the report markup — so the printed page is just the lab report with no
+  // sidebar, modal chrome, or ancestor scroll containers to clip it.
+  const printDoc = buildPrintDocument()
+  if (!printDoc) { window.print(); return }
+  const { paperPx, html } = printDoc
+
+  // Size the popup to match the paper width so the body's on-screen layout
+  // paginates the same way the printer will.
+  const winW = paperPx.w + 20   // + scrollbar slack
+  const winH = Math.min(paperPx.h + 40, screen.availHeight - 40)
+
+  const win = window.open('', '_blank', `width=${winW},height=${winH}`)
+  if (!win) {
+    // Popup blocked — fall back to same-window print (may include chrome).
+    window.print()
+    return
   }
 
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+
   const trigger = async () => {
-    await waitForPopupReady(win)
-    // Close the popup once the user dismisses the print dialog (printed or
-    // canceled). Fallback to a 15s guard in case the browser skips the
-    // event. Setting the close on a timeout right after print() (the old
-    // behaviour) killed the popup mid-preview and left the user staring at
-    // a white page — that was the second reproduction of the "blank" bug.
+    await waitForPrintWindowReady(win)
     const cleanup = () => { try { win.close() } catch (_) { /* already closed */ } }
     win.addEventListener('afterprint', cleanup, { once: true })
     setTimeout(cleanup, 15000)
@@ -1303,11 +1386,33 @@ function patientDisplay(r) {
 
 <template>
   <div class="flex h-full flex-col gap-4">
-    <div class="grid grid-cols-3 gap-3 shrink-0 print:hidden">
+    <div class="grid grid-cols-2 gap-3 shrink-0 print:hidden sm:grid-cols-4">
       <div class="card"><div class="card-body">
         <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Total</div>
         <div class="mt-1 text-2xl font-bold">{{ lab.total || lab.items.length }}</div>
       </div></div>
+      <div :class="['card', canLabAdd && 'cursor-pointer transition hover:border-sky-300 hover:shadow-md']"
+           role="button" tabindex="0"
+           :title="canLabAdd
+             ? 'Click to open Add Laboratory — paid requisitions with test items not yet covered by a lab report.'
+             : 'Paid requisitions with test items not yet covered by a lab report.'"
+           @click="canLabAdd && openAdd()"
+           @keydown.enter.prevent="canLabAdd && openAdd()"
+           @keydown.space.prevent="canLabAdd && openAdd()">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Pending Lab Creation</div>
+            <!-- Small arrow affordance so the click target reads as
+                 actionable at a glance. Hidden when the operator doesn't
+                 have the add permission — clicking it would do nothing. -->
+            <svg v-if="canLabAdd" class="h-3.5 w-3.5 text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14" />
+              <path d="M13 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div class="mt-1 text-2xl font-bold text-sky-600">{{ pendingCreationCount }}</div>
+        </div>
+      </div>
       <div class="card"><div class="card-body">
         <div class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Drafts</div>
         <div class="mt-1 text-2xl font-bold text-amber-600">{{ draftCount }}</div>
@@ -1792,6 +1897,26 @@ function patientDisplay(r) {
           <input v-model="confirmFinal.pathologist" class="input w-full" placeholder="Pathologist full name" />
         </div>
 
+        <!-- Patient email status. The sub-line depends on the tenant's
+             Emailing Results setting so the operator knows exactly what
+             will (or won't) happen after they tag. -->
+        <div v-if="confirmFinal.report?.patient_email"
+             class="rounded-md border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+          <span class="font-semibold">Patient email on file:</span>
+          <span class="ml-1 font-mono">{{ confirmFinal.report.patient_email }}</span>
+          <div v-if="tenant.current?.autoEmailResultOnFinalize"
+               class="mt-1 text-[11px] text-sky-700">
+            A PDF copy of the finalized report will be sent to the patient right after tagging.
+          </div>
+          <div v-else class="mt-1 text-[11px] text-sky-700">
+            Auto-email is off — the result won't be sent automatically. Use <b>Resend to patient</b> in Print Preview when you're ready to send.
+          </div>
+        </div>
+        <div v-else class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <span class="font-semibold">Patient has no email on file</span> — result will not be sent.
+          Add an email to the patient record if you want future results delivered automatically.
+        </div>
+
         <!-- Second-tester credential ceremony (tenant.testerSignatoryCount = 2).
              The server verifies these against a user in this tenant; the
              resolved user is snapshotted as medtech2_*. When credentials
@@ -1983,6 +2108,22 @@ function patientDisplay(r) {
       </template>
       <template #footer>
         <button class="btn-secondary" @click="showPrint = false">Close</button>
+        <!-- Manual resend. Only meaningful once the report is finalized and
+             the patient has an email on file. Title tooltip explains the
+             disabled state so the operator isn't left guessing. -->
+        <button class="btn-secondary"
+                :disabled="!printReport
+                           || printReport.status !== 'finalized'
+                           || !printReport.patient_email
+                           || printLoading
+                           || sendingEmail"
+                :title="!printReport ? ''
+                        : printReport.status !== 'finalized' ? 'Finalize the report first to email it.'
+                        : !printReport.patient_email ? 'Patient has no email on file.'
+                        : `Send this PDF to ${printReport.patient_email}`"
+                @click="resendResultEmail">
+          {{ sendingEmail ? 'Sending…' : 'Resend to patient' }}
+        </button>
         <button class="btn-primary" @click="doPrint">Print</button>
       </template>
     </Modal>

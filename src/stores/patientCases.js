@@ -14,7 +14,9 @@ const emptyFilters = () => ({
   patient_uuid: '',
   case_type: '',
   keywords: '',
-  status: []
+  status: [],
+  date_from: '',
+  date_to: '',
 })
 
 // Fields the Add-case form collects. case_number stays server-side (it's
@@ -85,6 +87,11 @@ export const usePatientCasesStore = defineStore('patientCases', {
           if (merged.patient_uuid) rows = rows.filter((r) => r.patient_uuid === merged.patient_uuid)
           if (merged.case_type)    rows = rows.filter((r) => r.case_type === merged.case_type)
           if (merged.status?.length) rows = rows.filter((r) => merged.status.includes(r.status))
+          // Server compares admission_date to date_from/date_to; mirror that
+          // predicate against the local cache so offline results match the
+          // filter chip the user sees.
+          if (merged.date_from) rows = rows.filter((r) => (r.admission_date || '') >= merged.date_from)
+          if (merged.date_to)   rows = rows.filter((r) => (r.admission_date || '') <= `${merged.date_to} 23:59:59`)
           rows = await decoratePatientColumns(db, rows)
 
           const res = paginate(rows, {
@@ -111,6 +118,8 @@ export const usePatientCasesStore = defineStore('patientCases', {
           case_type:    merged.case_type    || undefined,
           keywords:     merged.keywords     || undefined,
           status:       merged.status?.length ? merged.status : undefined,
+          date_from:    merged.date_from    || undefined,
+          date_to:      merged.date_to      || undefined,
           ...pageParams,
         })
         this.items      = Array.isArray(res?.results) ? res.results : []
