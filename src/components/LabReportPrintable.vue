@@ -25,6 +25,12 @@ const props = defineProps({
   // Physical paper height in CSS pixels — drives the body min-height so the
   // signature block pins to the bottom of a full page.
   paperHeight: { type: Number, default: 1056 },
+  // True when the report is being rendered on the patient-facing public
+  // route (/lab/view). The public copy omits the pathologist's e-signature
+  // image (that graphic is meant for the operator's printed original) and
+  // swaps the footer note to spell out that the version the recipient is
+  // looking at is a system-generated copy that doesn't need signing.
+  publicView: { type: Boolean, default: false },
 })
 
 // First non-blank line of the tenant's lab header text = "company name",
@@ -431,7 +437,7 @@ function categoryHeaderStyle(report) {
           <div>
             <div class="border-b border-slate-400"></div>
             <div class="relative mt-1 text-center text-xs">
-              <img v-if="report.status === 'finalized' && report.pathologist_esignature_image"
+              <img v-if="!publicView && report.status === 'finalized' && report.pathologist_esignature_image"
                    :src="assetUrl(report.pathologist_esignature_image)"
                    alt="signature"
                    class="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-3/4 max-h-14 max-w-[70%] object-contain" />
@@ -450,7 +456,10 @@ function categoryHeaderStyle(report) {
         </div>
 
         <div class="mt-2 border-t border-slate-200 pt-1 text-[10px] leading-tight text-slate-500">
-          Printed: {{ formatDateTime(new Date()) }}
+          <div>Printed: {{ formatDateTime(new Date()) }}</div>
+          <div v-if="publicView" class="mt-0.5 italic">
+            This is a computer-generated report and does not require a signature.
+          </div>
         </div>
       </div><!-- /#lab-print-body -->
     </div>

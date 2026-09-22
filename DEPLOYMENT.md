@@ -254,8 +254,10 @@ server {
         proxy_set_header    X-Forwarded-Proto https;
         proxy_ssl_server_name on;
 
-        # Upload limit — payment-slip and doctor-signature images
-        client_max_body_size 15m;
+        # Upload limit — payment-slip and doctor-signature images, plus the
+        # base64-encoded PDF the frontend posts to /api/lab-report/:uuid/email-result
+        # after Tag as Final. Must be ≥ the backend's Nest body-parser limit (20mb).
+        client_max_body_size 20m;
         proxy_read_timeout   60s;
     }
 
@@ -459,7 +461,7 @@ Set repo secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_KEY` in
 | Cache never busts | Client is caching `index.html`. Verify the `location = /index.html` block sets `Cache-Control: no-store`. |
 | PWA won't update on installed devices | Service worker cached itself. Ensure `location = /sw.js` sets `Cache-Control: no-store`. The vite-plugin-pwa registration uses `autoUpdate`, so a fresh SW should take over within a page load or two after deploy. |
 | Install prompt never appears | Chrome / Edge only show the install prompt on **HTTPS** origins (except localhost). Verify the site is HTTPS and the manifest link + icons are reachable at `/manifest.webmanifest`, `/pwa-192.png`, `/pwa-512.png`. |
-| `413 Request Entity Too Large` on payment / signature upload | `client_max_body_size` too low on the `/api/` proxy block. Bump to `15m` (matches the backend's per-field limits). |
+| `413 Request Entity Too Large` on payment / signature upload or emailing a finalized lab report | `client_max_body_size` too low on the `/api/` proxy block. Bump to `20m` (matches the backend's Nest body-parser limit set in `main.ts`). |
 | Certbot renew warns "another instance running" | Old `certbot` cron ran alongside the systemd timer. Disable the crontab entry or the timer — pick one. |
 | Public lab-report link (`/lab/view?…`) shows the login form | The catch-all in `router/index.js` is wrong, OR nginx didn't fall through to `index.html`. Confirm the URL isn't rewritten. |
 

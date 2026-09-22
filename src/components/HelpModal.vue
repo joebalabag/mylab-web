@@ -143,8 +143,8 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
                     <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Cashier settles unpaid items. Cash, e-wallet, bank transfer, or an arrangement (A/R, insurance, paid outside, charity).</p>
                   </div>
                   <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
-                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">Sign &amp; release lab reports</div>
-                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Encode results (single, panel, matrix, narrative), tag as final with medtech + pathologist signatures, print / share via QR.</p>
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">Sign, email &amp; release lab reports</div>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Encode results (single, panel, matrix, narrative), tag as final with medtech + pathologist signatures, auto-email the PDF to the patient (or resend manually), print, and share via QR.</p>
                   </div>
                 </div>
                 <!-- Big, unmissable callout for the pre-loaded catalog — it's
@@ -508,7 +508,7 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
                       <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">Cashier collects payment</div>
                     </div>
                     <p class="mt-1 pl-8 text-xs text-slate-600 dark:text-slate-300">
-                      <b>Cashier → + New Payment</b>. Search the case, tick which items to bill, apply a discount if needed, pick the method:
+                      <b>Cashier → + New Payment</b>. Search the case, tick which items to bill, apply a discount if needed, pick the method. For cash, quick-tap the denominations under <b>Amount Tendered</b> (<i>Exact</i>, 1000, 500, 200, 100, 50, 20, <i>Clear</i>) — each tap adds to the running amount so you can enter what the customer handed over without doing the math.
                     </p>
                     <ul class="mt-1 pl-8 space-y-0.5 text-xs text-slate-600 dark:text-slate-300">
                       <li>• <b>Cash / eWallet / Bank Transfer</b> — collected at the counter. eWallet + Bank need a provider + reference.</li>
@@ -528,10 +528,10 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
                   <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                     <div class="flex items-center gap-2">
                       <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white">5</span>
-                      <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">Tag as Final &amp; print</div>
+                      <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">Tag as Final, email &amp; print</div>
                     </div>
                     <p class="mt-1 pl-8 text-xs text-slate-600 dark:text-slate-300">
-                      Row action <b>Tag as Final</b> locks the values, stamps medtech + pathologist signatures, and generates a QR that opens a public read-only version of the report. Row action <b>Print Preview</b> → <b>Print</b> lays it out on the configured paper size.
+                      Row action <b>Tag as Final</b> locks the values, stamps the medtech + pathologist signatures, and generates a QR that opens a public read-only version of the report. The modal warns you if the patient has no email on file, and — when <b>Company Settings → Emailing Results</b> is set to auto-send — the PDF goes out to the patient right after tagging (skipped silently when there's no email). Row action <b>Print Preview</b> → <b>Print</b> lays it out on the configured paper size; the same modal has a <b>Resend to patient</b> button for the manual-send tenants or to redo a failed auto-send.
                     </p>
                   </div>
                 </div>
@@ -577,7 +577,7 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
                 <div class="mt-3 grid gap-3 sm:grid-cols-2">
                   <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3 text-xs dark:border-slate-800 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200">
                     <div class="font-semibold text-slate-800 dark:text-slate-100">Setup</div>
-                    <p class="mt-1">Company Settings, Lab Header (optional), Receipt Header (optional), Users, Signatory Doctors.</p>
+                    <p class="mt-1">Company Settings (Lab Header, <b>Emailing Results</b> — auto or manual send, Report Signatories 1 or 2, Receipt Header), Users, Signatory Doctors.</p>
                   </div>
                   <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3 text-xs dark:border-slate-800 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200">
                     <div class="font-semibold text-slate-800 dark:text-slate-100">Catalog</div>
@@ -697,6 +697,30 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
                   <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
                     <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">The pathologist's name isn't printing on final reports.</div>
                     <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Open the parent <b>Item Group</b> → assign a <b>Signatory Doctor</b>. That doctor's name / license / e-signature will auto-fill on every finalized report under that group.</p>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">The patient never got the emailed result.</div>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      Two things to check. First, the patient record must have an email — the Tag as Final modal will tell you if it's missing. Second, the tenant's <b>Company Settings → Emailing Results</b> must be set to <b>Auto-send</b> for the email to fire on Tag as Final; if it's on <b>Manual send only</b>, you have to click <b>Resend to patient</b> from Print Preview yourself. Failed sends can always be retried from the same button.
+                    </p>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">The QR link the patient scanned looks different from the printed report.</div>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      That's intentional. The public view (scanned QR link) is a computer-generated copy for the patient's records — it omits the wet e-signature graphic and adds a "no signature required" footer. The paper you printed and the emailed PDF still carry the pathologist's e-signature.
+                    </p>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">Tag as Final says a second signatory's credentials are required.</div>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      Your tenant is configured for <b>2 tester signatories</b> in <b>Company Settings → Report Signatories</b>. Enter another lab user's username and password in the modal to sign as the second tester. If it resolves to the same person who created the report, the report collapses to a single printed signature — no error.
+                    </p>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">My Patient Cases dashboard is missing older cases.</div>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      The dashboard defaults to <b>Open</b> status and no date filter — closed and cancelled cases are hidden until you switch the dropdown. Tick <b>Date range</b> to add an optional admission-date window (prefills to the last 2 days; widen or clear it as needed).
+                    </p>
                   </div>
                   <div class="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-3">
                     <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 dark:text-slate-100">I imported the pre-loaded catalog twice — will I get duplicates?</div>

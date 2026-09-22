@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar.vue'
 import Topbar from '../components/Topbar.vue'
 import SubscriptionExpiredGate from '../components/SubscriptionExpiredGate.vue'
 import { useThemeStore } from '../stores/theme'
+import { useOfflineStore } from '../stores/offline'
 
 const sidebarOpen = ref(false)  // mobile drawer
 const collapsed   = ref(JSON.parse(localStorage.getItem('pos_sidebar_collapsed') || 'false'))
@@ -18,11 +19,16 @@ function toggleCollapse() { collapsed.value = !collapsed.value }
 // never receive the 'dark' class on <html>, so they always render light.
 const theme = useThemeStore()
 let stopThemeWatch = null
+// Wake the offline store as soon as the authenticated shell mounts — hooks
+// browser online/offline events, restores the engine if this station had
+// offline mode enabled before, and kicks a background sync when applicable.
+const offline = useOfflineStore()
 onMounted(() => {
   theme.startWatchingSystem()
   stopThemeWatch = watchEffect(() => {
     document.documentElement.classList.toggle('dark', theme.isDark)
   })
+  offline.initialize().catch(() => {})
 })
 onBeforeUnmount(() => {
   if (stopThemeWatch) stopThemeWatch()

@@ -12,31 +12,36 @@ import EmptyState from '../components/EmptyState.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import RowActionMenu from '../components/RowActionMenu.vue'
 import MobileFilterBar from '../components/MobileFilterBar.vue'
-import { money, formatDateTime } from '../utils/format'
+import { money, formatDateTime, todayISO, daysAgoISO } from '../utils/format'
 import { CASE_TYPES, viewPatientCase } from '../api/patientCases'
 import { searchPatients, listPatients, createPatient, viewPatient, PATIENT_SEXES } from '../api/patients'
-import {
-  listPatientRequisitions,
-  createPatientRequisition,
-  viewPatientRequisition,
-  updatePatientRequisition,
-  deletePatientRequisition,
-  setPatientRequisitionStatus,
-  syncPatientRequisitionItems,
-  setPatientRequisitionDiscount,
-} from '../api/patientRequisitions'
+// Offline-aware wrapper: same call surface as api/patientRequisitions
+// but routes through Dexie + outbox when the station is offline.
+import { usePatientRequisitionsStore } from '../stores/patientRequisitions'
 import { viewItemPackage } from '../api/itemPackages'
 
-const cases      = usePatientCasesStore()
-const testItems  = useTestItemsStore()
-const packages   = useItemPackagesStore()
-const categories = useItemCategoriesStore()
-const discounts  = useDiscountsStore()
-const auth       = useAuthStore()
+const cases         = usePatientCasesStore()
+const testItems     = useTestItemsStore()
+const packages      = useItemPackagesStore()
+const categories    = useItemCategoriesStore()
+const discounts     = useDiscountsStore()
+const auth          = useAuthStore()
+// Named to not collide with the local `requisitions` ref that holds the
+// currently-viewed case's requisition list.
+const reqStore      = usePatientRequisitionsStore()
 
 const search       = ref('')
 const typeFilter   = ref('')
-const statusFilter = ref('')
+// Default to Open — the dashboard is primarily used to work active cases;
+// operators rarely land here to review closed / cancelled ones.
+const statusFilter = ref('open')
+// Optional date range on admission_date. Off by default so first paint
+// isn't hidden behind an unwanted filter; when the operator ticks the
+// checkbox the inputs pre-fill with a 2-day window (matches the lab-report
+// dashboard's default) they can then widen.
+const enableDateRange = ref(false)
+const dateFrom        = ref(daysAgoISO(2))
+const dateTo          = ref(todayISO())
 const listError    = ref('')
 
 async function loadCases() {
@@ -45,7 +50,9 @@ async function loadCases() {
     tenant_uuid: auth.tenantUuid || '',
     case_type: typeFilter.value || '',
     keywords: search.value.trim(),
-    status: statusFilter.value ? [statusFilter.value] : []
+    status: statusFilter.value ? [statusFilter.value] : [],
+    date_from: enableDateRange.value ? (dateFrom.value || '') : '',
+    date_to:   enableDateRange.value ? (dateTo.value   || '') : '',
   })
   try {
     await cases.fetch()
@@ -401,7 +408,7 @@ async function openCaseView(row, focusAddRequisition = false) {
   } catch (e) { /* non-fatal */ } finally { viewLoading.value = false }
 
   try {
-    const res = await listPatientRequisitions({
+    const res = await reqStore.list({
       tenant_uuid: auth.tenantUuid || undefined,
       patient_case_uuid: row.uuid,
       page_size: 100
@@ -425,7 +432,7 @@ async function reloadRequisitions() {
   if (!viewing.value?.uuid) return
   requisitionsLoading.value = true
   try {
-    const res = await listPatientRequisitions({
+    const res = await reqStore.list({
       tenant_uuid: auth.tenantUuid || undefined,
       patient_case_uuid: viewing.value.uuid,
       page_size: 100
@@ -694,7 +701,7 @@ async function openEditRequisition(req) {
 
   reqLinesLoading.value = true
   try {
-    const full = await viewPatientRequisition(req.uuid)
+    const full = await reqStore.view(req.uuid)
     if (Array.isArray(full?.items)) {
       // Snapshot code/name from the stored item row so the basket table
       // doesn't need to hit the catalog to render (helpful when a source
@@ -764,26 +771,15 @@ async function submitRequisition({ finalize = false } = {}) {
 
   reqSubmitting.value = true
   try {
-    let targetUuid = editingReq.value?.uuid
     if (editingReq.value) {
-      // Edit lets the operator back-date; Create leaves requisition_date
-      // to the server (auto-set to now() at insert time).
-      await updatePatientRequisition(editingReq.value.uuid, {
+      // Editing an existing requisition — sequential online-only path
+      // (assertOnline in the store rejects these when offline). Discount
+      // and back-dating both live here.
+      await reqStore.updateHeader(editingReq.value.uuid, {
         requisition_date: reqForm.value.requisition_date || undefined,
         notes: reqForm.value.notes || undefined,
         physician: reqForm.value.physician || undefined,
       })
-    } else {
-      const created = await createPatientRequisition({
-        tenant_uuid: auth.tenantUuid || undefined,
-        patient_case_uuid: viewing.value.uuid,
-        notes: reqForm.value.notes || undefined,
-        physician: reqForm.value.physician || undefined,
-      })
-      targetUuid = created?.uuid
-    }
-
-    if (targetUuid) {
       const rows = reqLines.value.map((r, idx) => ({
         uuid: r.uuid || undefined,
         source_type: r.source_type,
@@ -795,27 +791,37 @@ async function submitRequisition({ finalize = false } = {}) {
         package_code: r.package_code || undefined,
         package_name: r.package_name || undefined,
       }))
-      await syncPatientRequisitionItems(targetUuid, rows)
-
-      // Discount is a separate transaction so we can apply/clear it
-      // regardless of the items diff. Backend recomputes total off the
-      // fresh subtotal.
+      await reqStore.syncItems(editingReq.value.uuid, rows)
       if (reqDiscount.value.discount_uuid) {
-        await setPatientRequisitionDiscount(targetUuid, {
+        await reqStore.setDiscount(editingReq.value.uuid, {
           discount_uuid: reqDiscount.value.discount_uuid,
           discount_open_amount: reqDiscount.value.discount_open_amount || 0,
         })
       } else {
-        // Explicit clear so removing a previously-set discount lands too.
-        await setPatientRequisitionDiscount(targetUuid, { clear: true })
+        await reqStore.setDiscount(editingReq.value.uuid, { clear: true })
       }
-
-      // Finalize the requisition once items + discount are in place. Runs
-      // strictly after the sync so a bad sync doesn't leave a "finalized"
-      // shell around a broken cart.
-      if (finalize && !editingReq.value) {
-        await setPatientRequisitionStatus(targetUuid, 'finalized')
-      }
+    } else {
+      // New requisition — one composite call. Offline branch enqueues the
+      // whole create+items+finalize as a single outbox entry; online branch
+      // runs the same sequence server-side inside the store action.
+      await reqStore.saveComposite({
+        patient_case_uuid: viewing.value.uuid,
+        patient_uuid: viewing.value.patient_uuid,
+        requisition_date: reqForm.value.requisition_date || undefined,
+        notes: reqForm.value.notes || undefined,
+        physician: reqForm.value.physician || undefined,
+        items: reqLines.value.map((r, idx) => ({
+          source_type: r.source_type,
+          source_uuid: r.source_uuid,
+          quantity: Number(r.quantity) || 1,
+          unit_price: Number(r.unit_price) || 0,
+          display_order: idx,
+          package_uuid: r.package_uuid || undefined,
+          package_code: r.package_code || undefined,
+          package_name: r.package_name || undefined,
+        })),
+        finalize,
+      })
     }
 
     flash(
@@ -835,7 +841,7 @@ async function submitRequisition({ finalize = false } = {}) {
 // Requisition status changes + delete
 async function reqSetStatus(req, next) {
   try {
-    await setPatientRequisitionStatus(req.uuid, next)
+    await reqStore.setStatus(req.uuid, next)
     flash(`${req.requisition_number} is now ${next}`)
     await reloadRequisitions()
   } catch (e) { flashError(e, 'Failed to update requisition status') }
@@ -849,7 +855,7 @@ async function doReqDelete() {
   confirmReqDelete.value = { show: false, req: null }
   if (!req) return
   try {
-    await deletePatientRequisition(req.uuid)
+    await reqStore.remove(req.uuid)
     flash(`Deleted ${req.requisition_number}`)
     await reloadRequisitions()
   } catch (e) { flashError(e, 'Failed to delete requisition') }
@@ -951,6 +957,22 @@ function reqStatusBadge(s) {
             <option value="closed">Closed</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          <!-- Optional admission-date range. Checkbox gates the two date
+               inputs so they only appear (and only get sent) when explicitly
+               enabled — mirrors how the Add / Void reports pages let users
+               opt into a date window without cluttering the default view. -->
+          <label class="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-slate-600 dark:text-slate-300">
+            <input type="checkbox" v-model="enableDateRange" @change="onFilterChange"
+                   class="h-4 w-4 rounded border-slate-300 dark:border-slate-600" />
+            Date range
+          </label>
+          <template v-if="enableDateRange">
+            <input type="date" v-model="dateFrom" @change="onFilterChange"
+                   class="input w-full sm:w-36" :max="dateTo || undefined" />
+            <span class="hidden sm:inline text-xs text-slate-400">→</span>
+            <input type="date" v-model="dateTo" @change="onFilterChange"
+                   class="input w-full sm:w-36" :min="dateFrom || undefined" />
+          </template>
           <button class="btn-secondary" @click="loadCases" :disabled="cases.loading" title="Refresh">
             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">

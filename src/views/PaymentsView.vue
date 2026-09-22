@@ -14,9 +14,12 @@ import {
   PAYMENT_METHODS, PAYMENT_METHOD_LABELS,
   EWALLET_TYPES,
   isNonCashArrangement, isChanneledPayment, isSelfResolvingArrangement,
-  listUnpaidCases, listUnpaidItems, viewPayment,
+  viewPayment,
   resolveArrangement,
 } from '../api/payments'
+// listUnpaidCases / listUnpaidItems come from the store so they route
+// through Dexie when the station is offline (server-side joined queries
+// aren't reachable offline; the store rebuilds them from cached tables).
 
 const payments  = usePaymentsStore()
 const discounts = useDiscountsStore()
@@ -153,7 +156,7 @@ async function runCaseSearch() {
   caseSearchLoading.value = true
   caseSearchError.value = ''
   try {
-    const rows = await listUnpaidCases({ keywords: caseSearchKw.value.trim() || undefined })
+    const rows = await payments.listUnpaidCases({ keywords: caseSearchKw.value.trim() || undefined })
     caseResults.value = Array.isArray(rows) ? rows : []
   } catch (e) {
     caseSearchError.value = e?.message || 'Search failed'
@@ -201,7 +204,7 @@ async function selectCaseForPayment(kase) {
 
   paymentItemsLoading.value = true
   try {
-    const rows = await listUnpaidItems(kase.case_uuid)
+    const rows = await payments.listUnpaidItems(kase.case_uuid)
     paymentItems.value = (Array.isArray(rows) ? rows : []).map((r) => ({
       ...r,
       _selected: true, // default all-in; operator unchecks to exclude
@@ -258,6 +261,23 @@ const changeAmount = computed(() => {
   if (!Number.isFinite(t) || t <= 0) return 0
   return Math.max(0, Math.round((t - paymentTotal.value) * 100) / 100)
 })
+
+// Quick-tap helpers for the cashier's cash-on-hand entry. Additive on purpose
+// — cashier taps each bill as they physically receive it (₱500 + ₱200 → tap
+// 500, tap 200 → tendered = 700). "Exact" one-shots to the total; "Clear"
+// resets so a mistap doesn't force manual arithmetic.
+const CASH_DENOMINATIONS = [1000, 500, 200, 100, 50, 20]
+function addTendered(n) {
+  const cur = Number(paymentForm.value.amount_tendered || 0)
+  const next = (Number.isFinite(cur) ? cur : 0) + Number(n)
+  paymentForm.value.amount_tendered = Math.round(next * 100) / 100
+}
+function setExactTendered() {
+  paymentForm.value.amount_tendered = paymentTotal.value
+}
+function clearTendered() {
+  paymentForm.value.amount_tendered = 0
+}
 
 // Group selected items by requisition for display (matches how the requisition
 // modal groups by package origin; here we group by parent requisition).
@@ -973,6 +993,21 @@ function methodBadge(m) {
                        v-model.number="paymentForm.amount_tendered"
                        placeholder="0.00"
                        class="input mt-1 text-right text-3xl font-extrabold text-slate-800 dark:text-slate-100 tabular-nums !py-2" />
+                <!-- Quick-tap denominations. Additive — cashier taps each
+                     bill as received. Exact one-shots the total; Clear
+                     resets after a mistap. -->
+                <div class="mt-2 grid grid-cols-4 gap-1.5">
+                  <button type="button"
+                          :disabled="!paymentTotal"
+                          class="rounded-md bg-emerald-600 py-1.5 text-sm font-semibold text-white tabular-nums hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          @click="setExactTendered()">Exact</button>
+                  <button v-for="d in CASH_DENOMINATIONS" :key="d" type="button"
+                          class="rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums hover:bg-slate-100 dark:hover:bg-slate-700"
+                          @click="addTendered(d)">{{ d.toLocaleString() }}</button>
+                  <button type="button"
+                          class="rounded-md bg-slate-200 dark:bg-slate-700 py-1.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600"
+                          @click="clearTendered()">Clear</button>
+                </div>
               </div>
               <div class="rounded-lg bg-emerald-500 px-3 py-3 text-white">
                 <div class="flex items-center justify-between">

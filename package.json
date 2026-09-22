@@ -1,7 +1,7 @@
 {
   "name": "mylab",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "chart.js": "^4.4.4",
+    "dexie": "^4.4.5",
+    "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "pinia": "^2.2.2",
     "qrcode": "^1.5.4",

@@ -33,6 +33,9 @@ async function submit() {
   const res = await auth.login(username.value.trim(), password.value)
   loading.value = false
   if (!res.ok) { error.value = res.message; return }
+  // Offline auto-enable + first-of-day bootstrap runs from the offline
+  // store's initialize(), which MainLayout.onMounted fires immediately
+  // after the redirect below. No need to trigger it here.
   const redirect = route.query.redirect || '/home'
   router.push(redirect)
 }

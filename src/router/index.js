@@ -23,7 +23,7 @@ const routes = [
     path: '/lab/view',
     name: 'public-lab-view',
     component: () => import('../views/PublicLabReportView.vue'),
-    meta: { public: true }
+    meta: { public: true },
   },
 
   // ─── Public tenant registration ───
