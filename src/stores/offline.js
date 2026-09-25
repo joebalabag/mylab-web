@@ -15,6 +15,7 @@ import {
   enableOfflineDevice, fetchOfflineBootstrap, fetchOfflinePull,
   postOfflineSync, refreshOfflineToken, revokeOfflineDevice,
 } from '../api/offline.js'
+import { sendHeartbeat as sendPresenceHeartbeat } from '../api/presence.js'
 import { closeAll, deleteDbFor, openDbFor, readSyncState } from '../offline/db.js'
 import { runBootstrap } from '../offline/bootstrap.js'
 import { counts as outboxCounts, listAll as outboxListAll, retryEntry } from '../offline/outbox.js'
@@ -68,6 +69,7 @@ export const useOfflineStore = defineStore('offline', {
     _heartbeatFailStreak: 0,
     _heartbeatTimer: null,
     _heartbeatVisibilityHandler: null,
+    _heartbeatPagehideHandler: null,
     _heartbeatStopped: false,       // stopped explicitly (logout / disable)
     mode: 'online',                 // 'online' | 'offline'
     syncing: false,
@@ -385,6 +387,31 @@ export const useOfflineStore = defineStore('offline', {
         if (!document.hidden) this._heartbeatTick()
       }
       document.addEventListener('visibilitychange', this._heartbeatVisibilityHandler)
+      // pagehide "goodbye" — tell the server to remove us from the presence
+      // map the instant the tab is closing. keepalive:true lets the request
+      // complete after the page is destroyed. Chosen over sendBeacon because
+      // Beacon can't carry an Authorization header. pagehide covers close,
+      // navigation-away, and bfcache eviction; beforeunload does not.
+      if (this._heartbeatPagehideHandler) {
+        window.removeEventListener('pagehide', this._heartbeatPagehideHandler)
+      }
+      this._heartbeatPagehideHandler = () => {
+        const token = localStorage.getItem('pos_token')
+        if (!token) return
+        const base = (import.meta.env?.VITE_API_BASE || '/api').replace(/\/+$/, '')
+        try {
+          fetch(`${base}/presence/forget`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: '{}',
+            keepalive: true,
+          })
+        } catch (_) { /* best-effort — user is leaving anyway */ }
+      }
+      window.addEventListener('pagehide', this._heartbeatPagehideHandler)
     },
     _stopHeartbeat() {
       this._heartbeatStopped = true
@@ -395,6 +422,10 @@ export const useOfflineStore = defineStore('offline', {
       if (this._heartbeatVisibilityHandler) {
         document.removeEventListener('visibilitychange', this._heartbeatVisibilityHandler)
         this._heartbeatVisibilityHandler = null
+      }
+      if (this._heartbeatPagehideHandler) {
+        window.removeEventListener('pagehide', this._heartbeatPagehideHandler)
+        this._heartbeatPagehideHandler = null
       }
     },
     _scheduleNextHeartbeat() {
@@ -448,6 +479,15 @@ export const useOfflineStore = defineStore('offline', {
           if (this.isEnabled && this.isOnline) this.drainNow()
         } else {
           this._heartbeatFailStreak = 0
+        }
+        // Piggyback: while we know the API is reachable and we hold a live
+        // auth token, ping /presence/heartbeat so the super-admin
+        // active-users panel keeps this session marked online even when the
+        // operator isn't clicking anything. Fire-and-forget — any error is
+        // strictly cosmetic (interceptor stamping on real requests is the
+        // primary signal).
+        if (auth.isAuthenticated) {
+          sendPresenceHeartbeat().catch(() => {})
         }
         // If offline mode never successfully registered (auto-enable
         // failed silently at login time, or the tenant flag was off then

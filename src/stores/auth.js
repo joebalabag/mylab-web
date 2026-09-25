@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { setToken } from '../api/client'
 import * as authApi from '../api/auth'
+import { sendForget as sendPresenceForget } from '../api/presence'
 import { useTenantStore } from './tenant'
 import { useSubscriptionGuardStore } from './subscriptionGuard'
 
@@ -120,6 +121,13 @@ export const useAuthStore = defineStore('auth', {
     },
 
     logout() {
+      // Fire-and-forget presence removal BEFORE we clear the token —
+      // otherwise the request goes out unauthenticated and the server
+      // can't identify who to remove. Errors are ignored: worst case the
+      // entry ages out passively within 2 min.
+      if (this.token) {
+        try { sendPresenceForget().catch(() => {}) } catch (_) { /* ignore */ }
+      }
       this.user = null
       this.token = null
       setToken(null)
