@@ -106,6 +106,32 @@ const ROLE_LABEL = {
   staff:       'Staff'
 }
 const roleLabel = (r) => ROLE_LABEL[r] || r || '—'
+
+// Compact browser + OS label from a raw User-Agent string. Deliberately
+// tiny — the full UA sits in a title tooltip for the rare case an admin
+// needs the exact spec (offline PWA, embedded WebView, etc.).
+function browserLabel(ua) {
+  if (!ua) return ''
+  let browser = ''
+  let m
+  if ((m = ua.match(/Edg\/(\d+)/)))                     browser = `Edge ${m[1]}`
+  else if ((m = ua.match(/OPR\/(\d+)/)))                browser = `Opera ${m[1]}`
+  else if ((m = ua.match(/Firefox\/(\d+)/)))            browser = `Firefox ${m[1]}`
+  else if ((m = ua.match(/Chrome\/(\d+)/)))             browser = `Chrome ${m[1]}`
+  else if ((m = ua.match(/Version\/(\d+).*Safari\//)))  browser = `Safari ${m[1]}`
+  else if (/Safari/.test(ua))                            browser = 'Safari'
+  else                                                   browser = 'Browser'
+
+  let os = ''
+  if (/Windows NT 10/.test(ua))            os = 'Windows'
+  else if (/Windows NT/.test(ua))          os = 'Windows'
+  else if (/Mac OS X/.test(ua))            os = 'macOS'
+  else if (/Android/.test(ua))             os = 'Android'
+  else if (/(iPhone|iPad|iPod)/.test(ua))  os = 'iOS'
+  else if (/Linux/.test(ua))               os = 'Linux'
+
+  return os ? `${browser} · ${os}` : browser
+}
 </script>
 
 <template>
@@ -203,6 +229,27 @@ const roleLabel = (r) => ROLE_LABEL[r] || r || '—'
                   <div class="truncate font-mono text-[11px] text-slate-500">
                     @{{ u.username }}
                     <span v-if="u.role" class="ml-1 text-slate-400">· {{ roleLabel(u.role) }}</span>
+                  </div>
+                  <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                    <span v-if="u.ip" class="inline-flex items-center gap-1" :title="`IP address: ${u.ip}`">
+                      <svg viewBox="0 0 24 24" class="h-3 w-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                           stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
+                      </svg>
+                      <span class="font-mono">{{ u.ip }}</span>
+                    </span>
+                    <span v-if="u.user_agent" class="inline-flex items-center gap-1"
+                          :title="u.user_agent">
+                      <svg viewBox="0 0 24 24" class="h-3 w-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                           stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                      </svg>
+                      {{ browserLabel(u.user_agent) }}
+                    </span>
                   </div>
                 </div>
                 <div class="hidden text-right sm:block">
