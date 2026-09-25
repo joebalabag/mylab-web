@@ -28,7 +28,11 @@ const visible = computed(() => !!auth.isAuthenticated)
 const tone = computed(() => {
   if (offline.bootstrapProgress) return 'busy'
   if (offline.errorCount) return 'error'
-  if (!offline.isOnline)  return 'offline'
+  // Offline but this station never got a token → the offline stack won't
+  // engage, transactions will fail. Distinct red so operators notice they
+  // can't just keep working.
+  if (offline.isOffline && !offline.isEnabled) return 'error'
+  if (offline.isOffline)  return 'offline'
   if (offline.pendingCount) return 'warn'
   return 'ok'
 })
@@ -50,7 +54,12 @@ const label = computed(() => {
     return d ? `Downloading · ${d}` : 'Downloading offline data…'
   }
   if (offline.syncing) return 'Syncing…'
-  if (!offline.isOnline) return offline.pendingCount ? `Offline · ${offline.pendingCount}` : 'Offline'
+  if (offline.isOffline) {
+    // Distinct label so the operator immediately sees the app isn't
+    // going to fall back to Dexie — they need to reconnect + register.
+    if (!offline.isEnabled) return 'Offline · not registered'
+    return offline.pendingCount ? `Offline · ${offline.pendingCount}` : 'Offline'
+  }
   if (offline.errorCount) return `Sync errors · ${offline.errorCount}`
   if (offline.pendingCount) return `Pending · ${offline.pendingCount}`
   return 'Online'
@@ -131,9 +140,16 @@ function fmt(iso) {
         </div>
 
         <div v-if="!offline.isEnabled"
-             class="rounded-md bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
-          Offline mode is not enabled on this station. Turn it on from
-          <span class="font-semibold">Settings → Offline mode</span>.
+             class="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-900/20 dark:text-rose-200">
+          <div class="font-semibold">Offline mode is not registered on this station.</div>
+          <div class="mt-1">
+            Transactions will fail while the API is unreachable — the app has nothing local to fall back to. Reconnect to the internet, then open <span class="font-semibold">Settings → Offline mode → Enable</span> so this browser can keep working through outages.
+          </div>
+          <div v-if="offline.enableError"
+               class="mt-2 rounded border border-rose-200 bg-white p-1.5 text-[11px] font-mono text-rose-700 dark:border-rose-900/40 dark:bg-slate-900/40 dark:text-rose-300"
+               :title="offline.enableError">
+            <span class="opacity-70">Last try:</span> {{ offline.enableError }}
+          </div>
         </div>
 
         <template v-else>

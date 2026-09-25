@@ -483,7 +483,7 @@ async function askSetFinal(r) {
   confirmFinal.value = {
     show: true,
     report: r,
-    pathologist: r.pathologist_name || auth.user?.name || '',
+    pathologist: r.pathologist_name || auth.user?.lab_display_name || auth.user?.name || '',
     doctorUuid: '',
     defaultDoctor: null,
     loadingDoctor: true,
