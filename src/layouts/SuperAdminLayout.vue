@@ -21,6 +21,7 @@ const pageTitle = computed(() => ({
   'super-plans':                 'Subscription Plans',
   'super-subscription-payments': 'Subscription Payments',
   'super-tenant-users':          'Tenant Users',
+  'super-active-users':          'Active Users',
   'super-reports':               'Reports',
   'super-users':                 'MyLab Admin'
 }[route.name] || 'Platform'))

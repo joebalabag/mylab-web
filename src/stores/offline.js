@@ -15,6 +15,7 @@ import {
   enableOfflineDevice, fetchOfflineBootstrap, fetchOfflinePull,
   postOfflineSync, refreshOfflineToken, revokeOfflineDevice,
 } from '../api/offline.js'
+import { sendHeartbeat as sendPresenceHeartbeat } from '../api/presence.js'
 import { closeAll, deleteDbFor, openDbFor, readSyncState } from '../offline/db.js'
 import { runBootstrap } from '../offline/bootstrap.js'
 import { counts as outboxCounts, listAll as outboxListAll, retryEntry } from '../offline/outbox.js'
@@ -448,6 +449,15 @@ export const useOfflineStore = defineStore('offline', {
           if (this.isEnabled && this.isOnline) this.drainNow()
         } else {
           this._heartbeatFailStreak = 0
+        }
+        // Piggyback: while we know the API is reachable and we hold a live
+        // auth token, ping /presence/heartbeat so the super-admin
+        // active-users panel keeps this session marked online even when the
+        // operator isn't clicking anything. Fire-and-forget — any error is
+        // strictly cosmetic (interceptor stamping on real requests is the
+        // primary signal).
+        if (auth.isAuthenticated) {
+          sendPresenceHeartbeat().catch(() => {})
         }
         // If offline mode never successfully registered (auto-enable
         // failed silently at login time, or the tenant flag was off then
