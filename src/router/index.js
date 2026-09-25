@@ -118,18 +118,21 @@ const routes = [
       { path: 'cashier',          name: 'cashier',         meta: { mainNav: 'cashier' },         component: () => import('../views/PaymentsView.vue') },
       { path: 'laboratory',       name: 'laboratory',      meta: { mainNav: 'laboratory' },      component: () => import('../views/LaboratoryView.vue') },
       // ─── Reports (each has its own dedicated backend endpoint) ───
-      { path: 'reports/summary',         name: 'report-summary',         component: () => import('../views/reports/SummaryReportView.vue') },
-      { path: 'reports/monthly-sales',   name: 'report-monthly-sales',   component: () => import('../views/reports/MonthlySalesReportView.vue') },
-      { path: 'reports/monthly-tests',   name: 'report-monthly-tests',   component: () => import('../views/reports/MonthlyTestReportView.vue') },
-      { path: 'reports/cashier-sales',   name: 'report-cashier-sales',   component: () => import('../views/reports/CashierSalesReportView.vue') },
-      { path: 'reports/voids',           name: 'report-voids',           component: () => import('../views/reports/VoidReportView.vue') },
-      { path: 'reports/daily-sales',     name: 'report-daily-sales',     component: () => import('../views/reports/DailySalesReportView.vue') },
-      { path: 'reports/daily-tests',     name: 'report-daily-tests',     component: () => import('../views/reports/DailyTestReportView.vue') },
-      { path: 'reports/daily-detailed-sales', name: 'report-daily-detailed-sales', component: () => import('../views/reports/DailyDetailedSalesReportView.vue') },
-      { path: 'reports/discounts',       name: 'report-discounts',       component: () => import('../views/reports/DiscountReportView.vue') },
-      { path: 'reports/expenses',        name: 'report-expenses',        component: () => import('../views/reports/ExpenseReportView.vue') },
-      { path: 'reports/payment-summary', name: 'report-payment-summary', component: () => import('../views/reports/PaymentSummaryReportView.vue') },
-      { path: 'reports/test-analytics',  name: 'report-test-analytics',  component: () => import('../views/reports/TestAnalyticsReportView.vue') }
+      // meta.mainNav gates the whole Reports section; meta.subNav gates the
+      // individual report — the router guard rejects a direct URL when the
+      // user doesn't have the specific sub_navigation grant.
+      { path: 'reports/summary',         name: 'report-summary',         meta: { mainNav: 'reports', subNav: 'summary' },              component: () => import('../views/reports/SummaryReportView.vue') },
+      { path: 'reports/monthly-sales',   name: 'report-monthly-sales',   meta: { mainNav: 'reports', subNav: 'monthly sales' },        component: () => import('../views/reports/MonthlySalesReportView.vue') },
+      { path: 'reports/monthly-tests',   name: 'report-monthly-tests',   meta: { mainNav: 'reports', subNav: 'monthly tests' },        component: () => import('../views/reports/MonthlyTestReportView.vue') },
+      { path: 'reports/cashier-sales',   name: 'report-cashier-sales',   meta: { mainNav: 'reports', subNav: 'cashier sales' },        component: () => import('../views/reports/CashierSalesReportView.vue') },
+      { path: 'reports/voids',           name: 'report-voids',           meta: { mainNav: 'reports', subNav: 'voids' },                component: () => import('../views/reports/VoidReportView.vue') },
+      { path: 'reports/daily-sales',     name: 'report-daily-sales',     meta: { mainNav: 'reports', subNav: 'daily sales' },          component: () => import('../views/reports/DailySalesReportView.vue') },
+      { path: 'reports/daily-tests',     name: 'report-daily-tests',     meta: { mainNav: 'reports', subNav: 'daily tests' },          component: () => import('../views/reports/DailyTestReportView.vue') },
+      { path: 'reports/daily-detailed-sales', name: 'report-daily-detailed-sales', meta: { mainNav: 'reports', subNav: 'daily detailed sales' }, component: () => import('../views/reports/DailyDetailedSalesReportView.vue') },
+      { path: 'reports/discounts',       name: 'report-discounts',       meta: { mainNav: 'reports', subNav: 'discounts' },            component: () => import('../views/reports/DiscountReportView.vue') },
+      { path: 'reports/expenses',        name: 'report-expenses',        meta: { mainNav: 'reports', subNav: 'expenses' },             component: () => import('../views/reports/ExpenseReportView.vue') },
+      { path: 'reports/payment-summary', name: 'report-payment-summary', meta: { mainNav: 'reports', subNav: 'payment summary' },      component: () => import('../views/reports/PaymentSummaryReportView.vue') },
+      { path: 'reports/test-analytics',  name: 'report-test-analytics',  meta: { mainNav: 'reports', subNav: 'test analytics' },       component: () => import('../views/reports/TestAnalyticsReportView.vue') }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/' }
@@ -223,9 +226,13 @@ router.beforeEach((to) => {
   // Access gate — if the destination declares a mainNav and the user doesn't
   // have any granted row under it, bounce them to the Welcome screen (safe
   // default landing). Prevents typing a URL to bypass the sidebar filter.
+  // When the route also declares a subNav, tighten to canDo() so per-report
+  // (or per-action) grants gate the URL directly, not just its sidebar link.
   const mainNav = to.meta?.mainNav
-  if (mainNav && auth.isAuthenticated && !auth.canOpen(mainNav)) {
-    return { name: 'home' }
+  const subNav  = to.meta?.subNav
+  if (mainNav && auth.isAuthenticated) {
+    const allowed = subNav ? auth.canDo(mainNav, subNav) : auth.canOpen(mainNav)
+    if (!allowed) return { name: 'home' }
   }
   if (mainNav && auth.isAuthenticated && !useTenantStore().planAllowsMainNav(mainNav)) {
     return { name: 'home' }

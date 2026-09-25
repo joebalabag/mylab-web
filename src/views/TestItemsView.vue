@@ -118,6 +118,9 @@ const emptyForm = () => ({
   lookup_values: '',
   matrix_rows: '',           // comma-separated for matrix type
   matrix_cols: '',           // comma-separated for matrix type
+  si_conversion_factor: '',
+  si_unit_of_measure: '',
+  si_reference_range: '',
   price: 0,
   description: ''
 })
@@ -135,7 +138,18 @@ const componentsLoading = ref(false)
 const componentsError = ref('')
 
 function emptyComponentRow() {
-  return { uuid: null, code: '', name: '', unit_of_measure: '', reference_range: '', lookup_values: '', section: '' }
+  return {
+    uuid: null,
+    code: '',
+    name: '',
+    unit_of_measure: '',
+    reference_range: '',
+    lookup_values: '',
+    section: '',
+    si_conversion_factor: '',
+    si_unit_of_measure: '',
+    si_reference_range: '',
+  }
 }
 function removeComponentRow(i) {
   components.value = components.value.filter((_, idx) => idx !== i)
@@ -186,6 +200,11 @@ function saveComponentDraft() {
     reference_range:  String(c.reference_range  || '').trim(),
     lookup_values:    String(c.lookup_values    || '').trim(),
     section:          String(c.section          || '').trim(),
+    si_conversion_factor: c.si_conversion_factor === '' || c.si_conversion_factor === null || c.si_conversion_factor === undefined
+      ? ''
+      : Number(c.si_conversion_factor),
+    si_unit_of_measure:  String(c.si_unit_of_measure  || '').trim(),
+    si_reference_range:  String(c.si_reference_range  || '').trim(),
   }
   if (editingIndex.value === -1) {
     components.value = [...components.value, normalized]
@@ -242,6 +261,9 @@ async function openEdit(t) {
     lookup_values: t.lookup_values || '',
     matrix_rows: Array.isArray(t.matrix_config?.rows) ? t.matrix_config.rows.join(', ') : '',
     matrix_cols: Array.isArray(t.matrix_config?.cols) ? t.matrix_config.cols.join(', ') : '',
+    si_conversion_factor: t.si_conversion_factor ?? '',
+    si_unit_of_measure: t.si_unit_of_measure || '',
+    si_reference_range: t.si_reference_range || '',
     price: Number(t.price ?? 0),
     description: t.description || ''
   }
@@ -257,7 +279,12 @@ async function openEdit(t) {
   componentsLoading.value = true
   try {
     const full = await viewTestItem(t.uuid)
-    components.value = Array.isArray(full?.components) ? full.components : []
+    components.value = (Array.isArray(full?.components) ? full.components : []).map((c) => ({
+      ...c,
+      si_conversion_factor: c.si_conversion_factor ?? '',
+      si_unit_of_measure: c.si_unit_of_measure || '',
+      si_reference_range: c.si_reference_range || '',
+    }))
   } catch (e) {
     // Non-fatal — leave the section empty and log for triage.
     // eslint-disable-next-line no-console
@@ -272,6 +299,22 @@ async function openEdit(t) {
 // prior values). Panel/narrative/culture use their own renderers so those
 // fields are meaningless at the item level.
 const showSingleFields = computed(() => form.value.result_type === 'single')
+
+// SI conversion is a Clinical Chemistry convention (mg/dL → mmol/L, etc.).
+// The form only shows those fields when the selected category is the seeded
+// Chemistry section, identified by the CHEM code so tenants that rename the
+// label still trigger the UI.
+const selectedCategoryCode = computed(() => {
+  const c = categories.items.find((x) => x.uuid === form.value.item_category_uuid)
+  return (c?.code || '').toUpperCase()
+})
+const isChemistryCategory = computed(() => selectedCategoryCode.value === 'CHEM')
+const showSiFields = computed(
+  () => isChemistryCategory.value && (form.value.result_type === 'single' || form.value.result_type === 'panel')
+)
+const showSiComponentFields = computed(
+  () => isChemistryCategory.value && form.value.result_type === 'panel'
+)
 
 async function submit() {
   formError.value = ''
@@ -315,6 +358,21 @@ async function submit() {
     ? { rows: mRows, cols: mCols }
     : null
 
+  // SI conversion only lives on chemistry singles. Panels get their SI values
+  // per-component; matrix / narrative / culture never have any. Sending null
+  // (rather than undefined) so the PATCH serializes the key and clears the
+  // stored value when the user switches away from chemistry.
+  const siFactorRaw = form.value.si_conversion_factor
+  const siFactor = showSiFields.value && form.value.result_type === 'single' && siFactorRaw !== '' && siFactorRaw !== null && !Number.isNaN(Number(siFactorRaw))
+    ? Number(siFactorRaw)
+    : null
+  const siUnit = showSiFields.value && form.value.result_type === 'single'
+    ? (String(form.value.si_unit_of_measure || '').trim() || null)
+    : null
+  const siRef = showSiFields.value && form.value.result_type === 'single'
+    ? (String(form.value.si_reference_range || '').trim() || null)
+    : null
+
   const payload = {
     item_category_uuid: cat,
     code, name,
@@ -325,6 +383,9 @@ async function submit() {
     method: form.value.method.trim() || null,
     lookup_values: showSingleFields.value ? (form.value.lookup_values.trim() || null) : null,
     matrix_config: matrixCfg,
+    si_conversion_factor: siFactor,
+    si_unit_of_measure: siUnit,
+    si_reference_range: siRef,
     price: Number(form.value.price) || 0,
     description: form.value.description.trim() || null
   }
@@ -332,16 +393,25 @@ async function submit() {
   // Build the component payload once — used by both create and update paths.
   // Rows without a uuid become inserts; the array position becomes display_order.
   const buildComponentsPayload = () =>
-    components.value.map((c, idx) => ({
-      uuid: c.uuid || undefined,
-      code: String(c.code).trim().toUpperCase(),
-      name: String(c.name).trim(),
-      unit_of_measure: String(c.unit_of_measure || '').trim() || null,
-      reference_range: String(c.reference_range || '').trim() || null,
-      lookup_values: String(c.lookup_values || '').trim() || null,
-      section: String(c.section || '').trim() || null,
-      display_order: idx,
-    }))
+    components.value.map((c, idx) => {
+      const rawFactor = c.si_conversion_factor
+      const factor = showSiComponentFields.value && rawFactor !== '' && rawFactor !== null && rawFactor !== undefined && !Number.isNaN(Number(rawFactor))
+        ? Number(rawFactor)
+        : null
+      return {
+        uuid: c.uuid || undefined,
+        code: String(c.code).trim().toUpperCase(),
+        name: String(c.name).trim(),
+        unit_of_measure: String(c.unit_of_measure || '').trim() || null,
+        reference_range: String(c.reference_range || '').trim() || null,
+        lookup_values: String(c.lookup_values || '').trim() || null,
+        section: String(c.section || '').trim() || null,
+        si_conversion_factor: factor,
+        si_unit_of_measure: showSiComponentFields.value ? (String(c.si_unit_of_measure || '').trim() || null) : null,
+        si_reference_range: showSiComponentFields.value ? (String(c.si_reference_range || '').trim() || null) : null,
+        display_order: idx,
+      }
+    })
 
   submitting.value = true
   try {
@@ -653,6 +723,9 @@ function templateToReportItem(t) {
       value_text: sampleFor(t),
       unit_of_measure: t.unit_of_measure || '',
       reference_range: t.reference_range || '',
+      si_conversion_factor: t.si_conversion_factor ?? null,
+      si_unit_of_measure: t.si_unit_of_measure || '',
+      si_reference_range: t.si_reference_range || '',
       section: '',
     }]
   } else if (t.result_type === 'panel') {
@@ -663,6 +736,9 @@ function templateToReportItem(t) {
       value_text: sampleFor(c),
       unit_of_measure: c.unit_of_measure || '',
       reference_range: c.reference_range || '',
+      si_conversion_factor: c.si_conversion_factor ?? null,
+      si_unit_of_measure: c.si_unit_of_measure || '',
+      si_reference_range: c.si_reference_range || '',
       section: c.section || '',
     }))
   } else if (t.result_type === 'matrix') {
@@ -1258,6 +1334,17 @@ function typeBadgeClass(t) {
             <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Reference Range</div>
             <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">{{ viewing.reference_range || '—' }}</div>
           </div>
+          <div v-if="viewing.si_conversion_factor != null || viewing.si_unit_of_measure || viewing.si_reference_range"
+               class="sm:col-span-3 rounded-md border border-brand-100 bg-brand-50/40 p-2">
+            <div class="text-[10px] font-bold uppercase tracking-widest text-brand-700">SI Conversion</div>
+            <div class="mt-0.5 text-sm text-slate-800 dark:text-slate-100">
+              <span>× {{ viewing.si_conversion_factor ?? '—' }}</span>
+              <span class="mx-2 text-slate-400">·</span>
+              <span>{{ viewing.si_unit_of_measure || '—' }}</span>
+              <span class="mx-2 text-slate-400">·</span>
+              <span>Ref: {{ viewing.si_reference_range || '—' }}</span>
+            </div>
+          </div>
           <div>
             <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Created</div>
             <div class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{{ formatDateTime(viewing.created_at) }}</div>
@@ -1378,6 +1465,26 @@ function typeBadgeClass(t) {
               <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 Comma-separated allowed values. When set, the result editor renders a dropdown; leave blank for free-text.
               </p>
+            </div>
+            <div v-if="showSiFields" class="sm:col-span-2 rounded-lg border border-brand-100 bg-brand-50/40 dark:bg-brand-900/10 p-3">
+              <div class="mb-2 text-[11px] font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300">
+                SI conversion <span class="font-normal normal-case text-slate-500 dark:text-slate-400">(optional · Clinical Chemistry)</span>
+              </div>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label class="label">Multiplier</label>
+                  <input v-model="form.si_conversion_factor" type="number" step="any" min="0" placeholder="0.0555" class="input" />
+                  <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">SI = conventional × multiplier.</p>
+                </div>
+                <div>
+                  <label class="label">SI unit</label>
+                  <input v-model="form.si_unit_of_measure" maxlength="50" placeholder="mmol/L" class="input" />
+                </div>
+                <div>
+                  <label class="label">SI reference range</label>
+                  <input v-model="form.si_reference_range" maxlength="500" placeholder="3.9-6.1" class="input" />
+                </div>
+              </div>
             </div>
           </template>
           <div class="sm:col-span-2">
@@ -1562,6 +1669,28 @@ function typeBadgeClass(t) {
           <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
             Comma-separated. When set, the result editor renders a dropdown; blank = free-text input.
           </p>
+        </div>
+        <div v-if="showSiComponentFields"
+             class="rounded-lg border border-brand-100 bg-brand-50/40 dark:bg-brand-900/10 p-3">
+          <div class="mb-2 text-[11px] font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300">
+            SI conversion <span class="font-normal normal-case text-slate-500 dark:text-slate-400">(optional · Clinical Chemistry)</span>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label class="label">Multiplier</label>
+              <input v-model="componentDraft.si_conversion_factor" type="number" step="any" min="0"
+                     placeholder="0.0555" class="input" />
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">SI = conventional × multiplier.</p>
+            </div>
+            <div>
+              <label class="label">SI unit</label>
+              <input v-model="componentDraft.si_unit_of_measure" maxlength="50" placeholder="mmol/L" class="input" />
+            </div>
+            <div>
+              <label class="label">SI reference range</label>
+              <input v-model="componentDraft.si_reference_range" maxlength="500" placeholder="3.9-6.1" class="input" />
+            </div>
+          </div>
         </div>
         <div v-if="componentModalError"
              class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

@@ -44,6 +44,11 @@ export const useAuthStore = defineStore('auth', {
           uuid: data.uuid,
           username: data.username,
           name: data.name,
+          // Optional "Name displayed on lab result" + license — used by
+          // LaboratoryView to pre-fill signatory fields with the display
+          // name instead of the full legal name.
+          lab_display_name: data.lab_display_name ?? null,
+          license_number: data.license_number ?? null,
           email: data.email,
           role: data.role,
           tenant_uuid: data.tenant_uuid,

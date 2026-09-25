@@ -68,18 +68,18 @@ const navGroups = [
     icon: 'chart',
     key: 'reports',
     items: [
-      { to: '/reports/summary',         label: 'Summary',            icon: 'chart' },
-      { to: '/reports/monthly-sales',   label: 'Monthly Sales',      icon: 'chart' },
-      { to: '/reports/monthly-tests',   label: 'Monthly Tests',      icon: 'chart' },
-      { to: '/reports/cashier-sales',   label: 'Cashier Sales',      icon: 'cash' },
-      { to: '/reports/voids',           label: 'Voids',              icon: 'receipt' },
-      { to: '/reports/daily-sales',     label: 'Daily Sales',        icon: 'cash' },
-      { to: '/reports/daily-detailed-sales', label: 'Daily Detailed Sales', icon: 'receipt' },
-      { to: '/reports/daily-tests',     label: 'Daily Test',         icon: 'flask' },
-      { to: '/reports/discounts',       label: 'Discounts',          icon: 'percent' },
-      { to: '/reports/expenses',        label: 'Expenses',           icon: 'receipt' },
-      { to: '/reports/payment-summary', label: 'Payment Summary',    icon: 'card' },
-      { to: '/reports/test-analytics',  label: 'Test Analytics',     icon: 'flask' }
+      { to: '/reports/summary',         label: 'Summary',              icon: 'chart',   mainNav: 'reports', subNav: 'summary' },
+      { to: '/reports/monthly-sales',   label: 'Monthly Sales',        icon: 'chart',   mainNav: 'reports', subNav: 'monthly sales' },
+      { to: '/reports/monthly-tests',   label: 'Monthly Tests',        icon: 'chart',   mainNav: 'reports', subNav: 'monthly tests' },
+      { to: '/reports/cashier-sales',   label: 'Cashier Sales',        icon: 'cash',    mainNav: 'reports', subNav: 'cashier sales' },
+      { to: '/reports/voids',           label: 'Voids',                icon: 'receipt', mainNav: 'reports', subNav: 'voids' },
+      { to: '/reports/daily-sales',     label: 'Daily Sales',          icon: 'cash',    mainNav: 'reports', subNav: 'daily sales' },
+      { to: '/reports/daily-detailed-sales', label: 'Daily Detailed Sales', icon: 'receipt', mainNav: 'reports', subNav: 'daily detailed sales' },
+      { to: '/reports/daily-tests',     label: 'Daily Test',           icon: 'flask',   mainNav: 'reports', subNav: 'daily tests' },
+      { to: '/reports/discounts',       label: 'Discounts',            icon: 'percent', mainNav: 'reports', subNav: 'discounts' },
+      { to: '/reports/expenses',        label: 'Expenses',             icon: 'receipt', mainNav: 'reports', subNav: 'expenses' },
+      { to: '/reports/payment-summary', label: 'Payment Summary',      icon: 'card',    mainNav: 'reports', subNav: 'payment summary' },
+      { to: '/reports/test-analytics',  label: 'Test Analytics',       icon: 'flask',   mainNav: 'reports', subNav: 'test analytics' }
     ]
   },
   {
@@ -94,7 +94,9 @@ const navGroups = [
 
 // Filter each group's items by access + plan. Drop groups with zero visible
 // items so we don't render an orphan header. Rows without a mainNav (Welcome)
-// pass through both predicates.
+// pass through both predicates. When an item declares a `subNav`, the check
+// tightens to `auth.canDo(mainNav, subNav)` so per-report (or per-action)
+// grants gate the individual link instead of the whole module.
 const visibleGroups = computed(() =>
   navGroups
     .map((g) => ({
@@ -102,9 +104,11 @@ const visibleGroups = computed(() =>
       collapsible: !!g.collapsible,
       icon: g.icon || null,
       key: g.key || g.label,
-      items: g.items.filter((item) =>
-        auth.canOpen(item.mainNav) && tenant.planAllowsMainNav(item.mainNav)
-      )
+      items: g.items.filter((item) => {
+        if (!tenant.planAllowsMainNav(item.mainNav)) return false
+        if (item.subNav) return auth.canDo(item.mainNav, item.subNav)
+        return auth.canOpen(item.mainNav)
+      })
     }))
     .filter((g) => g.items.length > 0)
 )
