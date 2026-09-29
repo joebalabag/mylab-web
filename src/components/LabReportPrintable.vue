@@ -518,10 +518,15 @@ function categoryHeaderStyle(report) {
           </div>
         </div>
 
-        <div class="mt-2 border-t border-slate-200 pt-1 text-[10px] leading-tight text-slate-500">
-          <div>Printed: {{ formatDateTime(new Date()) }}</div>
-          <div v-if="publicView" class="mt-0.5 italic">
-            This is a computer-generated report and does not require a signature.
+        <div class="mt-2 flex items-end justify-between gap-4 border-t border-slate-200 pt-1 text-[10px] leading-tight text-slate-500">
+          <div class="min-w-0">
+            <div>Printed: {{ formatDateTime(new Date()) }}</div>
+            <div v-if="publicView" class="mt-0.5 italic">
+              This is a computer-generated report and does not require a signature.
+            </div>
+          </div>
+          <div v-if="qrDataUrl" class="shrink-0 whitespace-nowrap text-right italic">
+            To verify the authenticity of this laboratory result, please scan the QR code.
           </div>
         </div>
       </div><!-- /#lab-print-body -->

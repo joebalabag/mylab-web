@@ -676,7 +676,11 @@ function resetCatalogPickerState() {
 async function openNewRequisition() {
   if (!viewing.value?.uuid) return
   editingReq.value = null
-  reqForm.value = { requisition_date: toDateTimeInputValue(new Date()), notes: '' }
+  reqForm.value = {
+    requisition_date: toDateTimeInputValue(new Date()),
+    notes: '',
+    physician: viewing.value?.referring_physician || '',
+  }
   reqLines.value = []
   reqDiscount.value = { discount_uuid: '', discount_open_amount: 0 }
   reqError.value = ''
