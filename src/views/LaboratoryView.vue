@@ -1551,13 +1551,13 @@ function patientDisplay(r) {
               <td class="hidden md:table-cell text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                 <div>
                   <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Created:</span>
-                  {{ formatDate(r.created_at) }}
+                  {{ formatDateTime(r.created_at) }}
                   <span v-if="r.created_by" class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500"> · {{ r.created_by }}</span>
                 </div>
                 <div>
                   <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Final:</span>
                   <template v-if="r.finalized_at">
-                    {{ formatDate(r.finalized_at) }}
+                    {{ formatDateTime(r.finalized_at) }}
                     <span v-if="r.pathologist_name" class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500"> · {{ r.pathologist_name }}</span>
                   </template>
                   <template v-else>—</template>
