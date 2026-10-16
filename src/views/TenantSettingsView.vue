@@ -259,11 +259,13 @@ const labHeaderPreviewSrc = computed(() =>
   labHeaderObjectUrl.value || (draft.labHeaderImage ? assetUrl(draft.labHeaderImage) : '')
 )
 
-// Generate a 1600×400 PNG "guide" showing the recommended header dimensions
+// Generate an 1800×240 PNG "guide" showing the recommended header dimensions
 // with a safe-area outline and centered instructions, then trigger a browser
 // download. Client-side canvas — no server round-trip, no shipped asset.
+// Dimensions mirror the CSS banner cap on the lab report (max-h-20 ≈ 80px
+// tall, aspect ≈ 7.5:1); 3× scale keeps the artwork crisp when printed.
 function downloadHeaderTemplate() {
-  const W = 1600, H = 400
+  const W = 1800, H = 240
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
@@ -292,7 +294,7 @@ function downloadHeaderTemplate() {
   ctx.fillText('Lab Report Header — Template', W / 2, H / 2 - 32)
   ctx.font = '24px system-ui, -apple-system, Segoe UI, sans-serif'
   ctx.fillStyle = '#64748b'
-  ctx.fillText(`Recommended: ${W} × ${H} px  ·  Aspect 4:1`, W / 2, H / 2 + 12)
+  ctx.fillText(`Recommended: ${W} × ${H} px  ·  Aspect 7.5:1`, W / 2, H / 2 + 12)
   ctx.font = '18px system-ui, -apple-system, Segoe UI, sans-serif'
   ctx.fillStyle = '#94a3b8'
   ctx.fillText('Keep the important content inside the dashed safe area.', W / 2, H / 2 + 48)
@@ -302,7 +304,7 @@ function downloadHeaderTemplate() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'lab-report-header-template-1600x400.png'
+    a.download = 'lab-report-header-template-1800x240.png'
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -619,9 +621,9 @@ function discard() {
             <div v-else>
               <label class="label">Header banner image</label>
               <div class="flex min-h-[8rem] items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:bg-slate-800">
-                <img v-if="labHeaderPreviewSrc" :src="labHeaderPreviewSrc" class="max-h-40 w-full object-contain" />
+                <img v-if="labHeaderPreviewSrc" :src="labHeaderPreviewSrc" class="max-h-20 w-full object-contain" />
                 <div v-else class="text-center text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 p-4">
-                  Upload a wide banner (e.g. 1600×400) that fills the report header.
+                  Upload a wide banner (e.g. 1800×240) that fills the report header.
                 </div>
               </div>
               <div class="mt-2 flex flex-wrap gap-2">
@@ -631,11 +633,11 @@ function discard() {
                 </label>
                 <button v-if="labHeaderFile" class="btn-ghost !text-xs" @click="discardLabHeaderPick">Discard pick</button>
                 <button type="button" class="btn-ghost !text-xs" @click="downloadHeaderTemplate">
-                  ⬇ Download template (1600×400 PNG)
+                  ⬇ Download template (1800×240 PNG)
                 </button>
               </div>
               <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
-                Recommended: <b>1600 × 400 px</b> (aspect 4:1). JPG, PNG, WebP, GIF or SVG · up to 5 MB. Renders full-width on the report; pick artwork with good contrast against white paper.
+                Recommended: <b>1800 × 240 px</b> (aspect 7.5:1). JPG, PNG, WebP, GIF or SVG · up to 5 MB. Renders at ~80 px tall on the report (same height as the QR), full-width minus the QR; pick artwork with good contrast against white paper.
               </p>
             </div>
           </div>
