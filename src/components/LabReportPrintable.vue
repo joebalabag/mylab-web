@@ -213,8 +213,7 @@ function categoryHeaderStyle(report) {
             </div>
           </div>
           <div v-if="qrDataUrl" class="shrink-0 text-center">
-            <img :src="qrDataUrl" alt="Scan to view online" class="h-24 w-24" />
-            <div class="mt-0.5 text-[9px] uppercase tracking-wider text-slate-500">Scan to view</div>
+            <img :src="qrDataUrl" alt="Scan to view online" class="h-20 w-20" />
           </div>
         </div>
 
