@@ -75,6 +75,21 @@ function ageFromBirthdate(v) {
   return `${years}Y-${months}M-${days}D`
 }
 
+// Patient name formatted "Last, First M.I. Suffix" for lab-result preview
+// / print. Mirrors formatPatientNameForReport() in laboratory-api so the
+// in-app view and the server-rendered PDF/public page agree. When the last
+// name is missing we drop the comma rather than render a stray leading one.
+function formatPatientName(first, middle, last, suffix) {
+  const firstTrim  = String(first  || '').trim()
+  const mi         = String(middle || '').trim().charAt(0).toUpperCase()
+  const suffixTrim = String(suffix || '').trim()
+  const lastTrim   = String(last   || '').trim()
+  const firstPart  = [firstTrim, mi ? `${mi}.` : '', suffixTrim].filter(Boolean).join(' ')
+  if (!lastTrim)  return firstPart
+  if (!firstPart) return lastTrim
+  return `${lastTrim}, ${firstPart}`
+}
+
 // Normalize 'm' / 'male' / 'MALE' → 'Male' so the header reads cleanly
 // regardless of how the patient record stores sex.
 function formatSex(v) {
@@ -234,7 +249,7 @@ function categoryHeaderStyle(report) {
           <div class="flex items-baseline gap-4">
             <div class="min-w-0 flex-1">
               <span class="text-slate-500">Patient:</span>
-              <span class="ml-1 font-medium">{{ [report.patient_first_name, report.patient_last_name].filter(Boolean).join(' ') || '—' }}</span>
+              <span class="ml-1 font-medium">{{ formatPatientName(report.patient_first_name, report.patient_middle_name, report.patient_last_name, report.patient_suffix) || '—' }}</span>
               <span class="ml-2 text-slate-700">
                 <template v-if="ageFromBirthdate(report.patient_birthdate)">{{ ageFromBirthdate(report.patient_birthdate) }}</template>
                 <template v-else>—</template>
