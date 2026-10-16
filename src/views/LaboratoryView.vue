@@ -586,13 +586,13 @@ async function sendFinalizedResultEmail(report, mode = 'auto') {
     if (mode === 'manual') flash('Print preview is not ready yet — try again in a moment.', 'amber')
     return
   }
-  // Puppeteer on the backend can't always reach hashed Vite stylesheet URLs
-  // (network isolation, stale hash, etc.), which left the emailed PDF
-  // completely unstyled. Resolve <link rel=stylesheet> → <style>…</style>
-  // here in the browser (where the CSS is already cached) so the HTML we
-  // send is fully self-contained.
-  const htmlInlined = await inlineStylesheetsInHtml(printDoc.html)
   try {
+    // Puppeteer on the backend can't always reach hashed Vite stylesheet URLs
+    // (network isolation, stale hash, etc.), which left the emailed PDF
+    // completely unstyled. Resolve <link rel=stylesheet> → <style>…</style>
+    // here in the browser (where the CSS is already cached) so the HTML we
+    // send is fully self-contained.
+    const htmlInlined = await inlineStylesheetsInHtml(printDoc.html)
     const safeNum = String(report.lab_number || 'result').replace(/[^\w.-]/g, '_')
     const filename = `Lab Report ${safeNum}.pdf`
     const res = await labApi.emailLabReportResult(report.uuid, {
@@ -967,14 +967,19 @@ async function inlineStylesheetsInHtml(htmlString) {
   const parsed = new DOMParser().parseFromString(htmlString, 'text/html')
   const links = Array.from(parsed.querySelectorAll('link[rel="stylesheet"]'))
   await Promise.all(links.map(async (link) => {
-    const href = link.href
-    if (!href) return
+    const raw = link.getAttribute('href')
+    if (!raw) return
+    // Resolve relative URLs against the current window — the <base href> in
+    // the parsed doc may or may not be honored by DOMParser depending on
+    // browser, so we don't rely on `link.href`.
+    let abs
+    try { abs = new URL(raw, window.location.href).href } catch { return }
     try {
-      const res = await fetch(href, { credentials: 'same-origin' })
+      const res = await fetch(abs, { credentials: 'same-origin' })
       if (!res.ok) return
       const css = await res.text()
       const style = parsed.createElement('style')
-      style.setAttribute('data-inlined-from', href)
+      style.setAttribute('data-inlined-from', abs)
       style.textContent = css
       link.replaceWith(style)
     } catch { /* leave the <link> intact as a best-effort fallback */ }
