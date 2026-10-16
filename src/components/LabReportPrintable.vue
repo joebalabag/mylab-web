@@ -503,7 +503,8 @@ function categoryHeaderStyle(report) {
               <img v-if="!publicView && report.status === 'finalized' && report.pathologist_esignature_image"
                    :src="assetUrl(report.pathologist_esignature_image)"
                    alt="signature"
-                   class="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-3/4 max-h-14 max-w-[70%] object-contain" />
+                   class="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-3/4 max-h-14 max-w-[70%] object-contain"
+                   style="position:absolute; left:50%; top:0; transform:translate(-50%, -75%); max-height:3.5rem; max-width:70%; object-fit:contain; pointer-events:none;" />
               <div class="font-semibold min-h-[1em]">
                 {{ report.status === 'finalized' ? (report.pathologist_name || '') : '' }}
               </div>
