@@ -196,12 +196,12 @@ function categoryHeaderStyle(report) {
         <div class="mb-4 flex items-start gap-4 border-b border-slate-300 pb-3">
           <div class="min-w-0 flex-1">
             <div v-if="tenant.labHeaderMode === 'image' && tenant.labHeaderImage">
-              <img :src="assetUrl(tenant.labHeaderImage)" class="max-h-32 w-full object-contain"
+              <img :src="assetUrl(tenant.labHeaderImage)" class="max-h-20 w-full object-contain"
                    :alt="tenant.name" />
             </div>
             <div v-else class="flex items-start gap-3">
               <img v-if="tenant.logo" :src="assetUrl(tenant.logo)"
-                   class="h-24 w-24 shrink-0 object-contain" :alt="tenant.name" />
+                   class="h-20 w-20 shrink-0 object-contain" :alt="tenant.name" />
               <div class="min-w-0 flex-1 leading-tight">
                 <div v-if="headerCompanyName" class="text-2xl font-bold text-slate-900 leading-snug">
                   {{ headerCompanyName }}
