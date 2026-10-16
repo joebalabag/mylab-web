@@ -587,10 +587,16 @@ async function sendFinalizedResultEmail(report, mode = 'auto') {
     return
   }
   try {
+    // Puppeteer on the backend can't always reach hashed Vite stylesheet URLs
+    // (network isolation, stale hash, etc.), which left the emailed PDF
+    // completely unstyled. Resolve <link rel=stylesheet> → <style>…</style>
+    // here in the browser (where the CSS is already cached) so the HTML we
+    // send is fully self-contained.
+    const htmlInlined = await inlineStylesheetsInHtml(printDoc.html)
     const safeNum = String(report.lab_number || 'result').replace(/[^\w.-]/g, '_')
     const filename = `Lab Report ${safeNum}.pdf`
     const res = await labApi.emailLabReportResult(report.uuid, {
-      html: printDoc.html,
+      html: htmlInlined,
       base_href: printDoc.baseHref,
       filename,
     })
@@ -950,6 +956,37 @@ function computeEffectivePaper() {
   recommendedPaperKey.value = key
   effectivePaperKey.value   = key
 }
+// Resolve every <link rel="stylesheet"> in a serialized HTML string into an
+// inline <style> block by fetching the CSS from the same origin (the browser
+// already has it cached). Needed for the emailed-PDF path: the backend's
+// Puppeteer can't reliably reach hashed Vite asset URLs from its own network
+// context, so an un-inlined document arrives at Chromium with zero Tailwind
+// styling and renders as unformatted text. Styles that fail to fetch stay as
+// <link> tags so Puppeteer can still try the network as a fallback.
+async function inlineStylesheetsInHtml(htmlString) {
+  const parsed = new DOMParser().parseFromString(htmlString, 'text/html')
+  const links = Array.from(parsed.querySelectorAll('link[rel="stylesheet"]'))
+  await Promise.all(links.map(async (link) => {
+    const raw = link.getAttribute('href')
+    if (!raw) return
+    // Resolve relative URLs against the current window — the <base href> in
+    // the parsed doc may or may not be honored by DOMParser depending on
+    // browser, so we don't rely on `link.href`.
+    let abs
+    try { abs = new URL(raw, window.location.href).href } catch { return }
+    try {
+      const res = await fetch(abs, { credentials: 'same-origin' })
+      if (!res.ok) return
+      const css = await res.text()
+      const style = parsed.createElement('style')
+      style.setAttribute('data-inlined-from', abs)
+      style.textContent = css
+      link.replaceWith(style)
+    } catch { /* leave the <link> intact as a best-effort fallback */ }
+  }))
+  return '<!doctype html>' + parsed.documentElement.outerHTML
+}
+
 // Shared print-doc builder. Returns the full <!doctype html> string plus the
 // paper spec / pixel dims — so `doPrint` (popup + window.print) and the
 // email-attachment flow (backend Puppeteer render) draw from EXACTLY the
