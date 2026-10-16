@@ -280,9 +280,10 @@ function categoryHeaderStyle(report) {
            class="flex flex-col"
            :style="`min-height: ${paperHeight - 200}px;`">
 
-        <!-- Colored category title band. -->
+        <!-- Colored category title band. Text centered within the band;
+             the colored vertical bar stays pinned to the left. -->
         <div v-if="report.item_category_print_title || report.item_category_name"
-             class="my-1.5 flex items-center border-l-4 px-3 py-0.5 leading-tight"
+             class="my-1.5 flex items-center justify-center border-l-4 px-3 py-0.5 leading-tight"
              :style="categoryHeaderStyle(report)">
           <div class="text-sm font-bold tracking-wide text-slate-800 [word-spacing:0.4em]"
                :class="{ uppercase: !report.item_category_print_title }">
