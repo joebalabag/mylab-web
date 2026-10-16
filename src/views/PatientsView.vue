@@ -662,7 +662,7 @@ function doPrint() {
   if (headerEl && bodyEl) {
     printMarkup = `
       <div id="lab-print-area" class="relative bg-white dark:bg-slate-900 p-6 text-sm text-slate-900 dark:text-slate-100" style="padding: 0 12mm 12mm; margin: 0 auto; width: ${paperPx.w}px; box-sizing: border-box;">
-        ${clone.querySelector('.pointer-events-none.absolute')?.outerHTML || ''}
+        ${clone.querySelector('.lab-print-watermark')?.outerHTML || ''}
         <table class="lab-print-table" style="width:100%; border-collapse: collapse;">
           <thead class="lab-print-thead">
             <tr><td class="lab-print-cell">${headerEl.innerHTML}</td></tr>

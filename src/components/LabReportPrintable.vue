@@ -183,7 +183,7 @@ function categoryHeaderStyle(report) {
 <template>
   <div id="lab-print-area" class="relative bg-white p-6 text-sm text-slate-900">
     <div v-if="report.status === 'draft'"
-         class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+         class="lab-print-watermark pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
       <div class="rotate-[-30deg] text-[128px] font-black tracking-widest text-slate-200/60 select-none">
         DRAFT
       </div>
