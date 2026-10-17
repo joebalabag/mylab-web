@@ -312,6 +312,12 @@ async function confirmPassword(password) {
       copyMessage.value = `Copied — ${formatCounts(inserted)}`
       emit('done', { action, inserted })
     }
+
+    // Refresh the counts panel so the admin sees the post-op state (all
+    // zeros after a delete, source totals after a copy) without having
+    // to click Check records again. Swallow any refresh error — the
+    // primary success message must stay intact.
+    try { await fetchTargetCounts() } catch (_e) { /* ignore */ }
   } catch (e) {
     const msg = extractErrorMessage(e)
     if (action === 'delete-transactions') txError.value = msg
