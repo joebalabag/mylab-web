@@ -101,6 +101,25 @@ export function migrationDeletePatientRecords(uuid, password) {
   return api.post(`/tenant/migration/${uuid}/delete-patient-records`, { password })
 }
 
+// Deletes catalog / look-up tables for the tenant (item_package_items,
+// item_packages, test_item_components, test_items, item_categories,
+// item_groups). Does NOT touch doctors or discounts. May be refused by
+// FK RESTRICT if lab reports still snapshot these catalog rows.
+export function migrationDeleteLookupData(uuid, password) {
+  return api.post(`/tenant/migration/${uuid}/delete-lookup-data`, { password })
+}
+
+// Subset of COPYABLE_CATALOG_TABLES actually touched by the delete-
+// lookup-data endpoint. Kept in sync with the backend LOOKUP_DELETE_ORDER.
+export const LOOKUP_DATA_TABLES = [
+  'item_package_items',
+  'item_packages',
+  'test_item_components',
+  'test_items',
+  'item_categories',
+  'item_groups',
+]
+
 // tables: string[] of the catalog tables to copy, from COPYABLE_CATALOG_TABLES.
 export function migrationCopyCatalog(uuid, password, source_tenant_uuid, tables) {
   return api.post(`/tenant/migration/${uuid}/copy-catalog`, { password, source_tenant_uuid, tables })

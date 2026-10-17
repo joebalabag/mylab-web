@@ -16,6 +16,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'done'])
 
 const copyableTables = tenantsApi.COPYABLE_CATALOG_TABLES
+const lookupTables = tenantsApi.LOOKUP_DATA_TABLES
 
 // Copy-catalog form state. Password lives in the PasswordConfirmDialog;
 // the modal only tracks the catalog-specific inputs (source + tables).
@@ -28,6 +29,8 @@ const txMessage = ref('')
 const txError   = ref('')
 const prMessage = ref('')
 const prError   = ref('')
+const lkMessage = ref('')
+const lkError   = ref('')
 const copyMessage = ref('')
 const copyError   = ref('')
 
@@ -53,13 +56,15 @@ const txCheckBusy = ref(false)
 const txCheckError = ref('')
 const prCheckBusy = ref(false)
 const prCheckError = ref('')
+const lkCheckBusy = ref(false)
+const lkCheckError = ref('')
 const copyCheckBusy = ref(false)
 const copyCheckError = ref('')
 
 // Expander state per section. All collapsed by default so the modal
-// opens with just the three section headers visible and the admin
-// decides which one they're interested in.
-const expanded = ref({ tx: false, pr: false, copy: false })
+// opens with just the section headers visible and the admin decides
+// which one they're interested in.
+const expanded = ref({ tx: false, pr: false, lk: false, copy: false })
 function toggleSection(key) { expanded.value[key] = !expanded.value[key] }
 
 // Source tenant picker modal — opened from the copy-catalog section.
@@ -86,10 +91,12 @@ watch(() => props.show, (now) => {
   txError.value = ''
   prMessage.value = ''
   prError.value = ''
+  lkMessage.value = ''
+  lkError.value = ''
   copyMessage.value = ''
   copyError.value = ''
   pending.value = null
-  expanded.value = { tx: false, pr: false, copy: false }
+  expanded.value = { tx: false, pr: false, lk: false, copy: false }
   running.value = null
   passwordBusy.value = false
   passwordError.value = ''
@@ -99,6 +106,7 @@ watch(() => props.show, (now) => {
   sourceCountsCheckedAt.value = ''
   txCheckError.value = ''
   prCheckError.value = ''
+  lkCheckError.value = ''
   copyCheckError.value = ''
   sourcePickerOpen.value = false
 })
@@ -126,6 +134,13 @@ const pendingConfig = computed(() => {
         confirmText: 'Delete patient records',
         danger: true,
       }
+    case 'delete-lookup-data':
+      return {
+        title: 'Confirm: Delete look-up data',
+        message: `Enter your password to delete the catalog (item groups, categories, test items, components, packages, package items) for ${props.tenant?.display_name || 'this tenant'}. Doctors and discounts are kept.`,
+        confirmText: 'Delete look-up data',
+        danger: true,
+      }
     case 'copy-catalog':
       return {
         title: 'Confirm: Copy catalog',
@@ -142,6 +157,7 @@ const runningLabel = computed(() => {
   switch (running.value) {
     case 'delete-transactions':   return 'Deleting transactions…'
     case 'delete-patient-records': return 'Deleting patient records and transactions…'
+    case 'delete-lookup-data':    return 'Deleting look-up data…'
     case 'copy-catalog':          return 'Copying catalog…'
     default:                      return ''
   }
@@ -193,6 +209,15 @@ async function checkPrRecords() {
   finally { prCheckBusy.value = false }
 }
 
+async function checkLkRecords() {
+  if (!props.tenant?.uuid) return
+  lkCheckBusy.value = true
+  lkCheckError.value = ''
+  try { await fetchTargetCounts() }
+  catch (e) { lkCheckError.value = extractErrorMessage(e) }
+  finally { lkCheckBusy.value = false }
+}
+
 // Copy section needs both: target counts (to show the 409 preflight
 // state) and source counts (to show what's available to copy). If source
 // isn't picked yet we only fetch target.
@@ -235,6 +260,12 @@ function askDeletePatientRecords() {
   passwordError.value = ''
   pending.value = 'delete-patient-records'
 }
+function askDeleteLookupData() {
+  lkMessage.value = ''
+  lkError.value = ''
+  passwordError.value = ''
+  pending.value = 'delete-lookup-data'
+}
 function askCopyCatalog() {
   if (!copyFormValid.value) return
   copyMessage.value = ''
@@ -265,6 +296,11 @@ async function confirmPassword(password) {
       const deleted = resp?.data?.deleted || resp?.deleted || {}
       prMessage.value = `Patient records (and all transactions) deleted — ${formatCounts(deleted)}`
       emit('done', { action, deleted })
+    } else if (action === 'delete-lookup-data') {
+      const resp = await tenantsApi.migrationDeleteLookupData(props.tenant.uuid, password)
+      const deleted = resp?.data?.deleted || resp?.deleted || {}
+      lkMessage.value = `Look-up data deleted — ${formatCounts(deleted)}`
+      emit('done', { action, deleted })
     } else if (action === 'copy-catalog') {
       const resp = await tenantsApi.migrationCopyCatalog(
         props.tenant.uuid,
@@ -280,6 +316,7 @@ async function confirmPassword(password) {
     const msg = extractErrorMessage(e)
     if (action === 'delete-transactions') txError.value = msg
     if (action === 'delete-patient-records') prError.value = msg
+    if (action === 'delete-lookup-data') lkError.value = msg
     if (action === 'copy-catalog') copyError.value = msg
   } finally {
     passwordBusy.value = false
@@ -457,7 +494,67 @@ function onMainClose() {
           </div>
         </section>
 
-        <!-- Section 3 — copy catalog from source tenant -->
+        <!-- Section 3 — delete look-up / catalog data -->
+        <section class="rounded-lg border border-slate-200 dark:border-slate-700">
+          <button type="button"
+                  class="flex w-full items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  :class="{ 'border-b-0': !expanded.lk }"
+                  @click="toggleSection('lk')">
+            <svg viewBox="0 0 24 24" class="mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform" :class="{ 'rotate-90': expanded.lk }"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Delete look-up data</div>
+              <div class="mt-0.5 text-xs text-slate-500">
+                Purges the catalog (item groups, categories, test items, components, packages, package items) for this tenant. Doctors and discounts are kept.
+              </div>
+            </div>
+          </button>
+          <div v-show="expanded.lk" class="space-y-3 px-4 py-3">
+            <div v-if="lkError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ lkError }}</div>
+            <div v-if="lkMessage" class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">{{ lkMessage }}</div>
+
+            <div v-if="targetCounts" class="rounded border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 p-2 text-xs">
+              <div class="mb-1 flex items-center justify-between">
+                <span class="font-semibold text-slate-700 dark:text-slate-200">Current counts on target (look-up only)</span>
+                <span v-if="targetCountsCheckedAt" class="text-[10px] text-slate-500">as of {{ targetCountsCheckedAt }}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                <div v-for="t in lookupTables" :key="t" class="flex justify-between">
+                  <span class="font-mono text-slate-600 dark:text-slate-300">{{ t }}</span>
+                  <span :class="(targetCounts.catalog?.[t] || 0) > 0 ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-400'">
+                    {{ targetCounts.catalog?.[t] ?? 0 }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div v-if="lkCheckError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ lkCheckError }}</div>
+
+            <div class="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-[11px] text-slate-600 dark:text-slate-300">
+              <div class="mb-1 font-semibold text-slate-700 dark:text-slate-200">Notes</div>
+              <ul class="list-disc space-y-0.5 pl-4">
+                <li>Delete order (FK-safe, children first): <code>item_package_items</code> → <code>item_packages</code> → <code>test_item_components</code> → <code>test_items</code> → <code>item_categories</code> → <code>item_groups</code>.</li>
+                <li>Runs inside a single DB transaction — a failure mid-way rolls everything back.</li>
+                <li><code>doctors</code> and <code>discounts</code> are <strong>not</strong> touched (they often outlive a catalog rebuild). If you need those gone too, remove them separately.</li>
+                <li>Historical lab reports snapshot catalog FKs (<code>lab_report_items.test_item_uuid</code>, <code>lab_result_values.test_item_component_uuid</code>, <code>lab_report_items.item_package_uuid</code>). If any live reports still reference these rows under <code>ON DELETE RESTRICT</code>, the transaction rolls back — purge transactions / patient records first and retry.</li>
+                <li>Typical use: run this before "Copy catalog" to seed a fresh catalog from a source tenant without stepping on duplicate codes.</li>
+              </ul>
+            </div>
+
+            <div class="flex justify-between">
+              <button type="button" class="btn-secondary" :disabled="lkCheckBusy" @click="checkLkRecords">
+                <span v-if="lkCheckBusy">Checking…</span>
+                <span v-else>Check records</span>
+              </button>
+              <button type="button" class="btn-danger" @click="askDeleteLookupData">
+                Delete look-up data
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 4 — copy catalog from source tenant -->
         <section class="rounded-lg border border-slate-200 dark:border-slate-700">
           <button type="button"
                   class="flex w-full items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
