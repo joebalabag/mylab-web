@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import Modal from './Modal.vue'
 import PasswordConfirmDialog from './PasswordConfirmDialog.vue'
+import TenantPickerModal from './TenantPickerModal.vue'
 import * as tenantsApi from '../api/tenants'
 
 const props = defineProps({
@@ -61,6 +62,21 @@ const copyCheckError = ref('')
 const expanded = ref({ tx: false, pr: false, copy: false })
 function toggleSection(key) { expanded.value[key] = !expanded.value[key] }
 
+// Source tenant picker modal — opened from the copy-catalog section.
+// Tenant list grows unbounded over time; a dropdown stops scaling once
+// the super-admin can't scan the list visually. The picker modal has
+// its own search filter + table.
+const sourcePickerOpen = ref(false)
+function openSourcePicker() { sourcePickerOpen.value = true }
+function closeSourcePicker() { sourcePickerOpen.value = false }
+function onSourcePicked(t) {
+  copySource.value = t?.uuid || ''
+}
+const copySourceTenant = computed(() => {
+  if (!copySource.value) return null
+  return (props.allTenants || []).find((t) => t?.uuid === copySource.value) || null
+})
+
 // Reset everything whenever the modal is reopened for a different tenant.
 watch(() => props.show, (now) => {
   if (!now) return
@@ -84,6 +100,7 @@ watch(() => props.show, (now) => {
   txCheckError.value = ''
   prCheckError.value = ''
   copyCheckError.value = ''
+  sourcePickerOpen.value = false
 })
 
 // Whenever the copy-source changes, drop any cached source counts so the
@@ -92,10 +109,6 @@ watch(copySource, () => {
   sourceCounts.value = null
   sourceCountsCheckedAt.value = ''
 })
-
-const sourceCandidates = computed(() =>
-  (props.allTenants || []).filter((t) => t?.uuid && t.uuid !== props.tenant?.uuid),
-)
 
 const pendingConfig = computed(() => {
   switch (pending.value) {
@@ -464,12 +477,19 @@ function onMainClose() {
           <div v-show="expanded.copy" class="space-y-3 px-4 py-3">
             <div>
               <label class="label">Source tenant</label>
-              <select v-model="copySource" class="input">
-                <option value="">— pick a source tenant —</option>
-                <option v-for="t in sourceCandidates" :key="t.uuid" :value="t.uuid">
-                  {{ t.display_name }} ({{ t.store_code }})
-                </option>
-              </select>
+              <button type="button"
+                      class="input flex w-full items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                      @click="openSourcePicker">
+                <span v-if="copySourceTenant" class="flex min-w-0 items-baseline gap-2">
+                  <span class="truncate font-semibold text-slate-800 dark:text-slate-100">{{ copySourceTenant.display_name }}</span>
+                  <span class="shrink-0 font-mono text-xs text-slate-500">{{ copySourceTenant.store_code }}</span>
+                </span>
+                <span v-else class="text-slate-500">— pick a source tenant —</span>
+                <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="7"/>
+                  <path d="m21 21-4.3-4.3"/>
+                </svg>
+              </button>
             </div>
 
             <div>
@@ -574,6 +594,16 @@ function onMainClose() {
     :busy="passwordBusy"
     @close="cancelPassword"
     @confirm="confirmPassword"
+  />
+
+  <TenantPickerModal
+    :show="sourcePickerOpen"
+    :tenants="allTenants"
+    :exclude-uuids="tenant?.uuid ? [tenant.uuid] : []"
+    :selected-uuid="copySource"
+    title="Pick source tenant"
+    @close="closeSourcePicker"
+    @select="onSourcePicked"
   />
 </template>
 
