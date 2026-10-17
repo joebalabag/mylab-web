@@ -39,6 +39,22 @@ const running = ref(null) // same enum while the API call is in flight
 const passwordBusy = ref(false)
 const passwordError = ref('')
 
+// "Check records" read-only preview state. Each section has its own
+// busy flag so one preview spinner never blanks the other two. A single
+// targetCounts cache is shared across sections (one GET returns every
+// slice we need). sourceCounts applies to the copy-catalog section only.
+const targetCounts = ref(null)
+const targetCountsCheckedAt = ref('')
+const sourceCounts = ref(null)
+const sourceCountsCheckedAt = ref('')
+
+const txCheckBusy = ref(false)
+const txCheckError = ref('')
+const prCheckBusy = ref(false)
+const prCheckError = ref('')
+const copyCheckBusy = ref(false)
+const copyCheckError = ref('')
+
 // Reset everything whenever the modal is reopened for a different tenant.
 watch(() => props.show, (now) => {
   if (!now) return
@@ -54,6 +70,20 @@ watch(() => props.show, (now) => {
   running.value = null
   passwordBusy.value = false
   passwordError.value = ''
+  targetCounts.value = null
+  targetCountsCheckedAt.value = ''
+  sourceCounts.value = null
+  sourceCountsCheckedAt.value = ''
+  txCheckError.value = ''
+  prCheckError.value = ''
+  copyCheckError.value = ''
+})
+
+// Whenever the copy-source changes, drop any cached source counts so the
+// "Check records" button re-fetches against the new source on next click.
+watch(copySource, () => {
+  sourceCounts.value = null
+  sourceCountsCheckedAt.value = ''
 })
 
 const sourceCandidates = computed(() =>
@@ -109,6 +139,66 @@ function formatCounts(counts) {
 function extractErrorMessage(err) {
   return err?.response?.data?.message || err?.data?.message || err?.message || 'Request failed.'
 }
+
+function nowStamp() {
+  const d = new Date()
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+// Shared target-tenant counts fetcher. Each section's "Check records"
+// button sets its own busy/error flags around this call so one section
+// can preview while another one is already showing a stale (or no) cache.
+async function fetchTargetCounts() {
+  const resp = await tenantsApi.migrationRecordCounts(props.tenant.uuid)
+  const data = resp?.data || resp
+  targetCounts.value = data
+  targetCountsCheckedAt.value = nowStamp()
+}
+
+async function checkTxRecords() {
+  if (!props.tenant?.uuid) return
+  txCheckBusy.value = true
+  txCheckError.value = ''
+  try { await fetchTargetCounts() }
+  catch (e) { txCheckError.value = extractErrorMessage(e) }
+  finally { txCheckBusy.value = false }
+}
+
+async function checkPrRecords() {
+  if (!props.tenant?.uuid) return
+  prCheckBusy.value = true
+  prCheckError.value = ''
+  try { await fetchTargetCounts() }
+  catch (e) { prCheckError.value = extractErrorMessage(e) }
+  finally { prCheckBusy.value = false }
+}
+
+// Copy section needs both: target counts (to show the 409 preflight
+// state) and source counts (to show what's available to copy). If source
+// isn't picked yet we only fetch target.
+async function checkCopyRecords() {
+  if (!props.tenant?.uuid) return
+  copyCheckBusy.value = true
+  copyCheckError.value = ''
+  try {
+    await fetchTargetCounts()
+    if (copySource.value) {
+      const resp = await tenantsApi.migrationRecordCounts(copySource.value)
+      const data = resp?.data || resp
+      sourceCounts.value = data
+      sourceCountsCheckedAt.value = nowStamp()
+    }
+  } catch (e) {
+    copyCheckError.value = extractErrorMessage(e)
+  } finally {
+    copyCheckBusy.value = false
+  }
+}
+
+const copyBlockingTables = computed(() => {
+  if (!targetCounts.value?.catalog) return []
+  return copyTables.value.filter((t) => (targetCounts.value.catalog[t] || 0) > 0)
+})
 
 // Dialog triggers — button clicks only open the password dialog. The
 // actual API call happens in `confirmPassword` once the user types the
@@ -239,7 +329,38 @@ function onMainClose() {
           <div class="space-y-3 px-4 py-3">
             <div v-if="txError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ txError }}</div>
             <div v-if="txMessage" class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">{{ txMessage }}</div>
-            <div class="flex justify-end">
+
+            <!-- Check records preview — fetches current counts so admin
+                 sees exactly what will be deleted before confirming. -->
+            <div v-if="targetCounts" class="rounded border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 p-2 text-xs">
+              <div class="mb-1 flex items-center justify-between">
+                <span class="font-semibold text-slate-700 dark:text-slate-200">Current counts on target</span>
+                <span v-if="targetCountsCheckedAt" class="text-[10px] text-slate-500">as of {{ targetCountsCheckedAt }}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                <div v-for="(n, t) in targetCounts.transactions" :key="t" class="flex justify-between">
+                  <span class="font-mono text-slate-600 dark:text-slate-300">{{ t }}</span>
+                  <span :class="n > 0 ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-400'">{{ n }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="txCheckError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ txCheckError }}</div>
+
+            <!-- Details note so admin isn't guessing what the FK cascade covers. -->
+            <div class="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-[11px] text-slate-600 dark:text-slate-300">
+              <div class="mb-1 font-semibold text-slate-700 dark:text-slate-200">Notes</div>
+              <ul class="list-disc space-y-0.5 pl-4">
+                <li>Delete order (FK-safe, children first): <code>lab_result_values</code> → <code>lab_report_items</code> → <code>lab_reports</code> → <code>payment_items</code> → <code>payments</code> → <code>patient_requisition_items</code> → <code>patient_requisitions</code> → <code>patient_cases</code>.</li>
+                <li>Runs inside a single DB transaction — a failure mid-way rolls everything back.</li>
+                <li><code>patients</code> master records are <strong>not</strong> touched. Use the next section to also remove patients.</li>
+              </ul>
+            </div>
+
+            <div class="flex justify-between">
+              <button type="button" class="btn-secondary" :disabled="txCheckBusy" @click="checkTxRecords">
+                <span v-if="txCheckBusy">Checking…</span>
+                <span v-else>Check records</span>
+              </button>
               <button type="button" class="btn-danger" @click="askDeleteTransactions">
                 Delete transactions
               </button>
@@ -258,7 +379,39 @@ function onMainClose() {
           <div class="space-y-3 px-4 py-3">
             <div v-if="prError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ prError }}</div>
             <div v-if="prMessage" class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">{{ prMessage }}</div>
-            <div class="flex justify-end">
+
+            <div v-if="targetCounts" class="rounded border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 p-2 text-xs">
+              <div class="mb-1 flex items-center justify-between">
+                <span class="font-semibold text-slate-700 dark:text-slate-200">Current counts on target</span>
+                <span v-if="targetCountsCheckedAt" class="text-[10px] text-slate-500">as of {{ targetCountsCheckedAt }}</span>
+              </div>
+              <div class="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-0.5">
+                <span class="font-mono font-semibold text-rose-700">patients</span>
+                <span :class="targetCounts.patients > 0 ? 'font-semibold text-rose-700' : 'text-slate-400'">{{ targetCounts.patients }}</span>
+              </div>
+              <div class="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                <div v-for="(n, t) in targetCounts.transactions" :key="t" class="flex justify-between">
+                  <span class="font-mono text-slate-600 dark:text-slate-300">{{ t }}</span>
+                  <span :class="n > 0 ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-400'">{{ n }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="prCheckError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ prCheckError }}</div>
+
+            <div class="rounded border border-rose-200 bg-rose-50/50 dark:border-rose-700/40 dark:bg-rose-900/20 p-2 text-[11px] text-rose-800 dark:text-rose-200">
+              <div class="mb-1 font-semibold">Notes</div>
+              <ul class="list-disc space-y-0.5 pl-4">
+                <li><strong>Cascading delete:</strong> every transaction table is purged first (same order as the section above), then <code>patients</code> is deleted. Both halves run in one DB transaction, so a failure anywhere rolls back the entire operation.</li>
+                <li>Response includes a <code>patients: N</code> row at the end confirming how many master records were removed.</li>
+                <li>Historical reports that were already printed stay on paper, but their underlying rows are gone. Make sure the tenant isn't actively using the system when you run this.</li>
+              </ul>
+            </div>
+
+            <div class="flex justify-between">
+              <button type="button" class="btn-secondary" :disabled="prCheckBusy" @click="checkPrRecords">
+                <span v-if="prCheckBusy">Checking…</span>
+                <span v-else>Check records</span>
+              </button>
               <button type="button" class="btn-danger" @click="askDeletePatientRecords">
                 Delete patient records + transactions
               </button>
@@ -311,7 +464,54 @@ function onMainClose() {
             <div v-if="copyError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ copyError }}</div>
             <div v-if="copyMessage" class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">{{ copyMessage }}</div>
 
-            <div class="flex justify-end">
+            <!-- Preview panel: side-by-side counts for target (what's
+                 already here, drives the 409 preflight) and source (what
+                 would be inserted). Blocking rows highlighted in rose
+                 so admin sees the clash before clicking Copy. -->
+            <div v-if="targetCounts" class="rounded border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 p-2 text-xs">
+              <div class="mb-1 flex items-center justify-between">
+                <span class="font-semibold text-slate-700 dark:text-slate-200">Catalog row counts</span>
+                <span class="text-[10px] text-slate-500">
+                  target as of {{ targetCountsCheckedAt || '—' }}<span v-if="sourceCountsCheckedAt"> · source as of {{ sourceCountsCheckedAt }}</span>
+                </span>
+              </div>
+              <div class="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-0.5">
+                <div class="text-[10px] font-semibold uppercase text-slate-500">Table</div>
+                <div class="text-[10px] font-semibold uppercase text-slate-500 text-right">Target</div>
+                <div class="text-[10px] font-semibold uppercase text-slate-500 text-right">Source</div>
+                <template v-for="t in copyableTables" :key="t">
+                  <span class="font-mono text-slate-600 dark:text-slate-300">{{ t }}</span>
+                  <span class="text-right"
+                        :class="(targetCounts.catalog?.[t] || 0) > 0 && copyTables.includes(t) ? 'font-semibold text-rose-700' : (targetCounts.catalog?.[t] || 0) > 0 ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-400'">
+                    {{ targetCounts.catalog?.[t] ?? 0 }}
+                  </span>
+                  <span class="text-right"
+                        :class="(sourceCounts?.catalog?.[t] || 0) > 0 ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-400'">
+                    {{ sourceCounts ? (sourceCounts.catalog?.[t] ?? 0) : '—' }}
+                  </span>
+                </template>
+              </div>
+              <div v-if="copyBlockingTables.length" class="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                Copy will be refused — target already has rows in: {{ copyBlockingTables.join(', ') }}. Purge those first.
+              </div>
+            </div>
+            <div v-if="copyCheckError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ copyCheckError }}</div>
+
+            <div class="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-[11px] text-slate-600 dark:text-slate-300">
+              <div class="mb-1 font-semibold text-slate-700 dark:text-slate-200">Notes</div>
+              <ul class="list-disc space-y-0.5 pl-4">
+                <li>Every row's primary key is <strong>remapped</strong> on insert (fresh UUIDs) and tenant-scoped FKs (<code>item_group_uuid</code>, <code>item_category_uuid</code>, <code>test_item_uuid</code>, <code>item_package_uuid</code>, <code>signatory_doctor_uuid</code>) are relinked to the target tenant's new rows — no shared ids with the source.</li>
+                <li>The <code>code</code> column is unique per tenant. Server <strong>refuses with 409</strong> if any selected table already has rows on the target (would collide with the unique constraint and leave partial state).</li>
+                <li>Dependency chain inside this copy: <code>item_groups</code> ← <code>item_categories</code> ← <code>test_items</code> ← <code>test_item_components</code>; and <code>item_packages</code> ← <code>item_package_items</code> (which also references <code>test_items</code>). Picking a child without its parent fails with a clear error naming the missing dependency.</li>
+                <li><code>created_at</code> / <code>updated_at</code> reset to <strong>now</strong> on insert so the audit trail reflects when the copy happened, not when the source rows were originally made.</li>
+              </ul>
+            </div>
+
+            <div class="flex justify-between">
+              <button type="button" class="btn-secondary" :disabled="copyCheckBusy" @click="checkCopyRecords">
+                <span v-if="copyCheckBusy">Checking…</span>
+                <span v-else>Check records</span>
+              </button>
               <button
                 type="button"
                 class="btn-primary"

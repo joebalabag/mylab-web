@@ -85,6 +85,14 @@ export function alterTenantSubscription(uuid, payload) {
 // match, 403 if the caller isn't a super-admin, 409 for policy refusals
 // (e.g. copy target already populated), 404 if tenant missing.
 
+// Read-only preview — returns per-table row counts for the three
+// migration surfaces (transactions, patients, catalog). Super-admin only;
+// no password needed. Used by the modal's "Check records" button so the
+// super-admin sees what's actually on a tenant before confirming a wipe.
+export function migrationRecordCounts(uuid) {
+  return api.get(`/tenant/migration/${uuid}/record-counts`)
+}
+
 export function migrationDeleteTransactions(uuid, password) {
   return api.post(`/tenant/migration/${uuid}/delete-transactions`, { password })
 }
