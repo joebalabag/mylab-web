@@ -310,6 +310,11 @@ async function confirmPassword(password) {
       )
       const inserted = resp?.data?.inserted || resp?.inserted || {}
       copyMessage.value = `Copied — ${formatCounts(inserted)}`
+      // Clear the selection so the "Copy will be refused" preflight
+      // warning doesn't fire against the tables we just populated —
+      // targetCounts refreshes to non-zero below and would otherwise
+      // mark every row the admin just copied as blocking.
+      copyTables.value = []
       emit('done', { action, inserted })
     }
 
