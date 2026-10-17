@@ -172,6 +172,41 @@ function groupValuesBySection(values) {
   return order.map((k) => ({ section: k, values: map.get(k) }))
 }
 
+// Temporary trial: items under the Microscopy or Fecalysis categories
+// print as two columns to use page width better. Remove once we decide
+// whether to promote this to a per-category or per-test-item setting.
+function isTwoColumnItem(it, report) {
+  const catName = String(report?.item_category_name || '').toLowerCase()
+  const catCode = String(report?.item_category_code || '').toUpperCase()
+  if (catName === 'microscopy' || catName === 'fecalysis') return true
+  if (catCode === 'MICRO' || catCode === 'CLM' || catCode === 'FEC') return true
+  // Keep the original CM001 fallback in case the category name was renamed.
+  return String(it?.test_code || '').toUpperCase() === 'CM001'
+}
+
+// Split section groups into [leftColumn, rightColumn] balanced by row count,
+// keeping each section intact on one side.
+function splitSectionsForTwoColumns(values) {
+  const groups = groupValuesBySection(values)
+  if (!groups.length) return [[], []]
+  const rowsIn = (g) => (g.section ? 1 : 0) + g.values.length
+  const total = groups.reduce((acc, g) => acc + rowsIn(g), 0)
+  const target = total / 2
+  const left = []
+  const right = []
+  let running = 0
+  for (const g of groups) {
+    const r = rowsIn(g)
+    if (running + r / 2 <= target) {
+      left.push(g); running += r
+    } else {
+      right.push(g)
+    }
+  }
+  if (right.length === 0 && left.length > 1) right.push(left.pop())
+  return [left, right]
+}
+
 function buildMatrixGrid(it) {
   const cfg = it?.matrix_config || {}
   const rows = Array.isArray(cfg.rows) ? cfg.rows : []
@@ -325,11 +360,11 @@ function categoryHeaderStyle(report) {
             <colgroup>
               <col style="width: 26%;" />
               <col style="width: 12%;" />
-              <col v-if="anyUnitAcross(report.items)" style="width: 8%;" />
-              <col v-if="anyReferenceAcross(report.items)" :style="anySiAcross(report.items) ? 'width: 14%;' : 'width: 22%;'" />
+              <col v-if="anyUnitAcross(report.items)" style="width: 7%;" />
+              <col v-if="anyReferenceAcross(report.items)" :style="anySiAcross(report.items) ? 'width: 15%;' : 'width: 22%;'" />
               <col v-if="anySiAcross(report.items)" style="width: 12%;" />
-              <col v-if="anySiAcross(report.items)" style="width: 8%;" />
-              <col v-if="anySiAcross(report.items)" style="width: 14%;" />
+              <col v-if="anySiAcross(report.items)" style="width: 7%;" />
+              <col v-if="anySiAcross(report.items)" style="width: 15%;" />
             </colgroup>
             <thead class="text-[10px] uppercase text-slate-500">
               <tr>
@@ -348,11 +383,11 @@ function categoryHeaderStyle(report) {
                   <tr v-for="v in (it.values || [])" :key="v.uuid" class="border-b border-slate-100">
                     <td class="py-px">{{ it.test_name }}</td>
                     <td class="py-px">{{ v.value_text || '' }}</td>
-                    <td v-if="anyUnitAcross(report.items)" class="py-px text-slate-500">{{ v.unit_of_measure || '' }}</td>
-                    <td v-if="anyReferenceAcross(report.items)" class="py-px text-slate-500">{{ v.reference_range || '' }}</td>
+                    <td v-if="anyUnitAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ v.unit_of_measure || '' }}</td>
+                    <td v-if="anyReferenceAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ v.reference_range || '' }}</td>
                     <td v-if="anySiAcross(report.items)" class="py-px border-l border-slate-200 pl-2">{{ siValue(v) }}</td>
-                    <td v-if="anySiAcross(report.items)" class="py-px text-slate-500">{{ hasSi(v) ? (v.si_unit_of_measure || '') : '' }}</td>
-                    <td v-if="anySiAcross(report.items)" class="py-px text-slate-500">{{ hasSi(v) ? (v.si_reference_range || '') : '' }}</td>
+                    <td v-if="anySiAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ hasSi(v) ? (v.si_unit_of_measure || '') : '' }}</td>
+                    <td v-if="anySiAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ hasSi(v) ? (v.si_reference_range || '') : '' }}</td>
                   </tr>
                 </template>
                 <template v-else-if="it.result_type === 'panel'">
@@ -362,11 +397,11 @@ function categoryHeaderStyle(report) {
                   <tr v-for="v in (it.values || [])" :key="v.uuid" class="border-b border-slate-100">
                     <td class="py-px pl-6">{{ v.component_name }}</td>
                     <td class="py-px">{{ v.value_text || '' }}</td>
-                    <td v-if="anyUnitAcross(report.items)" class="py-px text-slate-500">{{ v.unit_of_measure || '' }}</td>
-                    <td v-if="anyReferenceAcross(report.items)" class="py-px text-slate-500">{{ v.reference_range || '' }}</td>
+                    <td v-if="anyUnitAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ v.unit_of_measure || '' }}</td>
+                    <td v-if="anyReferenceAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ v.reference_range || '' }}</td>
                     <td v-if="anySiAcross(report.items)" class="py-px border-l border-slate-200 pl-2">{{ siValue(v) }}</td>
-                    <td v-if="anySiAcross(report.items)" class="py-px text-slate-500">{{ hasSi(v) ? (v.si_unit_of_measure || '') : '' }}</td>
-                    <td v-if="anySiAcross(report.items)" class="py-px text-slate-500">{{ hasSi(v) ? (v.si_reference_range || '') : '' }}</td>
+                    <td v-if="anySiAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ hasSi(v) ? (v.si_unit_of_measure || '') : '' }}</td>
+                    <td v-if="anySiAcross(report.items)" class="py-px text-[10px] text-slate-500">{{ hasSi(v) ? (v.si_reference_range || '') : '' }}</td>
                   </tr>
                 </template>
                 <tr v-else>
@@ -392,14 +427,44 @@ function categoryHeaderStyle(report) {
           <div class="mb-0.5 border-b border-slate-200 pb-0.5 leading-tight">
             <div class="flex flex-wrap items-baseline gap-2">
               <div class="text-sm font-semibold text-slate-800">{{ it.test_name }}</div>
-              <div class="text-[10px] font-mono text-slate-500">{{ it.test_code }}</div>
               <div v-if="it.specimen" class="text-[10px] text-slate-500">· specimen: {{ it.specimen }}</div>
             </div>
             <div v-if="it.method" class="text-[10px] italic leading-tight text-slate-600">Method: {{ it.method }}</div>
           </div>
 
           <div v-if="it.result_type === 'single' || it.result_type === 'panel'">
-            <table class="w-full text-xs leading-tight">
+            <div v-if="isTwoColumnItem(it, report)" class="grid grid-cols-2 gap-0 items-start">
+              <table v-for="(colGroups, colIdx) in splitSectionsForTwoColumns(it.values)" :key="colIdx"
+                     class="w-full text-xs table-fixed border-collapse"
+                     style="line-height: 16px;">
+                <thead class="text-[10px] uppercase text-slate-500">
+                  <tr style="height: 18px;">
+                    <th class="w-1/2 text-left font-semibold" style="padding: 0;">Analyte</th>
+                    <th class="w-1/4 text-left font-semibold" style="padding: 0;">Result</th>
+                    <th v-if="anyUnit(it)" class="w-1/4 text-left font-semibold" style="padding: 0;">Unit</th>
+                    <th v-if="anyReference(it)" class="whitespace-nowrap text-left font-semibold" style="padding: 0;">Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template v-for="grp in colGroups" :key="grp.section || 'none'">
+                    <tr v-if="grp.section" style="height: 18px;">
+                      <td colspan="4"
+                          class="text-[10px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap overflow-hidden"
+                          style="padding: 0; line-height: 18px; vertical-align: middle;">
+                        {{ grp.section }}
+                      </td>
+                    </tr>
+                    <tr v-for="v in grp.values" :key="v.uuid" class="border-b border-slate-100" style="height: 18px;">
+                      <td :class="{ 'pl-6': grp.section }" style="padding: 0; vertical-align: middle;">{{ v.component_name }}</td>
+                      <td class="text-slate-700" style="padding: 0; vertical-align: middle;">{{ v.value_text || '' }}</td>
+                      <td v-if="anyUnit(it)" class="text-slate-500" style="padding: 0; vertical-align: middle;">{{ v.unit_of_measure || '' }}</td>
+                      <td v-if="anyReference(it)" class="whitespace-nowrap text-slate-500" style="padding: 0; vertical-align: middle;">{{ v.reference_range || '' }}</td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <table v-else class="w-full text-xs leading-tight">
               <thead class="text-[10px] uppercase text-slate-500">
                 <tr>
                   <th class="w-1/3 text-left font-semibold">Analyte</th>
@@ -416,7 +481,7 @@ function categoryHeaderStyle(report) {
                     </td>
                   </tr>
                   <tr v-for="v in grp.values" :key="v.uuid" class="border-b border-slate-100">
-                    <td class="py-px">{{ v.component_name }}</td>
+                    <td class="py-px" :class="{ 'pl-6': grp.section }">{{ v.component_name }}</td>
                     <td class="py-px">{{ v.value_text || '' }}</td>
                     <td v-if="anyUnit(it)" class="py-px text-slate-500">{{ v.unit_of_measure || '' }}</td>
                     <td v-if="anyReference(it)" class="whitespace-nowrap py-px text-slate-500">{{ v.reference_range || '' }}</td>
