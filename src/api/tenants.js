@@ -79,3 +79,32 @@ export function alterTenantSubscription(uuid, payload) {
   }
   return api.patch(`/tenant/alter-subscription/${uuid}`, body)
 }
+
+// Super-admin migration actions. Each requires the acting super-admin's
+// password re-verification; the server rejects with 401 if it doesn't
+// match, 403 if the caller isn't a super-admin, 409 for policy refusals
+// (e.g. copy target already populated), 404 if tenant missing.
+
+export function migrationDeleteTransactions(uuid, password) {
+  return api.post(`/tenant/migration/${uuid}/delete-transactions`, { password })
+}
+
+export function migrationDeletePatientRecords(uuid, password) {
+  return api.post(`/tenant/migration/${uuid}/delete-patient-records`, { password })
+}
+
+// tables: string[] of the catalog tables to copy, from COPYABLE_CATALOG_TABLES.
+export function migrationCopyCatalog(uuid, password, source_tenant_uuid, tables) {
+  return api.post(`/tenant/migration/${uuid}/copy-catalog`, { password, source_tenant_uuid, tables })
+}
+
+export const COPYABLE_CATALOG_TABLES = [
+  'doctors',
+  'discounts',
+  'item_groups',
+  'item_categories',
+  'test_items',
+  'test_item_components',
+  'item_packages',
+  'item_package_items',
+]

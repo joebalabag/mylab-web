@@ -12,6 +12,7 @@ import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import SkeletonRows from '../../components/SkeletonRows.vue'
 import RowActionMenu from '../../components/RowActionMenu.vue'
+import TenantMigrationModal from '../../components/TenantMigrationModal.vue'
 import { formatDate, formatDateTime, money } from '../../utils/format'
 import { randomPassword, makeAdminUsername } from '../../utils/generate'
 import { assetUrl } from '../../api/client'
@@ -613,6 +614,18 @@ async function doDelete() {
     flash(e?.message || 'Failed to delete tenant')
   }
 }
+
+// Super-admin migration surface: one modal, three sections (delete
+// transactions / delete patient records / copy catalog), each with its
+// own password re-verification. Backend endpoints live under
+// /tenant/migration/:uuid/*.
+const migration = ref({ show: false, tenant: null })
+function openMigration(t) { migration.value = { show: true, tenant: t } }
+function closeMigration()  { migration.value = { show: false, tenant: null } }
+function onMigrationDone(payload) {
+  if (payload?.action === 'copy-catalog') flash('Catalog copied.')
+  else flash('Migration action completed.')
+}
 </script>
 
 <template>
@@ -824,6 +837,7 @@ async function doDelete() {
                   { label: 'View details', icon: 'eye', onClick: () => openDetails(t) },
                   { label: 'Edit', icon: 'edit', onClick: () => openEdit(t) },
                   { label: 'Alter subscription plan', icon: 'edit', onClick: () => openAlterSubscription(t) },
+                  { label: 'Migration', icon: 'edit', onClick: () => openMigration(t) },
                   { label: (t.status === 'active') ? 'Deactivate' : 'Activate',
                     icon: (t.status === 'active') ? 'deactivate' : 'activate',
                     variant: (t.status === 'active') ? 'danger' : 'success',
@@ -1450,6 +1464,14 @@ async function doDelete() {
       confirm-text="Delete"
       @close="confirmDelete = { show: false, tenant: null }"
       @confirm="doDelete"
+    />
+
+    <TenantMigrationModal
+      :show="migration.show"
+      :tenant="migration.tenant"
+      :all-tenants="filtered"
+      @close="closeMigration"
+      @done="onMigrationDone"
     />
   </div>
 </template>
