@@ -55,6 +55,12 @@ const prCheckError = ref('')
 const copyCheckBusy = ref(false)
 const copyCheckError = ref('')
 
+// Expander state per section. All collapsed by default so the modal
+// opens with just the three section headers visible and the admin
+// decides which one they're interested in.
+const expanded = ref({ tx: false, pr: false, copy: false })
+function toggleSection(key) { expanded.value[key] = !expanded.value[key] }
+
 // Reset everything whenever the modal is reopened for a different tenant.
 watch(() => props.show, (now) => {
   if (!now) return
@@ -67,6 +73,7 @@ watch(() => props.show, (now) => {
   copyMessage.value = ''
   copyError.value = ''
   pending.value = null
+  expanded.value = { tx: false, pr: false, copy: false }
   running.value = null
   passwordBusy.value = false
   passwordError.value = ''
@@ -320,13 +327,22 @@ function onMainClose() {
 
         <!-- Section 1 — delete transactions only -->
         <section class="rounded-lg border border-slate-200 dark:border-slate-700">
-          <div class="border-b border-slate-100 dark:border-slate-800 px-4 py-3">
-            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Delete transactions</div>
-            <div class="mt-0.5 text-xs text-slate-500">
-              Purges lab results, payments, requisitions, and patient cases for this tenant. Patient master records are kept.
+          <button type="button"
+                  class="flex w-full items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  :class="{ 'border-b-0': !expanded.tx }"
+                  @click="toggleSection('tx')">
+            <svg viewBox="0 0 24 24" class="mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform" :class="{ 'rotate-90': expanded.tx }"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Delete transactions</div>
+              <div class="mt-0.5 text-xs text-slate-500">
+                Purges lab results, payments, requisitions, and patient cases for this tenant. Patient master records are kept.
+              </div>
             </div>
-          </div>
-          <div class="space-y-3 px-4 py-3">
+          </button>
+          <div v-show="expanded.tx" class="space-y-3 px-4 py-3">
             <div v-if="txError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ txError }}</div>
             <div v-if="txMessage" class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">{{ txMessage }}</div>
 
@@ -370,13 +386,22 @@ function onMainClose() {
 
         <!-- Section 2 — delete patient records (cascades through transactions) -->
         <section class="rounded-lg border border-rose-200 dark:border-rose-700/40">
-          <div class="border-b border-rose-100 dark:border-rose-700/40 px-4 py-3">
-            <div class="text-sm font-semibold text-rose-700 dark:text-rose-300">Delete patient records</div>
-            <div class="mt-0.5 text-xs text-rose-700/90 dark:text-rose-300/90">
-              Deletes every patient on this tenant. <span class="font-semibold">All of their transactions (lab results, payments, requisitions, patient cases) are also deleted</span> in the same transaction — patient rows cannot be removed while they still have records pointing at them.
+          <button type="button"
+                  class="flex w-full items-start gap-3 border-b border-rose-100 dark:border-rose-700/40 px-4 py-3 text-left hover:bg-rose-50/50 dark:hover:bg-rose-900/20"
+                  :class="{ 'border-b-0': !expanded.pr }"
+                  @click="toggleSection('pr')">
+            <svg viewBox="0 0 24 24" class="mt-0.5 h-4 w-4 shrink-0 text-rose-600 transition-transform" :class="{ 'rotate-90': expanded.pr }"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-rose-700 dark:text-rose-300">Delete patient records</div>
+              <div class="mt-0.5 text-xs text-rose-700/90 dark:text-rose-300/90">
+                Deletes every patient on this tenant. <span class="font-semibold">All of their transactions (lab results, payments, requisitions, patient cases) are also deleted</span> in the same transaction — patient rows cannot be removed while they still have records pointing at them.
+              </div>
             </div>
-          </div>
-          <div class="space-y-3 px-4 py-3">
+          </button>
+          <div v-show="expanded.pr" class="space-y-3 px-4 py-3">
             <div v-if="prError" class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ prError }}</div>
             <div v-if="prMessage" class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">{{ prMessage }}</div>
 
@@ -421,13 +446,22 @@ function onMainClose() {
 
         <!-- Section 3 — copy catalog from source tenant -->
         <section class="rounded-lg border border-slate-200 dark:border-slate-700">
-          <div class="border-b border-slate-100 dark:border-slate-800 px-4 py-3">
-            <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Copy catalog from another tenant</div>
-            <div class="mt-0.5 text-xs text-slate-500">
-              Copies the selected catalog tables from a source tenant into this one. Refused if any selected table on this tenant already has rows — purge those first (above or via a data script).
+          <button type="button"
+                  class="flex w-full items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  :class="{ 'border-b-0': !expanded.copy }"
+                  @click="toggleSection('copy')">
+            <svg viewBox="0 0 24 24" class="mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform" :class="{ 'rotate-90': expanded.copy }"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Copy catalog from another tenant</div>
+              <div class="mt-0.5 text-xs text-slate-500">
+                Copies the selected catalog tables from a source tenant into this one. Refused if any selected table on this tenant already has rows — purge those first (above or via a data script).
+              </div>
             </div>
-          </div>
-          <div class="space-y-3 px-4 py-3">
+          </button>
+          <div v-show="expanded.copy" class="space-y-3 px-4 py-3">
             <div>
               <label class="label">Source tenant</label>
               <select v-model="copySource" class="input">
