@@ -64,6 +64,11 @@ export const useAuthStore = defineStore('auth', {
         if (data.tenant) {
           const tenant = useTenantStore()
           tenant.hydrateFromLogin(data.tenant, data.subscription)
+          // Refresh the full tenant record so fields missing from the login
+          // summary (logo, lab header, address, SMTP flags) can't stay stale
+          // from a previous session's localStorage snapshot. Non-fatal: if
+          // the fetch fails the user still has a valid token.
+          try { await tenant.loadCurrentFromApi() } catch (_) { /* ignore */ }
         }
         return { ok: true }
       } catch (e) {
