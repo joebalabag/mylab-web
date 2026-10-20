@@ -1,7 +1,9 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as paymentsApi from '../../api/tenantSubscriptionPayments'
 import * as tenantsApi  from '../../api/tenants'
+import * as aiExtractionApi from '../../api/aiExtraction'
+import { usePlansStore } from '../../stores/plans'
 import Modal from '../../components/Modal.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import EmptyState from '../../components/EmptyState.vue'
@@ -23,6 +25,40 @@ function daysAgoISO(days) {
 function todayISO() {
   return _localISO(new Date())
 }
+
+// Convert the API's ISO datetime (with tz offset) to the datetime-local input
+// format ("YYYY-MM-DDTHH:mm"), interpreting in local time.
+function toDatetimeLocal(iso) {
+  if (!iso) return ''
+  const d = new Date(String(iso))
+  if (isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+         `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Convert a datetime-local value ("YYYY-MM-DDTHH:mm") back to an ISO 8601
+// string that includes seconds and the browser's local timezone offset.
+function fromDatetimeLocal(local) {
+  if (!local) return undefined
+  const d = new Date(local)
+  if (isNaN(d.getTime())) return undefined
+  const pad = (n) => String(n).padStart(2, '0')
+  const offsetMin = -d.getTimezoneOffset()
+  const sign = offsetMin >= 0 ? '+' : '-'
+  const absMin = Math.abs(offsetMin)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+         `T${pad(d.getHours())}:${pad(d.getMinutes())}:00` +
+         `${sign}${pad(Math.floor(absMin / 60))}:${pad(absMin % 60)}`
+}
+
+const PAYMENT_METHODS = [
+  { value: 'ewallet',       label: 'E-Wallet (GCash / Maya / PayPal)' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'cash',          label: 'Cash / Over-the-counter' },
+  { value: 'card',          label: 'Credit / Debit Card' },
+  { value: 'other',         label: 'Other' }
+]
 
 /* ─── Tenant picker (shared for the history filter) ─── */
 const tenants        = ref([])
@@ -50,6 +86,15 @@ function tenantLabel(uuid) {
   if (!t) return uuid ? `Tenant ${String(uuid).slice(0, 8)}…` : '—'
   return t.display_name || t.store_code || uuid
 }
+
+/* ─── Subscription-plan picker (shared for the Record Payment modal) ─── */
+const plans = usePlansStore()
+const recordablePlans = computed(() =>
+  plans.items.filter(p => {
+    const active = p.status ? p.status === 'active' : p.active !== false
+    return active && Number(p.price) > 0
+  })
+)
 
 /* ─── Section 1 — All pending payments (across every tenant) ─── */
 const pendingRows    = ref([])
@@ -116,7 +161,14 @@ async function loadHistory() {
 
 onMounted(async () => {
   await loadTenants()
+  // Plans are needed by the Record Payment modal. Best-effort — a failure here
+  // only means the plan picker falls back to the "no plans available" message.
+  plans.fetchAll({ status: ['active'] }).catch(() => {})
   await Promise.all([loadPending(), loadHistory()])
+})
+
+onBeforeUnmount(() => {
+  if (recordFileUrl.value) URL.revokeObjectURL(recordFileUrl.value)
 })
 
 let searchTimer = null
@@ -154,6 +206,304 @@ function flash(msg, tone = 'emerald') {
   flashTone.value = tone
   if (flashTimer) clearTimeout(flashTimer)
   flashTimer = setTimeout(() => (flashMsg.value = ''), 2500)
+}
+
+/* ─── Record Payment modal — admin logs an off-platform tenant payment ─── */
+const recordShow     = ref(false)
+const recordSaving   = ref(false)
+const recordError    = ref('')
+
+function emptyRecordForm() {
+  return {
+    tenant_uuid: '',
+    subscription_plan_uuid: '',
+    amount_paid: '',
+    payment_reference_number: '',
+    payee_account_number: '',
+    payment_method: 'ewallet',
+    payment_method_name: 'GCash',
+    payment_datetime: toDatetimeLocal(new Date().toISOString())
+  }
+}
+const recordForm = ref(emptyRecordForm())
+
+// Receipt + AI extraction state. Mirrors the pattern in SubscriptionView.vue.
+const recordFile              = ref(null)
+const recordFileUrl           = ref('')
+const recordExtractionBusy    = ref(false)
+const recordExtractionMessage = ref('')
+const recordExtractionTone    = ref('slate')  // 'emerald' | 'slate' | 'rose'
+const recordExtractedFields   = ref([])
+const recordExtractedFileUrl  = ref('')
+const recordExtractionPayload = ref(null)
+
+function openRecord() {
+  recordForm.value = emptyRecordForm()
+  recordError.value = ''
+  discardRecordReceiptPick()
+  recordShow.value = true
+}
+function closeRecord() {
+  recordShow.value = false
+  recordError.value = ''
+  recordForm.value = emptyRecordForm()
+  discardRecordReceiptPick()
+}
+
+async function runRecordExtraction(file) {
+  recordExtractionBusy.value = true
+  recordExtractionMessage.value = 'Reading receipt…'
+  recordExtractionTone.value = 'slate'
+  recordExtractedFields.value = []
+  recordExtractedFileUrl.value = ''
+  recordExtractionPayload.value = null
+  try {
+    const res = await aiExtractionApi.extractReceipt(file)
+    recordExtractedFileUrl.value = res?.file_url || ''
+    recordExtractionPayload.value = res?.extraction || null
+    const x = res?.extraction || null
+    if (!x) {
+      recordExtractionTone.value = 'slate'
+      recordExtractionMessage.value = recordExtractedFileUrl.value
+        ? 'Receipt uploaded, but no fields could be read. Fill them in manually.'
+        : 'No fields could be read from the image. Fill them in manually.'
+      return
+    }
+    const filled = []
+    if (x.payment_reference_number) {
+      recordForm.value.payment_reference_number = x.payment_reference_number
+      filled.push('reference number')
+    }
+    if (x.payee_account_number) {
+      recordForm.value.payee_account_number = x.payee_account_number
+      filled.push('payee account')
+    }
+    if (x.payment_method) {
+      recordForm.value.payment_method = x.payment_method
+      filled.push('method')
+    }
+    if (x.payment_method_name) {
+      recordForm.value.payment_method_name = x.payment_method_name
+      filled.push('method name')
+    }
+    if (x.payment_datetime) {
+      const dt = toDatetimeLocal(x.payment_datetime)
+      if (dt) {
+        recordForm.value.payment_datetime = dt
+        filled.push('date & time')
+      }
+    }
+    if (x.amount_paid != null) {
+      recordForm.value.amount_paid = Number(x.amount_paid) || recordForm.value.amount_paid
+      filled.push('amount paid')
+    }
+    recordExtractedFields.value = filled
+    if (filled.length) {
+      recordExtractionTone.value = 'emerald'
+      const conf = x.confidence != null ? ` (confidence ${Math.round(Number(x.confidence) * 100)}%)` : ''
+      recordExtractionMessage.value = `Auto-filled ${filled.join(', ')}${conf}. Double-check before submitting.`
+    } else {
+      recordExtractionMessage.value = 'Image processed, but no known fields matched. Fill them in manually.'
+    }
+  } catch (e) {
+    recordExtractionTone.value = 'rose'
+    recordExtractionMessage.value = e?.message || 'Extraction failed. You can still fill the fields manually.'
+  } finally {
+    recordExtractionBusy.value = false
+  }
+}
+
+function onRecordReceiptPick(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  recordFile.value = file
+  if (recordFileUrl.value) URL.revokeObjectURL(recordFileUrl.value)
+  recordFileUrl.value = URL.createObjectURL(file)
+  runRecordExtraction(file)
+}
+function discardRecordReceiptPick() {
+  recordFile.value = null
+  if (recordFileUrl.value) URL.revokeObjectURL(recordFileUrl.value)
+  recordFileUrl.value = ''
+  const el = document.getElementById('record-receipt-input')
+  if (el) el.value = ''
+  recordExtractionMessage.value = ''
+  recordExtractedFields.value = []
+  recordExtractedFileUrl.value = ''
+  recordExtractionPayload.value = null
+}
+
+// Live preview of the tenant's current subscription + what this payment would
+// activate. Mirrors the 3-rule flow in TenantSubscriptionPaymentService
+// (applyApprovedPayment): no active plan or expired → immediate; ≤5 days
+// remaining → scheduled at current expiry; >5 days → auto-approve is blocked
+// (payment stays pending).
+const selectedTenant = computed(() =>
+  recordForm.value.tenant_uuid
+    ? tenantsByUuid.value[recordForm.value.tenant_uuid] || null
+    : null
+)
+const selectedRecordPlan = computed(() =>
+  recordForm.value.subscription_plan_uuid
+    ? plans.items.find(p => p.uuid === recordForm.value.subscription_plan_uuid) || null
+    : null
+)
+const currentSubscription = computed(() => {
+  const t = selectedTenant.value
+  if (!t) return null
+  const planUuid = t.current_subscription_plan_uuid || null
+  const plan = planUuid ? (plans.items.find(p => p.uuid === planUuid) || null) : null
+  const expiryIso = t.current_subscription_expiry || null
+  const expiryDate = expiryIso ? new Date(String(expiryIso).replace(' ', 'T')) : null
+  const now = new Date()
+  const daysRemaining = expiryDate && !isNaN(expiryDate.getTime())
+    ? Math.ceil((expiryDate.getTime() - now.getTime()) / 86_400_000)
+    : null
+  let state = 'none'
+  if (planUuid) {
+    if (daysRemaining == null) state = 'active'
+    else if (daysRemaining < 0) state = 'expired'
+    else {
+      const warn = Number(t.current_subscription_expiry_warning_days) || 0
+      if (warn && daysRemaining <= warn) state = 'expiring-soon'
+      else state = 'active'
+    }
+  }
+  return {
+    plan_uuid: planUuid,
+    plan_name: plan?.name || null,
+    plan_code: plan?.code || null,
+    plan_amount: t.current_subscription_plan_amount,
+    days: t.current_subscription_days,
+    start: t.current_subscription_start,
+    expiry: expiryIso,
+    expiry_date: expiryDate,
+    days_remaining: daysRemaining,
+    state
+  }
+})
+const newSubscriptionPreview = computed(() => {
+  const t = selectedTenant.value
+  const plan = selectedRecordPlan.value
+  if (!t || !plan) return null
+  const days = Number(plan.days_duration) || 0
+  if (!(days > 0)) return null
+  const now = new Date()
+  const curExpiry = t.current_subscription_expiry
+    ? new Date(String(t.current_subscription_expiry).replace(' ', 'T'))
+    : null
+  const hasActive = !!curExpiry && !isNaN(curExpiry.getTime()) && curExpiry > now
+  const daysToExpiry = hasActive
+    ? Math.ceil((curExpiry.getTime() - now.getTime()) / 86_400_000)
+    : 0
+  let activation_mode, start, end
+  if (!hasActive) {
+    activation_mode = 'immediate'
+    start = now
+  } else if (daysToExpiry <= 5) {
+    activation_mode = 'scheduled'
+    start = curExpiry
+  } else {
+    activation_mode = 'blocked'
+    start = null
+  }
+  if (start) {
+    end = new Date(start)
+    end.setDate(end.getDate() + days)
+  }
+  return { activation_mode, start, end, days, days_to_expiry: daysToExpiry }
+})
+
+// Default amount_paid to the picked plan's price when the admin hasn't yet
+// typed one (or had the default from a different plan).
+watch(() => recordForm.value.subscription_plan_uuid, (newUuid, oldUuid) => {
+  if (!newUuid) return
+  const plan = plans.items.find(p => p.uuid === newUuid)
+  if (!plan) return
+  const planPrice = Number(plan.price) || 0
+  const current = Number(recordForm.value.amount_paid) || 0
+  if (!current) {
+    recordForm.value.amount_paid = planPrice
+    return
+  }
+  // If the admin had the previous plan's price pre-filled (and hadn't edited),
+  // follow the switch.
+  if (oldUuid) {
+    const oldPlan = plans.items.find(p => p.uuid === oldUuid)
+    const oldPrice = Number(oldPlan?.price) || 0
+    if (oldPrice && current === oldPrice) {
+      recordForm.value.amount_paid = planPrice
+    }
+  }
+})
+
+async function submitRecord() {
+  recordError.value = ''
+  if (!recordForm.value.tenant_uuid) {
+    recordError.value = 'Pick a tenant.'
+    return
+  }
+  if (!recordForm.value.subscription_plan_uuid) {
+    recordError.value = 'Pick a subscription plan.'
+    return
+  }
+  const amt = Number(recordForm.value.amount_paid)
+  if (!(amt >= 0)) {
+    recordError.value = 'Enter the amount paid.'
+    return
+  }
+  if (recordExtractionBusy.value) {
+    recordError.value = 'Wait for the receipt to finish processing.'
+    return
+  }
+  // A receipt is optional — but if the admin picked one, make sure the upload
+  // call finished (so we have the stored file URL to attach).
+  if (recordFile.value && !recordExtractedFileUrl.value) {
+    recordError.value = 'Receipt upload didn\'t complete. Re-pick the image or discard it.'
+    return
+  }
+
+  recordSaving.value = true
+  try {
+    const payload = {
+      tenant_uuid: recordForm.value.tenant_uuid,
+      subscription_plan_uuid: recordForm.value.subscription_plan_uuid,
+      amount_paid: Number(recordForm.value.amount_paid) || 0,
+      payment_attachment_url: recordExtractedFileUrl.value || undefined,
+      payment_reference_number: recordForm.value.payment_reference_number || undefined,
+      payee_account_number: recordForm.value.payee_account_number || undefined,
+      payment_method: recordForm.value.payment_method || undefined,
+      payment_method_name: recordForm.value.payment_method_name || undefined,
+      payment_datetime: fromDatetimeLocal(recordForm.value.payment_datetime),
+      ai_extraction: recordExtractionPayload.value || undefined
+    }
+    const created = await paymentsApi.uploadPayment(payload)
+    const uuid = created?.uuid
+    if (!uuid) {
+      // Should never happen — upload always returns the row — but guard anyway.
+      flash('Payment recorded. Refresh the list to find it.', 'emerald')
+      closeRecord()
+      await Promise.all([loadPending(), loadHistory()])
+      return
+    }
+
+    // Chain the auto-approve. If it fails (most commonly: "Current plan still
+    // has X days remaining; can only approve within 5 days of expiry"), the
+    // record is already saved and shows up in the pending list — surface the
+    // error so the admin knows why it didn't activate.
+    try {
+      await paymentsApi.approvePayment(uuid)
+      flash('Payment recorded and approved ✓')
+    } catch (approveErr) {
+      flash(`Payment recorded as pending — ${approveErr?.message || 'auto-approve failed'}`, 'rose')
+    }
+    closeRecord()
+    await Promise.all([loadPending(), loadHistory()])
+  } catch (e) {
+    recordError.value = e?.message || 'Failed to record payment'
+  } finally {
+    recordSaving.value = false
+  }
 }
 
 /* ─── View modal (details, approve, reject) — shared by both sections ─── */
@@ -314,6 +664,10 @@ const filtersSummary = computed(() => {
               <span v-if="pendingLoading" class="ml-1 text-indigo-600">· loading…</span>
             </div>
           </div>
+        </button>
+        <button class="btn-primary !px-3 !text-xs" @click.stop="openRecord"
+                title="Record a payment on behalf of a tenant (off-platform GCash, bank transfer, cash, etc.)">
+          + Record payment
         </button>
         <button class="btn-secondary !px-3" @click.stop="loadPending" :disabled="pendingLoading" title="Refresh">
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
@@ -776,5 +1130,222 @@ const filtersSummary = computed(() => {
       @close="confirmReject = { show: false }"
       @confirm="doReject"
     />
+
+    <!-- ─── Record Payment modal (admin logs an off-platform tenant payment) ─── -->
+    <Modal :show="recordShow" title="Record Tenant Payment" size="xl" @close="closeRecord">
+      <div class="space-y-4">
+        <p class="rounded-md border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-slate-700">
+          Log a payment the tenant sent you off-platform (GCash, bank transfer, cash, etc.).
+          If the tenant has no active plan or is within 5 days of expiry, this will auto-approve
+          and activate the subscription. Otherwise it stays as <b>pending</b> for later review.
+        </p>
+
+        <!-- Tenant + plan pickers -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label class="label">Tenant <span class="text-rose-500">*</span></label>
+            <select v-model="recordForm.tenant_uuid" class="input" :disabled="tenantsLoading">
+              <option value="">{{ tenantsLoading ? 'Loading tenants…' : 'Choose a tenant…' }}</option>
+              <option v-for="t in tenants" :key="t.uuid" :value="t.uuid">
+                {{ t.display_name || t.store_code }}<span v-if="t.store_code"> · {{ t.store_code }}</span>
+              </option>
+            </select>
+            <p v-if="tenantsError" class="mt-1 text-[11px] text-rose-600">{{ tenantsError }}</p>
+          </div>
+          <div>
+            <label class="label">Subscription plan <span class="text-rose-500">*</span></label>
+            <select v-model="recordForm.subscription_plan_uuid" class="input" :disabled="plans.loading">
+              <option value="">
+                {{ plans.loading ? 'Loading plans…' : (recordablePlans.length ? 'Choose a plan…' : 'No active plans available') }}
+              </option>
+              <option v-for="p in recordablePlans" :key="p.uuid" :value="p.uuid">
+                {{ p.name }} — {{ money(p.price) }} / {{ p.days_duration }}d
+              </option>
+            </select>
+            <p v-if="plans.error" class="mt-1 text-[11px] text-rose-600">{{ plans.error }}</p>
+          </div>
+        </div>
+
+        <!-- Current + new subscription preview -->
+        <div v-if="currentSubscription || newSubscriptionPreview"
+             class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <!-- Current subscription -->
+          <div v-if="currentSubscription"
+               class="rounded-lg border p-3"
+               :class="currentSubscription.state === 'expired' ? 'border-rose-200 bg-rose-50'
+                        : currentSubscription.state === 'expiring-soon' ? 'border-amber-200 bg-amber-50'
+                        : currentSubscription.state === 'active' ? 'border-emerald-200 bg-emerald-50'
+                        : 'border-slate-200 bg-slate-50'">
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Current subscription</div>
+              <span v-if="currentSubscription.state === 'active'" class="badge-success">Active</span>
+              <span v-else-if="currentSubscription.state === 'expiring-soon'" class="badge-warn">Expiring soon</span>
+              <span v-else-if="currentSubscription.state === 'expired'" class="badge-danger">Expired</span>
+              <span v-else class="badge-muted">No plan</span>
+            </div>
+            <div v-if="currentSubscription.state === 'none'"
+                 class="mt-1 text-xs text-slate-600">
+              This tenant has no subscription plan on file yet.
+            </div>
+            <div v-else class="mt-1 space-y-0.5">
+              <div class="text-sm font-semibold text-slate-800">
+                {{ currentSubscription.plan_name || currentSubscription.plan_code || '—' }}
+              </div>
+              <div v-if="currentSubscription.plan_code" class="font-mono text-[10px] text-slate-500">
+                {{ currentSubscription.plan_code }}
+              </div>
+              <div class="text-xs text-slate-700">
+                <span v-if="currentSubscription.plan_amount != null">{{ money(currentSubscription.plan_amount) }}</span>
+                <span v-if="currentSubscription.days"> · {{ currentSubscription.days }}d</span>
+              </div>
+              <div class="text-xs text-slate-700">
+                Expires <b>{{ formatDate(currentSubscription.expiry) || '—' }}</b>
+                <span v-if="currentSubscription.days_remaining != null" class="text-slate-500">
+                  <template v-if="currentSubscription.days_remaining < 0">
+                    (expired {{ -currentSubscription.days_remaining }}d ago)
+                  </template>
+                  <template v-else>
+                    ({{ currentSubscription.days_remaining }}d remaining)
+                  </template>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- New subscription preview -->
+          <div v-if="newSubscriptionPreview"
+               class="rounded-lg border p-3"
+               :class="newSubscriptionPreview.activation_mode === 'immediate' ? 'border-emerald-200 bg-emerald-50'
+                        : newSubscriptionPreview.activation_mode === 'scheduled' ? 'border-indigo-200 bg-indigo-50'
+                        : 'border-amber-200 bg-amber-50'">
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">After this payment</div>
+              <span v-if="newSubscriptionPreview.activation_mode === 'immediate'" class="badge-success">Activates now</span>
+              <span v-else-if="newSubscriptionPreview.activation_mode === 'scheduled'" class="badge-info">Scheduled</span>
+              <span v-else class="badge-warn">Blocked</span>
+            </div>
+            <div v-if="newSubscriptionPreview.activation_mode === 'blocked'"
+                 class="mt-1 text-xs text-slate-700">
+              Current plan still has <b>{{ newSubscriptionPreview.days_to_expiry }}d</b> left — more than 5.
+              Auto-approve will fail; the payment will be recorded as <b>pending</b> for later review.
+            </div>
+            <div v-else class="mt-1 space-y-0.5">
+              <div class="text-sm font-semibold text-slate-800">
+                {{ selectedRecordPlan?.name || selectedRecordPlan?.code || 'Subscription plan' }}
+              </div>
+              <div class="text-xs text-slate-700">
+                <span v-if="selectedRecordPlan?.price != null">{{ money(selectedRecordPlan.price) }}</span>
+                <span v-if="newSubscriptionPreview.days"> · {{ newSubscriptionPreview.days }}d</span>
+              </div>
+              <div class="text-xs text-slate-700">
+                <template v-if="newSubscriptionPreview.activation_mode === 'immediate'">
+                  Starts <b>today</b>
+                </template>
+                <template v-else>
+                  Starts <b>{{ formatDate(newSubscriptionPreview.start?.toISOString()) }}</b>
+                  (when the current plan expires)
+                </template>
+              </div>
+              <div class="text-xs text-slate-700">
+                New expiration: <b>{{ formatDate(newSubscriptionPreview.end?.toISOString()) || '—' }}</b>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Receipt (optional) -->
+        <div>
+          <label class="label">Receipt image (optional)</label>
+          <div class="flex items-start gap-3">
+            <div class="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+              <img v-if="recordFileUrl" :src="recordFileUrl" class="h-full w-full object-contain" />
+              <div v-else class="px-1 text-center text-[10px] text-slate-500">Attach a screenshot</div>
+              <div v-if="recordExtractionBusy"
+                   class="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                <svg viewBox="0 0 24 24" class="h-6 w-6 animate-spin text-indigo-600" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                </svg>
+              </div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="btn-secondary cursor-pointer !text-xs">
+                {{ recordFile ? 'Replace image' : 'Choose image' }}
+                <input id="record-receipt-input" type="file" accept="image/*" class="hidden"
+                       @change="onRecordReceiptPick" />
+              </label>
+              <button v-if="recordFile" type="button" class="btn-ghost !text-xs"
+                      @click="discardRecordReceiptPick">Discard</button>
+              <p class="text-[11px] text-slate-500">
+                Optional — attach the screenshot the tenant forwarded, if you have one.
+                We'll try to auto-fill the fields below from the image.
+              </p>
+            </div>
+          </div>
+          <div v-if="recordExtractionMessage"
+               class="mt-2 rounded-md border px-3 py-2 text-xs"
+               :class="recordExtractionTone === 'emerald' ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : recordExtractionTone === 'rose' ? 'border-rose-200 bg-rose-50 text-rose-800'
+                        : 'border-slate-200 bg-slate-50 text-slate-700'">
+            <div class="flex items-start gap-2">
+              <svg v-if="recordExtractionBusy" viewBox="0 0 24 24" class="mt-0.5 h-3.5 w-3.5 animate-spin shrink-0" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 11-6.219-8.56"/>
+              </svg>
+              <svg v-else-if="recordExtractionTone === 'emerald'" viewBox="0 0 24 24" class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>{{ recordExtractionMessage }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment details -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="sm:col-span-2">
+            <label class="label">Amount paid <span class="text-rose-500">*</span></label>
+            <div class="relative">
+              <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-slate-500">₱</span>
+              <input v-model.number="recordForm.amount_paid" type="number" min="0" step="0.01"
+                     class="input pl-7 font-mono" placeholder="0.00" required />
+            </div>
+          </div>
+          <div>
+            <label class="label">Payment method</label>
+            <select v-model="recordForm.payment_method" class="input">
+              <option v-for="m in PAYMENT_METHODS" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Method name</label>
+            <input v-model="recordForm.payment_method_name" class="input" placeholder="e.g. GCash, BDO Online" />
+          </div>
+          <div>
+            <label class="label">Reference number</label>
+            <input v-model="recordForm.payment_reference_number" class="input font-mono"
+                   placeholder="From the receipt" />
+          </div>
+          <div>
+            <label class="label">Payee account number</label>
+            <input v-model="recordForm.payee_account_number" class="input font-mono"
+                   placeholder="Account you received payment to" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="label">Payment date &amp; time</label>
+            <input v-model="recordForm.payment_datetime" type="datetime-local" class="input" />
+          </div>
+        </div>
+
+        <div v-if="recordError"
+             class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {{ recordError }}
+        </div>
+      </div>
+      <template #footer>
+        <button class="btn-secondary" :disabled="recordSaving" @click="closeRecord">Cancel</button>
+        <button class="btn-primary" :disabled="recordSaving || recordExtractionBusy" @click="submitRecord">
+          {{ recordSaving ? 'Submitting…' : 'Record payment' }}
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>

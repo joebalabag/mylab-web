@@ -1,3 +1,11 @@
+// Strip anything that isn't a lowercase letter, digit, hyphen, or underscore.
+// Used by the username inputs across the user-creation forms (tenant staff,
+// super admins, super-admin-editing-tenant-user) to enforce a consistent
+// identifier format and avoid characters that break shell escaping, URL
+// paths, email local-parts, etc. Lowercases so "JDCruz" → "jdcruz".
+export const sanitizeUsername = (v) =>
+  String(v ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+
 export const money = (n) => {
   const v = Number(n || 0)
   return '₱' + v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
