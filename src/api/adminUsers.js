@@ -16,6 +16,12 @@ export function viewAdmin(uuid) {
   return api.get(`/admin/view/${uuid}`)
 }
 
+// Lightweight availability probe for the create-admin form's onblur check.
+// Returns { available: bool, reason?: 'too_short' }.
+export function checkAdminUsernameAvailable(username) {
+  return api.get('/admin/username-available', { query: { username } })
+}
+
 export function createAdmin(payload) {
   return api.post('/admin/create', payload)
 }

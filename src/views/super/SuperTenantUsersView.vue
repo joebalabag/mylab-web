@@ -2,12 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useUsersStore } from '../../stores/users'
 import * as tenantsApi from '../../api/tenants'
+import { checkUsernameAvailable } from '../../api/users'
 import Modal from '../../components/Modal.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import RowActionMenu from '../../components/RowActionMenu.vue'
 import SkeletonRows from '../../components/SkeletonRows.vue'
-import { formatDateTime } from '../../utils/format'
+import { formatDateTime, sanitizeUsername } from '../../utils/format'
 import { loadUserAccess, saveUserAccess as saveUserAccessLocal, clearUserAccess } from '../../utils/access'
 import * as userAccessApi from '../../api/userAccess'
 import { useAccessTemplateStore } from '../../stores/accessTemplate'
@@ -148,6 +149,30 @@ const form = ref({
 const formError = ref('')
 const submitting = ref(false)
 
+// Live username availability. `probeToken` is bumped for each blur so a slow
+// response from an earlier probe can't overwrite a newer one.
+const usernameStatus = ref('idle') // 'idle' | 'checking' | 'available' | 'taken' | 'too_short' | 'error'
+let probeToken = 0
+function resetUsernameStatus() {
+  usernameStatus.value = 'idle'
+  probeToken++
+}
+async function checkUsername() {
+  if (editing.value) return
+  const u = (form.value.username || '').trim()
+  if (u.length < 3) { usernameStatus.value = 'too_short'; return }
+  const my = ++probeToken
+  usernameStatus.value = 'checking'
+  try {
+    const res = await checkUsernameAvailable(u)
+    if (my !== probeToken) return
+    usernameStatus.value = res?.available ? 'available' : 'taken'
+  } catch {
+    if (my !== probeToken) return
+    usernameStatus.value = 'error'
+  }
+}
+
 function openAdd() {
   editing.value = null
   form.value = {
@@ -156,6 +181,7 @@ function openAdd() {
     password: '', confirm_password: ''
   }
   formError.value = ''
+  resetUsernameStatus()
   showForm.value = true
 }
 function openEdit(u) {
@@ -170,6 +196,7 @@ function openEdit(u) {
     confirm_password: ''
   }
   formError.value = ''
+  resetUsernameStatus()
   showForm.value = true
 }
 
@@ -183,6 +210,12 @@ async function submit() {
   if (!editing.value) {
     if (!form.value.username.trim() || form.value.username.trim().length < 3) {
       formError.value = 'Username must be at least 3 characters'; return
+    }
+    if (usernameStatus.value === 'taken') {
+      formError.value = 'That username is already taken. Pick a different one.'; return
+    }
+    if (usernameStatus.value === 'checking') {
+      formError.value = 'Still checking username availability — try again in a moment.'; return
     }
     if (!form.value.password || form.value.password.length < 6) {
       formError.value = 'Password must be at least 6 characters'; return
@@ -633,8 +666,49 @@ function actionsFor(u) {
         </div>
         <div>
           <label class="label">Username</label>
-          <input v-model="form.username" :disabled="!!editing" required minlength="3" class="input font-mono" />
-          <p v-if="editing" class="mt-1 text-[11px] text-slate-500">Username cannot be changed after creation.</p>
+          <div class="relative">
+            <input v-model="form.username" :disabled="!!editing" required minlength="3"
+                   class="input font-mono lowercase pr-9"
+                   @input="form.username = sanitizeUsername(form.username); resetUsernameStatus()"
+                   @blur="checkUsername" />
+            <span v-if="!editing && usernameStatus !== 'idle' && usernameStatus !== 'too_short'"
+                  class="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+              <svg v-if="usernameStatus === 'checking'" class="h-4 w-4 animate-spin text-slate-400"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" d="M12 3a9 9 0 019 9"/>
+              </svg>
+              <svg v-else-if="usernameStatus === 'available'" class="h-4 w-4 text-emerald-600"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <svg v-else-if="usernameStatus === 'taken'" class="h-4 w-4 text-rose-600"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              <svg v-else-if="usernameStatus === 'error'" class="h-4 w-4 text-amber-600"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </span>
+          </div>
+          <p class="mt-1 text-[11px]"
+             :class="!editing && usernameStatus === 'taken'
+                     ? 'text-rose-600'
+                     : !editing && usernameStatus === 'available'
+                       ? 'text-emerald-700'
+                       : 'text-slate-500'">
+            <template v-if="editing">Username cannot be changed after creation.</template>
+            <template v-else-if="usernameStatus === 'checking'">Checking availability…</template>
+            <template v-else-if="usernameStatus === 'available'">✓ Username is available.</template>
+            <template v-else-if="usernameStatus === 'taken'">Username already taken — try another.</template>
+            <template v-else-if="usernameStatus === 'error'">Couldn't check availability. You can still submit — the server will validate.</template>
+            <template v-else>Lowercase letters, digits, hyphens, or underscores. Minimum 3 characters.</template>
+          </p>
         </div>
         <div>
           <label class="label">Email</label>

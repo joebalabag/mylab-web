@@ -9,7 +9,7 @@ import EmptyState from '../components/EmptyState.vue'
 import RowActionMenu from '../components/RowActionMenu.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import MobileFilterBar from '../components/MobileFilterBar.vue'
-import { formatDateTime } from '../utils/format'
+import { formatDateTime, sanitizeUsername } from '../utils/format'
 import { loadUserAccess, saveUserAccess, clearUserAccess } from '../utils/access'
 import * as userAccessApi from '../api/userAccess'
 import { checkUsernameAvailable } from '../api/users'
@@ -619,7 +619,7 @@ function actionsFor(u) {
               <input v-model="form.username" :disabled="!!editing" required minlength="3" maxlength="100"
                      autocomplete="off" class="input font-mono lowercase pr-9"
                      :placeholder="editing ? '' : 'jdcruz'"
-                     @input="resetUsernameStatus"
+                     @input="form.username = sanitizeUsername(form.username); resetUsernameStatus()"
                      @blur="checkUsername" />
               <span v-if="!editing && usernameStatus !== 'idle' && usernameStatus !== 'too_short'"
                     class="pointer-events-none absolute inset-y-0 right-2 flex items-center">
