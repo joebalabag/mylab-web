@@ -283,7 +283,7 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
                 <ul class="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
                   <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"></span><span><b>Name</b> — printed under the signature line.</span></li>
                   <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"></span><span><b>Specialty</b> — Pathologist, Radiologist, etc.</span></li>
-                  <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"></span><span><b>License #</b> — printed as "Lic. No. …" under the signature.</span></li>
+                  <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"></span><span><b>License #</b> — printed as "License No. …" under the signature.</span></li>
                   <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"></span><span><b>E-signature</b> (optional) — upload a transparent-background PNG. Overlays the printed name on final reports.</span></li>
                 </ul>
                 <div class="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs text-slate-600 dark:text-slate-300">

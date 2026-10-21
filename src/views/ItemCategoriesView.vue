@@ -387,8 +387,8 @@ function actionsFor(c) {
               <option value="letter">Letter — 8.5″ × 11″ (short bond)</option>
               <option value="legal">Legal — 8.5″ × 14″ (long bond)</option>
               <option value="half_letter">Half Letter — 5.5″ × 8.5″ portrait</option>
-              <option value="half_letter_crosswise">Half Letter — 8.5″ × 5.5″ crosswise (landscape)</option>
-              <option value="half_legal_crosswise">Half Legal — 8.5″ × 7″ crosswise (landscape)</option>
+              <option value="half_letter_crosswise">Half Letter — 8.5″ × 5.5″ landscape</option>
+              <option value="half_legal_crosswise">Half Legal — 8.5″ × 7″ landscape</option>
             </select>
             <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
               Applied to the browser print dialog. Big panels typically use full; single-line qualitative tests fit on half.
