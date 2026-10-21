@@ -62,6 +62,10 @@ const DEFAULT_TENANT = {
   // Print Preview. Defaults to true (matches server default).
   autoEmailResultOnFinalize: true,
 
+  // Per-tenant brand color (hex like "#dc2626"). Null → the shipped
+  // default red palette. See src/theme/apply.js for the runtime applier.
+  themePrimaryColor: null,
+
   // Per-tenant SMTP override for lab-result emails. When smtpUseOwn is
   // false the platform default (SMTP_* env vars on the API) is used.
   // The password itself is never round-tripped from the server — we get
@@ -327,6 +331,7 @@ export const useTenantStore = defineStore('tenant', {
         autoEmailResultOnFinalize: t.auto_email_result_on_finalize == null
           ? true
           : parseBool(t.auto_email_result_on_finalize),
+        themePrimaryColor: t.theme_primary_color || null,
         smtpUseOwn:      parseBool(t.smtp_use_own),
         smtpHost:        t.smtp_host || '',
         smtpPort:        Number(t.smtp_port) || 587,

@@ -8,6 +8,8 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
 import OfflineModeSettings from '../components/OfflineModeSettings.vue'
 import { assetUrl } from '../api/client'
+import { THEME_PRESETS } from '../theme/presets'
+import { normalizeHex, applyTenantTheme } from '../theme/apply'
 
 const tenant  = useTenantStore()
 const doctors = useDoctorsStore()
@@ -24,6 +26,13 @@ const canEdit = computed(() => {
 /* --- Draft mirrors tenant.current for the editable form --- */
 const draft = reactive({ ...tenant.current })
 watch(() => tenant.current, (v) => Object.assign(draft, v), { deep: true })
+
+// Live-preview the theme color while the operator is tweaking it, so the
+// swatch choice is visible across the chrome (sidebar, buttons, badges)
+// before Save. On unmount we snap back to tenant.current to avoid leaking
+// an un-saved preview into other routes.
+watch(() => draft.themePrimaryColor, (hex) => applyTenantTheme(hex))
+onBeforeUnmount(() => applyTenantTheme(tenant.current?.themePrimaryColor))
 
 const dirty = computed(() =>
   JSON.stringify(draft) !== JSON.stringify(tenant.current)
@@ -355,7 +364,11 @@ async function save() {
       // Empty password = keep the stored ciphertext; only send when the
       // operator typed a new one this session.
       smtp_password: smtpPasswordDraft.value || undefined,
-      receipt_header:     draft.receiptHeader || ''
+      receipt_header:     draft.receiptHeader || '',
+      // Null (reset) is sent as empty string so the backend's
+      // emptyToUndef Transform drops the field and leaves the stored
+      // value alone — explicit reset is handled by sending null below.
+      theme_primary_color: draft.themePrimaryColor ? normalizeHex(draft.themePrimaryColor) : null
     }
     await tenant.updateCurrentViaApi(apiPayload, {
       company_logo:     logoFile.value || undefined,
@@ -508,6 +521,66 @@ function discard() {
                   <span class="text-amber-700"><span class="font-semibold">currencySymbol</span> is not in the API</span> — kept locally only.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Theme -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">Theme</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Brand color used across every module (buttons, highlights, badges)</div>
+            </div>
+          </div>
+          <div class="card-body space-y-4">
+            <div>
+              <label class="label">Presets</label>
+              <div class="grid grid-cols-6 gap-3">
+                <button
+                  v-for="p in THEME_PRESETS"
+                  :key="p.key"
+                  type="button"
+                  :disabled="!canEdit"
+                  class="h-12 rounded-md border-2 shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50"
+                  :class="normalizeHex(draft.themePrimaryColor) === p.hex ? 'border-slate-900 dark:border-white ring-2 ring-offset-1 ring-slate-900 dark:ring-white' : 'border-transparent hover:border-slate-300'"
+                  :style="{ backgroundColor: p.hex }"
+                  :title="p.label"
+                  :aria-label="p.label"
+                  @click="draft.themePrimaryColor = p.hex"
+                />
+              </div>
+            </div>
+            <div>
+              <label class="label">Custom</label>
+              <div class="flex flex-wrap items-center gap-3">
+                <input
+                  type="color"
+                  :disabled="!canEdit"
+                  :value="normalizeHex(draft.themePrimaryColor) || '#dc2626'"
+                  class="h-10 w-16 cursor-pointer rounded border border-slate-200 bg-white p-1 disabled:cursor-not-allowed disabled:opacity-50"
+                  @input="draft.themePrimaryColor = $event.target.value"
+                  @change="draft.themePrimaryColor = $event.target.value"
+                />
+                <input
+                  type="text"
+                  :disabled="!canEdit"
+                  v-model="draft.themePrimaryColor"
+                  placeholder="#RRGGBB"
+                  class="input w-36 font-mono uppercase"
+                />
+                <button
+                  type="button"
+                  class="btn-ghost !text-xs"
+                  :disabled="!canEdit || !draft.themePrimaryColor"
+                  @click="draft.themePrimaryColor = null"
+                >
+                  Reset to default
+                </button>
+              </div>
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                Changes preview instantly. Save to apply for all users of this tenant.
+              </p>
             </div>
           </div>
         </div>

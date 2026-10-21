@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Default brand palette — matches the historical red theme. Per-tenant
+   themes override these via JS in src/theme/apply.js, which writes
+   runtime values onto <html>. Values are space-separated RGB components
+   so Tailwind's /<alpha-value> opacity modifier works. */
+:root {
+  --brand-50:  254 242 242;
+  --brand-100: 254 226 226;
+  --brand-200: 254 202 202;
+  --brand-300: 252 165 165;
+  --brand-400: 248 113 113;
+  --brand-500: 239 68 68;
+  --brand-600: 220 38 38;
+  --brand-700: 185 28 28;
+  --brand-800: 153 27 27;
+  --brand-900: 127 29 29;
+}
+
 html,
 body,
 #app {
