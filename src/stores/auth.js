@@ -4,6 +4,7 @@ import * as authApi from '../api/auth'
 import { sendForget as sendPresenceForget } from '../api/presence'
 import { useTenantStore } from './tenant'
 import { useSubscriptionGuardStore } from './subscriptionGuard'
+import { clearTenantTheme } from '../theme/apply'
 
 const TOKEN_KEY = 'pos_token'
 const USER_KEY  = 'pos_user'
@@ -141,6 +142,16 @@ export const useAuthStore = defineStore('auth', {
       // Clear the forced-expired flag so re-logging in doesn't immediately
       // reshow the gate before the new session's snapshot loads.
       try { useSubscriptionGuardStore().reset() } catch (_) {}
+      // Drop the tenant brand color immediately — MainLayout.onBeforeUnmount
+      // also calls this, but logout usually races the route transition and
+      // the login screen can briefly flash the previous tenant's palette
+      // if we wait for unmount. Also null-out the stored color so a browser
+      // refresh at /login doesn't rehydrate it.
+      try {
+        clearTenantTheme()
+        const t = useTenantStore()
+        if (t.current) t.current.themePrimaryColor = null
+      } catch (_) { /* ignore — theme is non-critical */ }
     },
 
     // Supervisor re-auth for sensitive actions (voids, discount overrides).
