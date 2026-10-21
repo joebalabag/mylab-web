@@ -9,7 +9,7 @@ import EmptyState from '../components/EmptyState.vue'
 import RowActionMenu from '../components/RowActionMenu.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import MobileFilterBar from '../components/MobileFilterBar.vue'
-import { formatDateTime, sanitizeUsername } from '../utils/format'
+import { formatDateTime, sanitizeUsername, suggestUsername } from '../utils/format'
 import { loadUserAccess, saveUserAccess, clearUserAccess } from '../utils/access'
 import * as userAccessApi from '../api/userAccess'
 import { checkUsernameAvailable } from '../api/users'
@@ -100,6 +100,13 @@ const submitting = ref(false)
 // slow response from an earlier probe can't overwrite a newer one.
 const usernameStatus = ref('idle') // 'idle' | 'checking' | 'available' | 'taken' | 'too_short' | 'error'
 let probeToken = 0
+// Flipped true as soon as the user types in the username field. When false,
+// blurring the name field auto-populates the username from the full name;
+// once the user takes over we never auto-overwrite their input.
+const usernameTouched = ref(false)
+// Same opt-out behavior for the lab-report display name: mirrors Full name
+// on name blur until the user edits the field themselves.
+const labDisplayTouched = ref(false)
 function resetUsernameStatus() {
   usernameStatus.value = 'idle'
   probeToken++
@@ -120,10 +127,67 @@ async function checkUsername() {
   }
 }
 
+// Mark the username as user-owned on real typing. Programmatic assignments
+// (from autoFillUsername) don't fire @input, so they stay in auto-fill mode.
+function onUsernameInput() {
+  usernameTouched.value = true
+  form.value.username = sanitizeUsername(form.value.username)
+  // If the field is now empty, let the next name-blur suggest again.
+  if (!form.value.username) usernameTouched.value = false
+  resetUsernameStatus()
+}
+
+function onLabDisplayInput() {
+  labDisplayTouched.value = true
+  if (!form.value.lab_display_name) labDisplayTouched.value = false
+}
+
+// Called on name blur. Mirror Full name into Name displayed on lab result
+// unless the admin has already edited it. Admin keeps control to append a
+// title/credential like "RMT" without us clobbering it on the next blur.
+function autoFillLabDisplay() {
+  if (editing.value) return
+  if (labDisplayTouched.value) return
+  form.value.lab_display_name = (form.value.name || '').trim()
+}
+
+// Called on name blur. Builds a base from the full name, probes availability,
+// and appends 1, 2, … until a free slot is found (max 20 tries).
+async function autoFillUsername() {
+  if (editing.value) return
+  if (usernameTouched.value) return
+  const base = suggestUsername(form.value.name)
+  if (!base || base.length < 3) return
+  const my = ++probeToken
+  usernameStatus.value = 'checking'
+  for (let i = 0; i <= 20; i++) {
+    const candidate = i === 0 ? base : `${base}${i}`
+    try {
+      const res = await checkUsernameAvailable(candidate)
+      if (my !== probeToken) return
+      if (res?.available) {
+        form.value.username = candidate
+        usernameStatus.value = 'available'
+        return
+      }
+    } catch {
+      if (my !== probeToken) return
+      form.value.username = base
+      usernameStatus.value = 'error'
+      return
+    }
+  }
+  // Extremely unlikely — all 21 suffixes taken. Fall through and let the user edit.
+  form.value.username = `${base}20`
+  usernameStatus.value = 'taken'
+}
+
 function openAdd() {
   editing.value = null
   form.value = { name: '', username: '', email: '', role: 'cashier', license_number: '', lab_display_name: '', password: '', confirm_password: '' }
   formError.value = ''
+  usernameTouched.value = false
+  labDisplayTouched.value = false
   resetUsernameStatus()
   showForm.value = true
 }
@@ -140,6 +204,8 @@ function openEdit(u) {
     confirm_password: ''
   }
   formError.value = ''
+  usernameTouched.value = true
+  labDisplayTouched.value = true
   resetUsernameStatus()
   showForm.value = true
 }
@@ -594,7 +660,8 @@ function actionsFor(u) {
           <legend class="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 dark:text-slate-500">Identity</legend>
           <div>
             <label class="label">Full name <span class="text-rose-500">*</span></label>
-            <input v-model="form.name" required maxlength="255" class="input" placeholder="Juan Dela Cruz" />
+            <input v-model="form.name" required maxlength="255" class="input" placeholder="Juan Dela Cruz"
+                   @blur="autoFillUsername(); autoFillLabDisplay()" />
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -619,7 +686,7 @@ function actionsFor(u) {
               <input v-model="form.username" :disabled="!!editing" required minlength="3" maxlength="100"
                      autocomplete="off" class="input font-mono lowercase pr-9"
                      :placeholder="editing ? '' : 'jdcruz'"
-                     @input="form.username = sanitizeUsername(form.username); resetUsernameStatus()"
+                     @input="onUsernameInput"
                      @blur="checkUsername" />
               <span v-if="!editing && usernameStatus !== 'idle' && usernameStatus !== 'too_short'"
                     class="pointer-events-none absolute inset-y-0 right-2 flex items-center">
@@ -697,8 +764,9 @@ function actionsFor(u) {
             <div>
               <label class="label">Name displayed on lab result</label>
               <input v-model="form.lab_display_name" maxlength="255"
-                     class="input" placeholder="Juan D. Cruz, RMT" />
-              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">Falls back to Full name when blank.</p>
+                     class="input" placeholder="Juan D. Cruz, RMT"
+                     @input="onLabDisplayInput" />
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500">Auto-filled from Full name; edit to add a title or credential.</p>
             </div>
           </div>
         </fieldset>

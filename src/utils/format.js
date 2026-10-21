@@ -6,6 +6,54 @@
 export const sanitizeUsername = (v) =>
   String(v ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '')
 
+// Compound-surname particles that attach to the surname rather than being
+// treated as given names. "Juan de la Cruz" → surname "de la Cruz", not three
+// separate name tokens.
+const SURNAME_PARTICLES = new Set([
+  'de', 'del', 'dela', 'delos', 'delas',
+  'la', 'las', 'los',
+  'van', 'der', 'von',
+  'da', 'do', 'dos', 'di', 'du',
+  'san', 'santa',
+])
+
+// Suggest a base username from a full name using the "initials + surname" rule:
+//   Juan de la Cruz        → jdelacruz
+//   Juan Miguel de la Cruz → jmdelacruz
+//   James Mike Bond        → jmbond
+// Returns a lowercased [a-z0-9]+ string, or '' when the input has no usable
+// letters. Callers should probe for uniqueness and append a numeric suffix
+// when the base is taken.
+// Combining-diacritics block (U+0300–U+036F). Written via RegExp + escape
+// sequence so this file stays plain ASCII and travels safely through editors
+// and build pipelines.
+const DIACRITICS_RE = new RegExp('[\\u0300-\\u036f]', 'g')
+
+export function suggestUsername(fullName) {
+  const normalized = String(fullName ?? '')
+    .normalize('NFD')
+    .replace(DIACRITICS_RE, '')
+    .toLowerCase()
+    .replace(/[^a-z\s'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!normalized) return ''
+  const tokens = normalized.split(' ').filter(Boolean)
+  if (tokens.length === 0) return ''
+  if (tokens.length === 1) return tokens[0].replace(/[^a-z0-9]/g, '')
+
+  // Walk backward from the last token, absorbing surname particles.
+  let surnameStart = tokens.length - 1
+  while (surnameStart > 1 && SURNAME_PARTICLES.has(tokens[surnameStart - 1])) {
+    surnameStart--
+  }
+  const givenNames = tokens.slice(0, surnameStart)
+  const surnameTokens = tokens.slice(surnameStart)
+  const initials = givenNames.map(t => t[0] || '').join('')
+  const surname = surnameTokens.join('').replace(/[^a-z0-9]/g, '')
+  return (initials + surname).replace(/[^a-z0-9]/g, '')
+}
+
 export const money = (n) => {
   const v = Number(n || 0)
   return '₱' + v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

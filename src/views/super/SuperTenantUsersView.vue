@@ -8,7 +8,7 @@ import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import RowActionMenu from '../../components/RowActionMenu.vue'
 import SkeletonRows from '../../components/SkeletonRows.vue'
-import { formatDateTime, sanitizeUsername } from '../../utils/format'
+import { formatDateTime, sanitizeUsername, suggestUsername } from '../../utils/format'
 import { loadUserAccess, saveUserAccess as saveUserAccessLocal, clearUserAccess } from '../../utils/access'
 import * as userAccessApi from '../../api/userAccess'
 import { useAccessTemplateStore } from '../../stores/accessTemplate'
@@ -153,6 +153,10 @@ const submitting = ref(false)
 // response from an earlier probe can't overwrite a newer one.
 const usernameStatus = ref('idle') // 'idle' | 'checking' | 'available' | 'taken' | 'too_short' | 'error'
 let probeToken = 0
+// Flipped true as soon as the user types in the username field. When false,
+// blurring the name field auto-populates the username from the full name;
+// once the user takes over we never auto-overwrite their input.
+const usernameTouched = ref(false)
 function resetUsernameStatus() {
   usernameStatus.value = 'idle'
   probeToken++
@@ -173,6 +177,41 @@ async function checkUsername() {
   }
 }
 
+function onUsernameInput() {
+  usernameTouched.value = true
+  form.value.username = sanitizeUsername(form.value.username)
+  if (!form.value.username) usernameTouched.value = false
+  resetUsernameStatus()
+}
+
+async function autoFillUsername() {
+  if (editing.value) return
+  if (usernameTouched.value) return
+  const base = suggestUsername(form.value.name)
+  if (!base || base.length < 3) return
+  const my = ++probeToken
+  usernameStatus.value = 'checking'
+  for (let i = 0; i <= 20; i++) {
+    const candidate = i === 0 ? base : `${base}${i}`
+    try {
+      const res = await checkUsernameAvailable(candidate)
+      if (my !== probeToken) return
+      if (res?.available) {
+        form.value.username = candidate
+        usernameStatus.value = 'available'
+        return
+      }
+    } catch {
+      if (my !== probeToken) return
+      form.value.username = base
+      usernameStatus.value = 'error'
+      return
+    }
+  }
+  form.value.username = `${base}20`
+  usernameStatus.value = 'taken'
+}
+
 function openAdd() {
   editing.value = null
   form.value = {
@@ -181,6 +220,7 @@ function openAdd() {
     password: '', confirm_password: ''
   }
   formError.value = ''
+  usernameTouched.value = false
   resetUsernameStatus()
   showForm.value = true
 }
@@ -196,6 +236,7 @@ function openEdit(u) {
     confirm_password: ''
   }
   formError.value = ''
+  usernameTouched.value = true
   resetUsernameStatus()
   showForm.value = true
 }
@@ -662,14 +703,14 @@ function actionsFor(u) {
         </div>
         <div class="sm:col-span-2">
           <label class="label">Full name</label>
-          <input v-model="form.name" required class="input" />
+          <input v-model="form.name" required class="input" @blur="autoFillUsername" />
         </div>
         <div>
           <label class="label">Username</label>
           <div class="relative">
             <input v-model="form.username" :disabled="!!editing" required minlength="3"
                    class="input font-mono lowercase pr-9"
-                   @input="form.username = sanitizeUsername(form.username); resetUsernameStatus()"
+                   @input="onUsernameInput"
                    @blur="checkUsername" />
             <span v-if="!editing && usernameStatus !== 'idle' && usernameStatus !== 'too_short'"
                   class="pointer-events-none absolute inset-y-0 right-2 flex items-center">
