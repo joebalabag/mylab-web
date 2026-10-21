@@ -517,11 +517,13 @@ function categoryHeaderStyle(report) {
           <span class="font-semibold">Remarks:</span> {{ report.remarks }}
         </div>
 
-        <!-- Signature block. mt-16 gives on-screen breathing room; pt-10
-             is a *minimum* gap that survives the print popup's
-             `margin-top: auto` (which collapses to ~0 when the results
-             table already fills the page and leaves no free space for
-             the flex layout to distribute).
+        <!-- Signature block. mt-4 gives on-screen breathing room; pt-10
+             is a *minimum* gap (~1 extra row vs the content below) that
+             survives the print popup's `margin-top: auto` (which collapses
+             to ~0 when the results table already fills the page and leaves
+             no free space for the flex layout to distribute). Prevents the
+             signature line from overlapping the last data row on dense
+             short reports (e.g. a 1-item panel on half-letter landscape).
 
              Layout: outer 2-col grid = tester(s) on the left, pathologist
              on the right. When medtech2_name is present (tenant runs with
@@ -529,7 +531,7 @@ function categoryHeaderStyle(report) {
              the creator), the tester cell nests a 2-col grid so both
              signatures print side-by-side. Otherwise the single medtech
              cell fills the left column as before. -->
-        <div class="lab-signature-block mt-16 pt-10 grid grid-cols-2 gap-8">
+        <div class="lab-signature-block mt-4 pt-10 grid grid-cols-2 gap-8">
           <div v-if="report.medtech2_name" class="grid grid-cols-2 gap-4">
             <div>
               <div class="border-b border-slate-400"></div>
@@ -539,7 +541,7 @@ function categoryHeaderStyle(report) {
                 </div>
                 <div class="min-h-[1em] text-[10px] text-slate-500">
                   <template v-if="report.status === 'finalized' && report.medtech_license">
-                    Lic. No. {{ report.medtech_license }}
+                    License No. {{ report.medtech_license }}
                   </template>
                   <template v-else>&nbsp;</template>
                 </div>
@@ -554,7 +556,7 @@ function categoryHeaderStyle(report) {
                 </div>
                 <div class="min-h-[1em] text-[10px] text-slate-500">
                   <template v-if="report.status === 'finalized' && report.medtech2_license">
-                    Lic. No. {{ report.medtech2_license }}
+                    License No. {{ report.medtech2_license }}
                   </template>
                   <template v-else>&nbsp;</template>
                 </div>
@@ -570,7 +572,7 @@ function categoryHeaderStyle(report) {
               </div>
               <div class="min-h-[1em] text-[10px] text-slate-500">
                 <template v-if="report.status === 'finalized' && report.medtech_license">
-                  Lic. No. {{ report.medtech_license }}
+                  License No. {{ report.medtech_license }}
                 </template>
                 <template v-else>&nbsp;</template>
               </div>
@@ -590,7 +592,7 @@ function categoryHeaderStyle(report) {
               </div>
               <div class="min-h-[1em] text-[10px] text-slate-500">
                 <template v-if="report.status === 'finalized' && report.pathologist_license">
-                  Lic. No. {{ report.pathologist_license }}
+                  License No. {{ report.pathologist_license }}
                 </template>
                 <template v-else>&nbsp;</template>
               </div>

@@ -693,24 +693,37 @@ const recommendedPaperKey = ref('letter')
 const PAPER_LABELS = {
   full:                  'Full page (A4)',
   half:                  'Half page (A5)',
+  half_crosswise:        'Half page (A5) — 210mm × 148mm landscape',
   letter:                'Letter — 8.5″ × 11″',
   legal:                 'Legal — 8.5″ × 14″',
   half_letter:           'Half Letter — 5.5″ × 8.5″',
-  half_letter_crosswise: 'Half Letter — 8.5″ × 5.5″ crosswise',
-  half_legal_crosswise:  'Half Legal — 8.5″ × 7″ crosswise',
+  half_letter_crosswise: 'Half Letter — 8.5″ × 5.5″ landscape',
+  half_legal_crosswise:  'Half Legal — 8.5″ × 7″ landscape',
 }
 // Upgrade path used by the predictor — walks up from the configured size
 // until content fits or we run out of larger options.
 const PAPER_UPGRADE = {
   half:                  'full',
+  half_crosswise:        'full',
   half_letter:           'letter',
   half_letter_crosswise: 'letter',
   half_legal_crosswise:  'legal',
   letter:                'legal',
 }
+// Downgrade path — always the landscape half within the same paper family,
+// so a short report keeps the full table width and only loses vertical space.
+// Portrait halves (half, half_letter) are intentionally NOT downgrade targets
+// — operators asked for a consistent "always landscape" downgrade.
+// (Internal key suffix `_crosswise` is kept for DB compatibility.)
+const PAPER_DOWNGRADE = {
+  full:   'half_crosswise',
+  letter: 'half_letter_crosswise',
+  legal:  'half_legal_crosswise',
+}
 const PAPER_PX = {
   full:                  { w: 794,  h: 1123 },
   half:                  { w: 559,  h: 794  },
+  half_crosswise:        { w: 794,  h: 559  },
   letter:                { w: 816,  h: 1056 },
   legal:                 { w: 816,  h: 1344 },
   half_letter:           { w: 528,  h: 816  },
@@ -809,7 +822,22 @@ const configuredPaperKey    = computed(() => printReport.value?.item_category_pr
 const configuredPaperLabel  = computed(() => PAPER_LABELS[configuredPaperKey.value]  || PAPER_LABELS.letter)
 // True when the predictor recommends a different (larger) size than the
 // category's configured setting.
-const paperWasUpgraded      = computed(() => recommendedPaperKey.value !== configuredPaperKey.value)
+// Height compare: if the recommended paper is TALLER than the configured one
+// the predictor walked up (content wouldn't fit); SHORTER means it walked
+// down (content fits with room to spare on a smaller sheet). Equal → no
+// change. Using paper.h is enough because PAPER_UPGRADE/DOWNGRADE only move
+// within a family and never swap orientation.
+const paperWasUpgraded      = computed(() => {
+	const rec = (PAPER_PX[recommendedPaperKey.value] || {}).h || 0
+	const cfg = (PAPER_PX[configuredPaperKey.value]  || {}).h || 0
+	return rec > cfg
+})
+const paperWasDowngraded    = computed(() => {
+	const rec = (PAPER_PX[recommendedPaperKey.value] || {}).h || 0
+	const cfg = (PAPER_PX[configuredPaperKey.value]  || {}).h || 0
+	return rec < cfg
+})
+const paperWasAdjusted      = computed(() => paperWasUpgraded.value || paperWasDowngraded.value)
 
 // Build the public URL that the QR code encodes. window.location.origin gives
 // us the tenant's app hostname; the /lab/view route mounts PublicLabReportView.
@@ -889,9 +917,9 @@ function computeEffectivePaper() {
   // Fixed chrome — every printed page has this baseline regardless of items.
   //   header block  = QR + logo/text + 3 rows of patient info    ~= 130 px
   //   category band = colored banner                              ~=  28 px
-  //   signature    = mt-16 (64) + line + 3 rows of centered text ~= 130 px
+  //   signature    = mt-4 (16) + pt-10 (40) + line + 3 rows     ~= 106 px
   //   footer       = printed-at timestamp                        ~=  22 px
-  const OVERHEAD = 130 + 28 + 130 + 22
+  const OVERHEAD = 130 + 28 + 106 + 22
 
   // Per test-item costs.
   const ITEM_HEADER   = 42   // title + code + method line + border-b
@@ -937,18 +965,32 @@ function computeEffectivePaper() {
   }
 
   let key = configured
-  const seen = new Set()
   const trace = []
-  for (let i = 0; i < 5 && !seen.has(key); i++) {
-    seen.add(key)
-    const paper = PAPER_PX[key] || PAPER_PX.letter
-    const cap = paper.h - USABLE_PAD
-    const ok  = fits(key)
-    trace.push({ key, estimated, cap, fits: ok })
-    if (ok) break
-    const next = PAPER_UPGRADE[key]
-    if (!next) break
-    key = next
+  const capFor = (k) => (PAPER_PX[k] || PAPER_PX.letter).h - USABLE_PAD
+  trace.push({ key, estimated, cap: capFor(key), fits: fits(key) })
+
+  if (fits(configured)) {
+    // Content fits — try to downgrade within the same family so short
+    // reports don't waste a full sheet. Walk down only while each smaller
+    // step still fits.
+    while (true) {
+      const smaller = PAPER_DOWNGRADE[key]
+      if (!smaller || !fits(smaller)) break
+      key = smaller
+      trace.push({ key, estimated, cap: capFor(key), fits: true })
+    }
+  } else {
+    // Content doesn't fit — walk up the upgrade chain until it does.
+    const seen = new Set([key])
+    for (let i = 0; i < 5; i++) {
+      const next = PAPER_UPGRADE[key]
+      if (!next || seen.has(next)) break
+      seen.add(next)
+      key = next
+      const ok = fits(key)
+      trace.push({ key, estimated, cap: capFor(key), fits: ok })
+      if (ok) break
+    }
   }
   // Dev console breadcrumb — check here if the predicted size looks off.
   // eslint-disable-next-line no-console
@@ -1002,6 +1044,7 @@ function buildPrintDocument() {
   const paperSpec = ({
     full:                   { size: 'A4',           orientation: 'portrait'  },
     half:                   { size: 'A5',           orientation: 'portrait'  },
+    half_crosswise:         { size: '210mm 148mm',  orientation: 'landscape' },
     letter:                 { size: 'letter',       orientation: 'portrait'  },
     legal:                  { size: '8.5in 14in',   orientation: 'portrait'  },
     half_letter:            { size: '5.5in 8.5in',  orientation: 'portrait'  },
@@ -1036,13 +1079,14 @@ function buildPrintDocument() {
 
   // Pixel dimensions (@ 96 CSS DPI) the popup uses to compute page breaks.
   const paperPxMap = {
-    'A4':          { w: 794,  h: 1123 },
-    'A5':          { w: 559,  h: 794  },
-    'letter':      { w: 816,  h: 1056 },
-    '8.5in 14in':  { w: 816,  h: 1344 },
-    '5.5in 8.5in': { w: 528,  h: 816  },
-    '8.5in 5.5in': { w: 816,  h: 528  },
-    '8.5in 7in':   { w: 816,  h: 672  },
+    'A4':           { w: 794,  h: 1123 },
+    'A5':           { w: 559,  h: 794  },
+    '210mm 148mm':  { w: 794,  h: 559  },
+    'letter':       { w: 816,  h: 1056 },
+    '8.5in 14in':   { w: 816,  h: 1344 },
+    '5.5in 8.5in':  { w: 528,  h: 816  },
+    '8.5in 5.5in':  { w: 816,  h: 528  },
+    '8.5in 7in':    { w: 816,  h: 672  },
   }
   const paperPx = paperPxMap[paperSpec.size] || paperPxMap['letter']
   // Substitute the placeholder now that we know the paper width.
@@ -2082,34 +2126,52 @@ function patientDisplay(r) {
       <template v-else>
         <!-- Paper-size note. The predictor measures the rendered content at
              the configured paper's width and recommends a larger size when
-             the content would overflow. Operator picks which one to print. -->
+             the content would overflow — or a smaller size (within the same
+             family) when the content would leave half a sheet blank.
+             Operator picks which one to print. Amber = upgrade (prevents
+             clipping), emerald = downgrade (saves paper). -->
         <div class="mb-3 rounded-md border px-3 py-2 text-xs"
              :class="paperWasUpgraded
                      ? 'border-amber-200 bg-amber-50 text-amber-800'
-                     : 'border-brand-100 bg-brand-50/50 text-brand-800'">
+                     : paperWasDowngraded
+                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                       : 'border-brand-100 bg-brand-50/50 text-brand-800'">
           <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <div>
               <span class="font-semibold">Load into printer:</span>
               <span class="ml-1">{{ effectivePaperLabel }}</span>
             </div>
-            <template v-if="paperWasUpgraded">
+            <template v-if="paperWasAdjusted">
               <div class="text-[11px] italic">
-                Predicted: content wouldn't fit on {{ configuredPaperLabel }} — recommend {{ recommendedPaperLabel }}.
+                <template v-if="paperWasUpgraded">
+                  Predicted: content wouldn't fit on {{ configuredPaperLabel }} — recommend {{ recommendedPaperLabel }}.
+                </template>
+                <template v-else>
+                  Content also fits on smaller {{ recommendedPaperLabel }} — switch to save paper.
+                </template>
               </div>
               <div class="ml-auto flex gap-2">
                 <button type="button"
                         class="rounded px-2 py-0.5 text-[11px] font-semibold"
-                        :class="effectivePaperKey === configuredPaperKey
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
+                        :class="paperWasUpgraded
+                                ? (effectivePaperKey === configuredPaperKey
+                                   ? 'bg-amber-600 text-white'
+                                   : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300')
+                                : (effectivePaperKey === configuredPaperKey
+                                   ? 'bg-emerald-600 text-white'
+                                   : 'bg-white dark:bg-slate-900 text-emerald-800 border border-emerald-300')"
                         @click="effectivePaperKey = configuredPaperKey">
                   Configured
                 </button>
                 <button type="button"
                         class="rounded px-2 py-0.5 text-[11px] font-semibold"
-                        :class="effectivePaperKey === recommendedPaperKey
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
+                        :class="paperWasUpgraded
+                                ? (effectivePaperKey === recommendedPaperKey
+                                   ? 'bg-amber-600 text-white'
+                                   : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300')
+                                : (effectivePaperKey === recommendedPaperKey
+                                   ? 'bg-emerald-600 text-white'
+                                   : 'bg-white dark:bg-slate-900 text-emerald-800 border border-emerald-300')"
                         @click="effectivePaperKey = recommendedPaperKey">
                   Recommended
                 </button>

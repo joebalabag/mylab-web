@@ -394,8 +394,8 @@ const PAPER_LABELS = {
   letter:                'Letter — 8.5″ × 11″',
   legal:                 'Legal — 8.5″ × 14″',
   half_letter:           'Half Letter — 5.5″ × 8.5″',
-  half_letter_crosswise: 'Half Letter — 8.5″ × 5.5″ crosswise',
-  half_legal_crosswise:  'Half Legal — 8.5″ × 7″ crosswise',
+  half_letter_crosswise: 'Half Letter — 8.5″ × 5.5″ landscape',
+  half_legal_crosswise:  'Half Legal — 8.5″ × 7″ landscape',
 }
 const PAPER_UPGRADE = {
   half:                  'full',
