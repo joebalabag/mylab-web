@@ -23,6 +23,13 @@ export function viewLabReport(uuid) {
   return api.get(`/lab-report/view/${uuid}`)
 }
 
+// History of public (QR-code) accesses for a report. Powers the
+// "QR access history" panel in the Print Preview modal.
+// Returns `{ count, last_accessed_at, logs: [{ uuid, accessed_at, client_ip, user_agent }] }`.
+export function listLabReportAccessLogs(uuid) {
+  return api.get(`/lab-report/view/${uuid}/access-logs`)
+}
+
 // Step 1 of Add Laboratory — paid requisitions with at least one uncovered test line.
 // `opts.item_group_uuid` scopes the list to requisitions whose uncovered tests
 // belong to a category under the given item_group (matches the dashboard filter).

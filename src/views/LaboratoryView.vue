@@ -679,6 +679,28 @@ const sendingEmail = ref(false)
 // image is embedded in the DOM (no extra fetch, prints reliably).
 const qrDataUrl = ref('')
 
+// QR access history. Loaded alongside the Print Preview for finalized
+// reports so the operator can see who / when the public link was opened.
+// Shape: { count, last_accessed_at, logs: [{ uuid, accessed_at, client_ip, user_agent }] }.
+const accessLogs          = ref(null)
+const accessLogsLoading   = ref(false)
+const accessLogsError     = ref('')
+const accessLogsExpanded  = ref(false)
+
+async function loadAccessLogs() {
+  const r = printReport.value
+  if (!r?.uuid || r.status !== 'finalized') return
+  accessLogsLoading.value = true
+  accessLogsError.value = ''
+  try {
+    accessLogs.value = await labApi.listLabReportAccessLogs(r.uuid)
+  } catch (e) {
+    accessLogsError.value = e?.message || 'Failed to load access history'
+  } finally {
+    accessLogsLoading.value = false
+  }
+}
+
 // Paper size the printer will actually be told to use. Starts from the
 // category setting on the report, then automatically upgrades to the next
 // size up when the content wouldn't fit on the configured paper. The Print
@@ -851,6 +873,9 @@ async function openPrint(r) {
   showPrint.value = true
   printReport.value = null
   qrDataUrl.value = ''
+  accessLogs.value = null
+  accessLogsError.value = ''
+  accessLogsExpanded.value = false
   printLoading.value = true
   try {
     printReport.value = await lab.fetchOne(r.uuid)
@@ -862,6 +887,9 @@ async function openPrint(r) {
         errorCorrectionLevel: 'M',
       })
     }
+    // Fire-and-forget — the panel renders when it arrives, Print Preview
+    // doesn't block on it.
+    loadAccessLogs()
   } catch (e) {
     flashError(e, 'Failed to load lab report')
     return
@@ -2202,6 +2230,55 @@ function patientDisplay(r) {
                                 :qr-data-url="qrDataUrl"
                                 :paper-height="previewPaperPx.h" />
           </div>
+        </div>
+      </div>
+
+      <!-- QR access history. Only meaningful on finalized reports (drafts
+           have no public_token so the QR URL is empty). Hidden entirely on
+           drafts; shown as a one-line summary once loaded, expandable to a
+           table of the most recent scans. -->
+      <div v-if="printReport?.status === 'finalized'"
+           class="mt-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-xs">
+        <div class="flex items-baseline gap-2">
+          <div class="font-semibold text-slate-700 dark:text-slate-200">QR access history</div>
+          <div v-if="accessLogsLoading" class="text-slate-500">Loading…</div>
+          <div v-else-if="accessLogsError" class="text-rose-600">{{ accessLogsError }}</div>
+          <div v-else-if="accessLogs" class="text-slate-600 dark:text-slate-400">
+            <template v-if="accessLogs.count === 0">Never viewed.</template>
+            <template v-else>
+              Viewed {{ accessLogs.count }} time{{ accessLogs.count === 1 ? '' : 's' }}
+              · last {{ formatDateTime(accessLogs.last_accessed_at) }}
+            </template>
+          </div>
+          <button type="button"
+                  class="ml-auto text-brand-600 hover:underline"
+                  @click="loadAccessLogs()">Refresh</button>
+          <button v-if="accessLogs && accessLogs.count > 0"
+                  type="button"
+                  class="text-slate-500 hover:underline"
+                  @click="accessLogsExpanded = !accessLogsExpanded">
+            {{ accessLogsExpanded ? 'Hide' : 'Show' }} details
+          </button>
+        </div>
+        <div v-if="accessLogsExpanded && accessLogs && accessLogs.logs.length"
+             class="mt-2 max-h-56 overflow-auto">
+          <table class="w-full text-[11px]">
+            <thead class="text-slate-500 dark:text-slate-400">
+              <tr>
+                <th class="text-left font-medium py-1 pr-3">When</th>
+                <th class="text-left font-medium py-1 pr-3">IP</th>
+                <th class="text-left font-medium py-1">User-Agent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="log in accessLogs.logs" :key="log.uuid"
+                  class="border-t border-slate-100 dark:border-slate-800">
+                <td class="py-1 pr-3 whitespace-nowrap">{{ formatDateTime(log.accessed_at) }}</td>
+                <td class="py-1 pr-3 font-mono">{{ log.client_ip || '—' }}</td>
+                <td class="py-1 text-slate-500 dark:text-slate-400 break-all">{{ log.user_agent || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
       </template>
