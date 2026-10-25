@@ -679,14 +679,11 @@ const sendingEmail = ref(false)
 // image is embedded in the DOM (no extra fetch, prints reliably).
 const qrDataUrl = ref('')
 
-// Paper size the printer will actually be told to use. Starts from the
-// category setting on the report, then automatically upgrades to the next
-// size up when the content wouldn't fit on the configured paper. The Print
-// Preview modal displays this so the operator knows what to load.
-const effectivePaperKey   = ref('letter')
-// The size the predictor thinks actually fits the content, computed once
-// when Print Preview opens. May differ from the configured size — the
-// modal exposes both and the user can flip between them.
+// Predictor's suggested paper size — shown in the "Load into printer:"
+// hint so the operator knows what paper to physically load. The preview
+// and the actual print output always use the category's CONFIGURED size
+// (see `configuredPaperKey` below); the recommendation is purely
+// informational.
 const recommendedPaperKey = ref('letter')
 
 // Human-friendly label + upgrade paths for the paper sizes.
@@ -797,7 +794,7 @@ onBeforeUnmount(() => {
   if (previewWidthObs)  previewWidthObs.disconnect()
   if (previewHeightObs) previewHeightObs.disconnect()
 })
-const previewPaperPx = computed(() => PAPER_PX[effectivePaperKey.value] || PAPER_PX.letter)
+const previewPaperPx = computed(() => PAPER_PX[configuredPaperKey.value] || PAPER_PX.letter)
 const previewScale = computed(() => {
   const w = previewFrameWidth.value
   if (!w) return 1
@@ -816,10 +813,13 @@ const previewFrameWidthPx = computed(() => Math.ceil(previewPaperPx.value.w * pr
 // signatures floating awkwardly in the middle of the paper, and multi-page
 // reports still land signatures at the physical bottom of the final page.
 const pinSignatureToBottom = computed(() => !!printReport.value)
-const effectivePaperLabel   = computed(() => PAPER_LABELS[effectivePaperKey.value]   || PAPER_LABELS.letter)
-const recommendedPaperLabel = computed(() => PAPER_LABELS[recommendedPaperKey.value] || PAPER_LABELS.letter)
 const configuredPaperKey    = computed(() => printReport.value?.item_category_print_paper_size || 'full')
 const configuredPaperLabel  = computed(() => PAPER_LABELS[configuredPaperKey.value]  || PAPER_LABELS.letter)
+const recommendedPaperLabel = computed(() => PAPER_LABELS[recommendedPaperKey.value] || PAPER_LABELS.letter)
+// Falls back to the configured label until the predictor runs, so the
+// "Load into printer:" hint never flashes a stale "letter" during the
+// brief window between modal-open and computeEffectivePaper() completing.
+const loadIntoPrinterLabel  = computed(() => recommendedPaperLabel.value || configuredPaperLabel.value)
 // True when the predictor recommends a different (larger) size than the
 // category's configured setting.
 // Height compare: if the recommended paper is TALLER than the configured one
@@ -910,7 +910,6 @@ function waitForImages(root) {
 function computeEffectivePaper() {
   const report = printReport.value
   const configured = report?.item_category_print_paper_size || 'full'
-  effectivePaperKey.value   = configured
   recommendedPaperKey.value = configured
   if (!report) return
 
@@ -996,7 +995,6 @@ function computeEffectivePaper() {
   // eslint-disable-next-line no-console
   console.debug('[lab-print] paper prediction', { configured, picked: key, trace })
   recommendedPaperKey.value = key
-  effectivePaperKey.value   = key
 }
 // Resolve every <link rel="stylesheet"> in a serialized HTML string into an
 // inline <style> block by fetching the CSS from the same origin (the browser
@@ -1050,7 +1048,7 @@ function buildPrintDocument() {
     half_letter:            { size: '5.5in 8.5in',  orientation: 'portrait'  },
     half_letter_crosswise:  { size: '8.5in 5.5in',  orientation: 'landscape' },
     half_legal_crosswise:   { size: '8.5in 7in',    orientation: 'landscape' },
-  })[effectivePaperKey.value || 'full'] || { size: 'A4', orientation: 'portrait' }
+  })[configuredPaperKey.value || 'full'] || { size: 'A4', orientation: 'portrait' }
 
   // Extract the two split zones (header + body) so we can rebuild them into
   // a real <table> — <thead> auto-repeats on every printed page.
@@ -1098,10 +1096,20 @@ function buildPrintDocument() {
     .map((n) => n.outerHTML)
     .join('\n')
 
+  // CSS Paged Media L3: orientation keyword is only valid with a page-size
+  // *keyword* (A4, letter, …); combining it with explicit `<length>{1,2}`
+  // makes the whole `size` declaration invalid and Chrome falls back to the
+  // locale default (A4 on PH), which is ~22px narrower than our 816px /
+  // 8.5in content div — the right side clips and the printed margin ends
+  // up smaller on that side. Lengths already encode orientation (wider-
+  // first = landscape), so drop the keyword when size is explicit.
+  const pageSize = /\d/.test(paperSpec.size)
+    ? paperSpec.size
+    : `${paperSpec.size} ${paperSpec.orientation}`
   const css = `
     html, body { background: #fff; margin: 0; padding: 0; }
     #lab-print-area { padding: 0 12mm 12mm; margin: 0; }
-    @page { size: ${paperSpec.size} ${paperSpec.orientation}; margin: 0; }
+    @page { size: ${pageSize}; margin: 0; }
 
     /* Header repeats on every printed page — browsers honor <thead> inside a
        table with display: table-header-group by default. Explicit for safety. */
@@ -2124,12 +2132,12 @@ function patientDisplay(r) {
         No report loaded. Close and try again.
       </div>
       <template v-else>
-        <!-- Paper-size note. The predictor measures the rendered content at
-             the configured paper's width and recommends a larger size when
-             the content would overflow — or a smaller size (within the same
-             family) when the content would leave half a sheet blank.
-             Operator picks which one to print. Amber = upgrade (prevents
-             clipping), emerald = downgrade (saves paper). -->
+        <!-- Paper-size hint. "Load into printer:" shows the predictor's
+             suggestion so the operator knows what paper to physically load.
+             The preview and the printed output ALWAYS render at the
+             category's configured size — the recommendation is informational
+             only. Amber = predictor would upgrade (configured may clip),
+             emerald = predictor would downgrade (configured wastes paper). -->
         <div class="mb-3 rounded-md border px-3 py-2 text-xs"
              :class="paperWasUpgraded
                      ? 'border-amber-200 bg-amber-50 text-amber-800'
@@ -2139,44 +2147,16 @@ function patientDisplay(r) {
           <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <div>
               <span class="font-semibold">Load into printer:</span>
-              <span class="ml-1">{{ effectivePaperLabel }}</span>
+              <span class="ml-1">{{ loadIntoPrinterLabel }}</span>
             </div>
-            <template v-if="paperWasAdjusted">
-              <div class="text-[11px] italic">
-                <template v-if="paperWasUpgraded">
-                  Predicted: content wouldn't fit on {{ configuredPaperLabel }} — recommend {{ recommendedPaperLabel }}.
-                </template>
-                <template v-else>
-                  Content also fits on smaller {{ recommendedPaperLabel }} — switch to save paper.
-                </template>
-              </div>
-              <div class="ml-auto flex gap-2">
-                <button type="button"
-                        class="rounded px-2 py-0.5 text-[11px] font-semibold"
-                        :class="paperWasUpgraded
-                                ? (effectivePaperKey === configuredPaperKey
-                                   ? 'bg-amber-600 text-white'
-                                   : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300')
-                                : (effectivePaperKey === configuredPaperKey
-                                   ? 'bg-emerald-600 text-white'
-                                   : 'bg-white dark:bg-slate-900 text-emerald-800 border border-emerald-300')"
-                        @click="effectivePaperKey = configuredPaperKey">
-                  Configured
-                </button>
-                <button type="button"
-                        class="rounded px-2 py-0.5 text-[11px] font-semibold"
-                        :class="paperWasUpgraded
-                                ? (effectivePaperKey === recommendedPaperKey
-                                   ? 'bg-amber-600 text-white'
-                                   : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300')
-                                : (effectivePaperKey === recommendedPaperKey
-                                   ? 'bg-emerald-600 text-white'
-                                   : 'bg-white dark:bg-slate-900 text-emerald-800 border border-emerald-300')"
-                        @click="effectivePaperKey = recommendedPaperKey">
-                  Recommended
-                </button>
-              </div>
-            </template>
+            <div v-if="paperWasAdjusted" class="text-[11px] italic">
+              <template v-if="paperWasUpgraded">
+                Predicted: content wouldn't fit on {{ configuredPaperLabel }} — consider recommending {{ recommendedPaperLabel }}.
+              </template>
+              <template v-else>
+                Content also fits on smaller {{ recommendedPaperLabel }} — switch to save paper.
+              </template>
+            </div>
           </div>
         </div>
       <!-- Print block lives in a shared component so TestItemsView's "Print

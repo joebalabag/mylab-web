@@ -382,10 +382,10 @@ const labPreviewLoading = ref(false)
 const labPreviewError   = ref('')
 const qrDataUrl         = ref('')
 
-// Paper size the printer will actually be told to use. Starts from the
-// category setting, then auto-upgrades when content wouldn't fit. Same maps
-// as LaboratoryView so the print result matches.
-const effectivePaperKey   = ref('letter')
+// Predictor's suggested paper size — shown in the "Load into printer:"
+// hint only. The preview and the actual print output always use the
+// category's CONFIGURED size; the recommendation is informational. Same
+// maps as LaboratoryView so the print result matches.
 const recommendedPaperKey = ref('letter')
 
 const PAPER_LABELS = {
@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
   if (previewWidthObs)  previewWidthObs.disconnect()
   if (previewHeightObs) previewHeightObs.disconnect()
 })
-const previewPaperPx = computed(() => PAPER_PX[effectivePaperKey.value] || PAPER_PX.letter)
+const previewPaperPx = computed(() => PAPER_PX[configuredPaperKey.value] || PAPER_PX.letter)
 const previewScale = computed(() => {
   const w = previewFrameWidth.value
   if (!w) return 1
@@ -507,10 +507,12 @@ const previewFrameHeightPx = computed(() => {
   return Math.ceil(contentH * previewScale.value)
 })
 
-const effectivePaperLabel   = computed(() => PAPER_LABELS[effectivePaperKey.value]   || PAPER_LABELS.letter)
-const recommendedPaperLabel = computed(() => PAPER_LABELS[recommendedPaperKey.value] || PAPER_LABELS.letter)
 const configuredPaperKey    = computed(() => labPreview.value?.item_category_print_paper_size || 'letter')
 const configuredPaperLabel  = computed(() => PAPER_LABELS[configuredPaperKey.value]  || PAPER_LABELS.letter)
+const recommendedPaperLabel = computed(() => PAPER_LABELS[recommendedPaperKey.value] || PAPER_LABELS.letter)
+// Falls back to configured until the predictor runs — avoids a stale
+// "letter" flash in the "Load into printer:" hint on first open.
+const loadIntoPrinterLabel  = computed(() => recommendedPaperLabel.value || configuredPaperLabel.value)
 const paperWasUpgraded      = computed(() => recommendedPaperKey.value !== configuredPaperKey.value)
 
 function waitForImages(root) {
@@ -543,7 +545,6 @@ function buildMatrixGrid(item) {
 function computeEffectivePaper() {
   const report = labPreview.value
   const configured = report?.item_category_print_paper_size || 'letter'
-  effectivePaperKey.value   = configured
   recommendedPaperKey.value = configured
   if (!report) return
 
@@ -595,7 +596,6 @@ function computeEffectivePaper() {
     key = next
   }
   recommendedPaperKey.value = key
-  effectivePaperKey.value   = key
 }
 
 // Same isolated-popup print pattern used by LaboratoryView and TestItemsView.
@@ -618,7 +618,7 @@ function doPrint() {
   const _winPaper = _paperMap[
     ({ full:'A4', half:'A5', letter:'letter', legal:'8.5in 14in', half_letter:'5.5in 8.5in',
        half_letter_crosswise:'8.5in 5.5in', half_legal_crosswise:'8.5in 7in' })[
-      effectivePaperKey.value || 'letter'
+      configuredPaperKey.value || 'letter'
     ]
   ] || { w: 816, h: 1056 }
   const winW = _winPaper.w + 20
@@ -641,7 +641,7 @@ function doPrint() {
     half_letter:            { size: '5.5in 8.5in',  orientation: 'portrait'  },
     half_letter_crosswise:  { size: '8.5in 5.5in',  orientation: 'landscape' },
     half_legal_crosswise:   { size: '8.5in 7in',    orientation: 'landscape' },
-  })[effectivePaperKey.value || 'letter'] || { size: 'letter', orientation: 'portrait' }
+  })[configuredPaperKey.value || 'letter'] || { size: 'letter', orientation: 'portrait' }
 
   const clone = src.cloneNode(true)
   const headerEl = clone.querySelector('#lab-print-header')
@@ -675,10 +675,17 @@ function doPrint() {
   }
 
   const closeScript = '<' + '/scr' + 'ipt>'
+  // CSS Paged Media L3: orientation keyword is only valid with a page-size
+  // *keyword* (A4, letter, …); combining it with explicit `<length>{1,2}`
+  // makes the whole `size` declaration invalid and Chrome falls back to the
+  // locale default (A4 on PH), clipping the right side of the content div.
+  const pageSize = /\d/.test(paperSpec.size)
+    ? paperSpec.size
+    : `${paperSpec.size} ${paperSpec.orientation}`
   const css = `
     html, body { background: #fff; margin: 0; padding: 0; }
     #lab-print-area { padding: 0 12mm 12mm; margin: 0; }
-    @page { size: ${paperSpec.size} ${paperSpec.orientation}; margin: 0; }
+    @page { size: ${pageSize}; margin: 0; }
 
     #lab-print-area, #lab-print-area * {
       overflow: visible !important;
@@ -1446,8 +1453,10 @@ function actionsFor(p) {
         {{ labPreviewError }}
       </div>
       <template v-else-if="labPreview">
-        <!-- Paper-size note. Predictor measures content at the configured
-             paper's width and recommends a larger size when it wouldn't fit. -->
+        <!-- Paper-size hint. "Load into printer:" shows the predictor's
+             suggestion so the operator knows what paper to physically load.
+             The preview and the printed output ALWAYS use the category's
+             CONFIGURED size; the recommendation is informational only. -->
         <div class="mb-3 rounded-md border px-3 py-2 text-xs"
              :class="paperWasUpgraded
                      ? 'border-amber-200 bg-amber-50 text-amber-800'
@@ -1455,31 +1464,11 @@ function actionsFor(p) {
           <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <div>
               <span class="font-semibold">Load into printer:</span>
-              <span class="ml-1">{{ effectivePaperLabel }}</span>
+              <span class="ml-1">{{ loadIntoPrinterLabel }}</span>
             </div>
-            <template v-if="paperWasUpgraded">
-              <div class="text-[11px] italic">
-                Predicted: content wouldn't fit on {{ configuredPaperLabel }} — recommend {{ recommendedPaperLabel }}.
-              </div>
-              <div class="ml-auto flex gap-2">
-                <button type="button"
-                        class="rounded px-2 py-0.5 text-[11px] font-semibold"
-                        :class="effectivePaperKey === configuredPaperKey
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
-                        @click="effectivePaperKey = configuredPaperKey">
-                  Configured
-                </button>
-                <button type="button"
-                        class="rounded px-2 py-0.5 text-[11px] font-semibold"
-                        :class="effectivePaperKey === recommendedPaperKey
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-white dark:bg-slate-900 text-amber-800 border border-amber-300'"
-                        @click="effectivePaperKey = recommendedPaperKey">
-                  Recommended
-                </button>
-              </div>
-            </template>
+            <div v-if="paperWasUpgraded" class="text-[11px] italic">
+              Predicted: content wouldn't fit on {{ configuredPaperLabel }} — consider recommending {{ recommendedPaperLabel }}.
+            </div>
           </div>
         </div>
 
