@@ -134,6 +134,7 @@ const routes = [
       { path: 'reports/discounts',       name: 'report-discounts',       meta: { mainNav: 'reports', subNav: 'discounts' },            component: () => import('../views/reports/DiscountReportView.vue') },
       { path: 'reports/expenses',        name: 'report-expenses',        meta: { mainNav: 'reports', subNav: 'expenses' },             component: () => import('../views/reports/ExpenseReportView.vue') },
       { path: 'reports/payment-summary', name: 'report-payment-summary', meta: { mainNav: 'reports', subNav: 'payment summary' },      component: () => import('../views/reports/PaymentSummaryReportView.vue') },
+      { path: 'reports/arrangements',    name: 'report-arrangements',    meta: { mainNav: 'reports', subNav: 'arrangements' },         component: () => import('../views/reports/ArrangementsReportView.vue') },
       { path: 'reports/test-analytics',  name: 'report-test-analytics',  meta: { mainNav: 'reports', subNav: 'test analytics' },       component: () => import('../views/reports/TestAnalyticsReportView.vue') }
     ]
   },

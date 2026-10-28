@@ -2,11 +2,13 @@ import { api } from './client'
 
 function withRange(f = {}) {
   const q = {}
-  if (f.date_from)  q.date_from  = f.date_from
-  if (f.date_to)    q.date_to    = f.date_to
-  if (f.created_by) q.created_by = f.created_by
-  if (f.category)   q.category   = f.category
-  if (f.limit)      q.limit      = f.limit
+  if (f.date_from)      q.date_from      = f.date_from
+  if (f.date_to)        q.date_to        = f.date_to
+  if (f.created_by)     q.created_by     = f.created_by
+  if (f.category)       q.category       = f.category
+  if (f.payment_method) q.payment_method = f.payment_method
+  if (f.settlement)     q.settlement     = f.settlement
+  if (f.limit)          q.limit          = f.limit
   return q
 }
 function withYear(f = {}) {
@@ -26,6 +28,7 @@ export const getDailyDetailedSales  = (f) => api.get('/reports/daily-detailed-sa
 export const getDiscountReport      = (f) => api.get('/reports/discounts',                { query: withRange(f) })
 export const getExpenseReport       = (f) => api.get('/reports/expenses',                 { query: withRange(f) })
 export const getPaymentSummaryReport= (f) => api.get('/reports/payment-summary',          { query: withRange(f) })
+export const getArrangementsReport  = (f) => api.get('/reports/arrangements',             { query: withRange(f) })
 export const getTestVolumeReport    = (f) => api.get('/reports/test-analytics/volume',    { query: withRange(f) })
 export const getTestCategoriesReport= (f) => api.get('/reports/test-analytics/categories',{ query: withRange(f) })
 export const getTestTATReport       = (f) => api.get('/reports/test-analytics/tat',       { query: withRange(f) })

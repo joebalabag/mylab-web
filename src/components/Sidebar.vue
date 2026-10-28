@@ -79,6 +79,7 @@ const navGroups = [
       { to: '/reports/discounts',       label: 'Discounts',            icon: 'percent', mainNav: 'reports', subNav: 'discounts' },
       { to: '/reports/expenses',        label: 'Expenses',             icon: 'receipt', mainNav: 'reports', subNav: 'expenses' },
       { to: '/reports/payment-summary', label: 'Payment Summary',      icon: 'card',    mainNav: 'reports', subNav: 'payment summary' },
+      { to: '/reports/arrangements',    label: 'Arrangements',         icon: 'card',    mainNav: 'reports', subNav: 'arrangements' },
       { to: '/reports/test-analytics',  label: 'Test Analytics',       icon: 'flask',   mainNav: 'reports', subNav: 'test analytics' }
     ]
   },
