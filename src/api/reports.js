@@ -1,7 +1,19 @@
 import { api } from './client'
 
+// Super-admin override — when set, every /reports/* request forwards this
+// tenant_uuid. The backend only honors it on admin tokens (user tokens are
+// always scoped to their own tenant), so it's a no-op when a staff user
+// sets it. Set/clear from the Super → Tenant Reports wrapper view.
+let adminTenantOverride = null
+export function setReportsTenantOverride(uuid) {
+  adminTenantOverride = uuid || null
+}
+export function getReportsTenantOverride() { return adminTenantOverride }
+
 function withRange(f = {}) {
   const q = {}
+  const tenant = f.tenant_uuid || adminTenantOverride
+  if (tenant)           q.tenant_uuid    = tenant
   if (f.date_from)      q.date_from      = f.date_from
   if (f.date_to)        q.date_to        = f.date_to
   if (f.created_by)     q.created_by     = f.created_by
@@ -13,7 +25,9 @@ function withRange(f = {}) {
 }
 function withYear(f = {}) {
   const q = {}
-  if (f.year) q.year = f.year
+  const tenant = f.tenant_uuid || adminTenantOverride
+  if (tenant)  q.tenant_uuid = tenant
+  if (f.year)  q.year        = f.year
   return q
 }
 
