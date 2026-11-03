@@ -88,6 +88,7 @@ const navGroups = [
     items: [
       { to: '/users',           label: 'User Management', icon: 'users',   mainNav: 'user management' },
       { to: '/subscription',    label: 'Subscription',    icon: 'card',    mainNav: 'subscription' },
+      { to: '/audit-logs',      label: 'Audit Logs',      icon: 'history', mainNav: 'audit log' },
       { to: '/settings/tenant', label: 'Company Settings', icon: 'gear',    mainNav: 'store settings' }
     ]
   }
@@ -330,7 +331,8 @@ function iconSvg (name) {
     generic: '<path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18" cy="18" r="2"/>',
     chef:    '<path d="M6 13h12v7a2 2 0 01-2 2H8a2 2 0 01-2-2v-7z"/><path d="M6 13a4 4 0 01-1-7.7A4 4 0 0112 3a4 4 0 017 2.3A4 4 0 0118 13"/><line x1="9" y1="17" x2="9" y2="19"/><line x1="15" y1="17" x2="15" y2="19"/>',
     flame:   '<path d="M8 2s2 4 2 7-3 4-3 7a5 5 0 0010 0c0-2-1-3-2-4 0 3-2 4-2 4s2-6-2-9c-1 2-3 2-3-5z"/>',
-    flask:   '<path d="M9 3h6M10 3v6L4.5 19a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 9V3"/><line x1="7" y1="14" x2="17" y2="14"/>'
+    flask:   '<path d="M9 3h6M10 3v6L4.5 19a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 9V3"/><line x1="7" y1="14" x2="17" y2="14"/>',
+    history: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/><path d="M3 12a9 9 0 019-9"/>'
   }
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">${paths[name] || ''}</svg>`
 }

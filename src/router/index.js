@@ -94,7 +94,9 @@ const routes = [
         component: () => import('../views/super/SuperReportsView.vue') },
       { path: 'tenant-reports', name: 'super-tenant-reports',
         component: () => import('../views/super/SuperTenantReportsView.vue') },
-      { path: 'users',     name: 'super-users',     component: () => import('../views/super/SuperUsersView.vue') }
+      { path: 'users',     name: 'super-users',     component: () => import('../views/super/SuperUsersView.vue') },
+      { path: 'audit-logs', name: 'super-audit-logs',
+        component: () => import('../views/super/SuperAuditLogsView.vue') }
     ]
   },
 
@@ -111,6 +113,7 @@ const routes = [
       { path: 'users',        name: 'users',           meta: { mainNav: 'user management' }, component: () => import('../views/UsersView.vue') },
       { path: 'settings/tenant', name: 'tenant-settings', meta: { mainNav: 'store settings' }, component: () => import('../views/TenantSettingsView.vue') },
       { path: 'subscription', name: 'subscription',    meta: { mainNav: 'subscription' },   component: () => import('../views/SubscriptionView.vue') },
+      { path: 'audit-logs',   name: 'audit-logs',      meta: { mainNav: 'audit log' },      component: () => import('../views/AuditLogsView.vue') },
       { path: 'discounts',    name: 'discounts',       meta: { mainNav: 'discounts' },      component: () => import('../views/DiscountsView.vue') },
       { path: 'expenses',     name: 'expenses',        meta: { mainNav: 'expenses' },       component: () => import('../views/ExpensesView.vue') },
       { path: 'item-groups',      name: 'item-groups',     meta: { mainNav: 'item groups' },     component: () => import('../views/ItemGroupsView.vue') },
