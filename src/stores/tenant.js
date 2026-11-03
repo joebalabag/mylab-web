@@ -200,6 +200,16 @@ export const useTenantStore = defineStore('tenant', {
       persistCurrent(this.current)
       this.syncKnown(this.current)
     },
+    // Wipe the current tenant state on logout. Unlike resetToDefaults(), this
+    // does NOT fold the placeholder into `known` (that's a super-admin concept
+    // and would introduce the DEMO sentinel into a staff session's roster).
+    // Also removes the pos_tenant localStorage snapshot so the next login
+    // can't inherit the previous tenant's logo/address/SMTP from its spread
+    // merge in hydrateFromLogin/hydrateFromApi.
+    clearForLogout() {
+      this.current = { ...DEFAULT_TENANT }
+      try { localStorage.removeItem(CURRENT_KEY) } catch (_) { /* ignore */ }
+    },
     /* ── Super-admin CRUD over the tenants roster ── */
     createTenant(payload) {
       const t = {

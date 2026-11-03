@@ -145,13 +145,15 @@ export const useAuthStore = defineStore('auth', {
       // Drop the tenant brand color immediately — MainLayout.onBeforeUnmount
       // also calls this, but logout usually races the route transition and
       // the login screen can briefly flash the previous tenant's palette
-      // if we wait for unmount. Also null-out the stored color so a browser
-      // refresh at /login doesn't rehydrate it.
+      // if we wait for unmount. Also wipe the whole tenant snapshot so the
+      // next login (possibly a different tenant on the same browser) can't
+      // inherit the previous tenant's logo / lab header / SMTP from the
+      // persisted `pos_tenant` blob.
       try {
         clearTenantTheme()
         const t = useTenantStore()
-        if (t.current) t.current.themePrimaryColor = null
-      } catch (_) { /* ignore — theme is non-critical */ }
+        t.clearForLogout()
+      } catch (_) { /* ignore — tenant/theme reset is non-critical */ }
     },
 
     // Supervisor re-auth for sensitive actions (voids, discount overrides).

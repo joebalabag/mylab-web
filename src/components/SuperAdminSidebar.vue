@@ -23,7 +23,8 @@ const nav = [
   { to: '/super/active-users', label: 'Active Users',    icon: 'pulse' },
   { to: '/super/reports',   label: 'Reports',            icon: 'chart' },
   { to: '/super/tenant-reports', label: 'Tenant Reports', icon: 'folder-chart' },
-  { to: '/super/users',     label: 'MyLab Admin',       icon: 'shield' }
+  { to: '/super/users',     label: 'MyLab Admin',       icon: 'shield' },
+  { to: '/super/audit-logs', label: 'Audit Logs',        icon: 'history' }
 ]
 
 const showChangePassword = ref(false)
@@ -162,7 +163,8 @@ function iconSvg (name) {
     chart:  '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
     'folder-chart': '<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><line x1="9" y1="17" x2="9" y2="13"/><line x1="13" y1="17" x2="13" y2="11"/><line x1="17" y1="17" x2="17" y2="14"/>',
     pulse:  '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
-    shield: '<path d="M12 2l9 4v6c0 5-3.5 9-9 10-5.5-1-9-5-9-10V6l9-4z"/><polyline points="9 12 11 14 15 10"/>'
+    shield: '<path d="M12 2l9 4v6c0 5-3.5 9-9 10-5.5-1-9-5-9-10V6l9-4z"/><polyline points="9 12 11 14 15 10"/>',
+    history: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/><path d="M3 12a9 9 0 019-9"/>'
   }
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">${paths[name] || ''}</svg>`
 }
