@@ -92,6 +92,8 @@ const routes = [
         component: () => import('../views/super/SuperActiveUsersView.vue') },
       { path: 'reports', name: 'super-reports',
         component: () => import('../views/super/SuperReportsView.vue') },
+      { path: 'tenant-reports', name: 'super-tenant-reports',
+        component: () => import('../views/super/SuperTenantReportsView.vue') },
       { path: 'users',     name: 'super-users',     component: () => import('../views/super/SuperUsersView.vue') }
     ]
   },

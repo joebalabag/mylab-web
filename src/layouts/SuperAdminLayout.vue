@@ -23,6 +23,7 @@ const pageTitle = computed(() => ({
   'super-tenant-users':          'Tenant Users',
   'super-active-users':          'Active Users',
   'super-reports':               'Reports',
+  'super-tenant-reports':        'Tenant Reports',
   'super-users':                 'MyLab Admin'
 }[route.name] || 'Platform'))
 

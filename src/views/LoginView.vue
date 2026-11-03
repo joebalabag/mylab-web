@@ -80,6 +80,30 @@ async function submitResend() {
   }
 }
 
+/* ─── Hidden super-admin corner pattern ─── */
+// Three transparent corner buttons; tapping top-left → top-right → bottom-right
+// within 5 seconds opens the super-admin sign-in. Any wrong corner or timeout
+// resets the sequence silently.
+const CORNER_SEQUENCE = ['tl', 'tr', 'br']
+const CORNER_WINDOW_MS = 5000
+let cornerStep = 0
+let cornerTimer = null
+function resetCornerPattern() {
+  cornerStep = 0
+  if (cornerTimer) { clearTimeout(cornerTimer); cornerTimer = null }
+}
+function tapCorner(c) {
+  if (c !== CORNER_SEQUENCE[cornerStep]) { resetCornerPattern(); return }
+  cornerStep += 1
+  if (cornerStep >= CORNER_SEQUENCE.length) {
+    resetCornerPattern()
+    router.push('/super/login')
+    return
+  }
+  if (cornerTimer) clearTimeout(cornerTimer)
+  cornerTimer = setTimeout(resetCornerPattern, CORNER_WINDOW_MS)
+}
+
 /* ─── Forgot password ─── */
 // Backend returns generic success whether or not the username matches, so we
 // always show the same "check your email" confirmation regardless of what
@@ -338,16 +362,30 @@ async function submitForgot() {
               Resend it →
             </button>
           </div>
-          <div class="mt-1">
-            Platform operator?
-            <RouterLink to="/super/login" class="font-semibold text-brand-700 hover:underline">
-              Super-admin sign-in →
-            </RouterLink>
-          </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Hidden super-admin entry — click the corners in order (top-left →
+       top-right → bottom-right) within 5 seconds to open the platform
+       operator sign-in. Deliberately unlabeled and out of the tab order
+       so casual visitors / keyboard users don't discover it. -->
+  <button type="button"
+          tabindex="-1"
+          aria-hidden="true"
+          class="fixed left-0 top-0 h-10 w-10 cursor-default bg-transparent focus:outline-none"
+          @click="tapCorner('tl')"></button>
+  <button type="button"
+          tabindex="-1"
+          aria-hidden="true"
+          class="fixed right-0 top-0 h-10 w-10 cursor-default bg-transparent focus:outline-none"
+          @click="tapCorner('tr')"></button>
+  <button type="button"
+          tabindex="-1"
+          aria-hidden="true"
+          class="fixed bottom-0 right-0 h-10 w-10 cursor-default bg-transparent focus:outline-none"
+          @click="tapCorner('br')"></button>
 
   <HelpModal :show="showHelp" @close="showHelp = false" />
 
