@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import MyLabLogo from '../assets/MyLab-icon.png'
-import { listPublicPlans } from '../api/publicRegistration'
+import landingPlans from '../data/landing-plans.json'
 import { money } from '../utils/format'
 
 const openFaq = ref(0)
@@ -96,16 +96,10 @@ const steps = [
   }
 ]
 
-// Hardcoded fallback so the marketing page never blanks if the API is down.
-const FALLBACK_PLANS = [
-  { name: 'Trial',      price: '₱0',      period: '/ 14 days', tagline: 'Full-feature trial — no card required.',       highlight: false, cta: 'Start free trial', is_trial: true,  features: ['Full feature access', 'Idempotent pre-loaded catalog', 'Unlimited patients + cases'] },
-  { name: 'Basic',      price: '₱1,000',  period: '/ monthly', tagline: 'One laboratory, everything on.',                highlight: false, cta: 'Choose Basic',     is_trial: false, features: ['All features', 'Full report suite', 'Unlimited patients + cases'] },
-  { name: 'Pro',        price: '₱1,500',  period: '/ monthly', tagline: 'For busy labs that need every report.',         highlight: true,  cta: 'Choose Pro',       is_trial: false, features: ['All features', 'Priority support', 'Advanced analytics'] },
-  { name: 'Enterprise', price: '₱3,000',  period: '/ monthly', tagline: 'For multi-branch operations.',                  highlight: false, cta: 'Contact sales',    is_trial: false, features: ['All features', 'Dedicated support', 'Custom onboarding'] }
-]
-
-const apiPlans = ref([])
-const plansError = ref('')
+// Plan rows live in src/data/landing-plans.json — same shape the API
+// returned from GET /public/subscription-plan/list. Edit that file to
+// adjust pricing on the marketing page without touching this component.
+const STATIC_PLANS = landingPlans
 
 // Split a plan's free-form features text into distinct bullets.
 function featuresLines(text) {
@@ -134,32 +128,14 @@ function planToCard(p, opts) {
 }
 
 const groupedPlans = computed(() => {
-  if (!apiPlans.value.length) {
-    const trial = FALLBACK_PLANS.filter(p => p.is_trial)
-    const paid  = FALLBACK_PLANS.filter(p => !p.is_trial)
-    return { trials: trial, paid }
-  }
-  const paidRows = apiPlans.value.filter(p => !p.is_trial)
-  const trialRows = apiPlans.value.filter(p => p.is_trial)
+  const paidRows = STATIC_PLANS.filter(p => !p.is_trial)
+  const trialRows = STATIC_PLANS.filter(p => p.is_trial)
   const highlightUuid = paidRows.length ? paidRows[Math.floor((paidRows.length - 1) / 2)].uuid : null
   return {
     trials: trialRows.map(p => planToCard(p, { highlight: false })),
     paid:   paidRows.map(p => planToCard(p, { highlight: p.uuid === highlightUuid }))
   }
 })
-
-async function loadPlans() {
-  plansError.value = ''
-  try {
-    const res = await listPublicPlans()
-    const rows = Array.isArray(res?.results) ? res.results
-              : Array.isArray(res) ? res
-              : []
-    if (rows.length) apiPlans.value = rows
-  } catch (e) {
-    plansError.value = e?.message || 'Failed to load plans'
-  }
-}
 
 // Google Analytics (GA4) — injected on the landing page only so the marketing
 // side gets traffic analytics without shipping the tag into the authenticated
@@ -185,7 +161,6 @@ function loadGoogleAnalytics() {
 }
 
 onMounted(() => {
-  loadPlans()
   loadGoogleAnalytics()
 })
 
