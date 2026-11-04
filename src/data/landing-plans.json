@@ -1,0 +1,20 @@
+[
+  {
+    "uuid": "27049609-fb44-40ba-bba0-132f5d1e88e8",
+    "code": "TRIAL",
+    "name": "TRIAL",
+    "price": "0.0000",
+    "days_duration": 14,
+    "features": null,
+    "is_trial": true
+  },
+  {
+    "uuid": "a8d12d57-ce7f-4cd5-8eff-6f4901ccf6f9",
+    "code": "MM",
+    "name": "Monthly",
+    "price": "1500.0000",
+    "days_duration": 30,
+    "features": null,
+    "is_trial": false
+  }
+]
