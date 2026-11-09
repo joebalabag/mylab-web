@@ -4,6 +4,9 @@ export function listTenants(filters = {}) {
   const query = {}
   if (filters.keywords) query.keywords = filters.keywords
   if (Array.isArray(filters.status) && filters.status.length) query.status = filters.status
+  // owner_uuid: '__none__' → unassigned tenants only; any other value scopes
+  // to that owner. See TenantService.listDashboard.
+  if (filters.owner_uuid) query.owner_uuid = filters.owner_uuid
   query.page_number = filters.page_number ?? 0
   query.page_size   = filters.page_size   ?? 0
   return api.get('/tenant/dashboard', { query })

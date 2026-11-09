@@ -17,6 +17,7 @@ import SkeletonRows from '../components/SkeletonRows.vue'
 import RowActionMenu from '../components/RowActionMenu.vue'
 import MobileFilterBar from '../components/MobileFilterBar.vue'
 import LabReportPrintable from '../components/LabReportPrintable.vue'
+import BranchSearchDrawer from '../components/BranchSearchDrawer.vue'
 import { formatDate, formatDateTime, todayISO } from '../utils/format'
 
 const lab        = useLaboratoryStore()
@@ -168,6 +169,86 @@ async function loadPendingCreationCount() {
 
 // ─── Toast ───
 const toast = ref('')
+
+// Phase 3 — Branch search drawer. Opens from a button on the filter bar.
+// Read-only cross-branch view/print/email of FINAL reports. View/Print
+// route through the existing Print Preview modal + LabReportPrintable so
+// there is a single viewer/printer across home-branch and cross-branch reads.
+const showBranchSearch = ref(false)
+// The sibling-branch list is probed once at login and cached in the auth
+// store (see stores/auth.js refreshBranches). The dashboard just reads the
+// cached flag — no per-mount API call. A full page refresh re-hydrates from
+// localStorage; owners can force a re-probe via logout/login if their
+// branch set changes mid-session.
+const hasBranches = computed(() => auth.hasBranches)
+
+// When set, the Print Preview modal renders using this tenant snapshot
+// instead of the signed-in user's `tenant.current`. Populated in
+// openBranchReport so a branch result prints with the ORIGINATING tenant's
+// logo / header / signatories — not the staff's home tenant. Cleared by
+// openPrint (same-tenant flow) so normal prints keep rendering as before.
+const printReportTenant = ref(null)
+const effectivePrintTenant = computed(() => printReportTenant.value || tenant.current)
+
+async function openBranchReport(row) {
+  // Leave the drawer open on purpose — the Print Preview stacks on top
+  // (DOM order breaks the z-index tie; see template). Closing the preview
+  // reveals the search results so the user can pick another row without
+  // re-running the query.
+  showPrint.value = true
+  printReport.value = null
+  printReportTenant.value = null
+  qrDataUrl.value = ''
+  accessLogs.value = null
+  accessLogsError.value = ''
+  accessLogsExpanded.value = false
+  printLoading.value = true
+  try {
+    // Phase 3.8 — guards on /lab-report/view are loosened to accept FINAL
+    // reads from a sibling-branch user (same owner). The response is the
+    // same full LabReportWithMeta shape as same-tenant /view, so the
+    // existing LabReportPrintable renders it verbatim.
+    //
+    // In parallel, fetch the originating tenant so the Print Preview uses
+    // ITS logo / header / lab-header text / signatory count / timezone —
+    // not the staff's home tenant. Mismatched branding would misrepresent
+    // where the test was performed.
+    const [report, originTenant] = await Promise.all([
+      lab.fetchOne(row.uuid),
+      tenant.fetchTenantSnapshot(row.tenant_uuid),
+    ])
+    printReport.value = report
+    printReportTenant.value = originTenant
+    // No QR code for branch-tenant reads — the public_token belongs to the
+    // originating tenant and we don't want to leak its signed URL from the
+    // sibling's Print Preview. (Same-tenant print flow still fetches it.)
+  } catch (e) {
+    flashError(e, 'Failed to load branch lab report')
+    showPrint.value = false
+    return
+  } finally {
+    printLoading.value = false
+  }
+  // Mirrors the post-fetch work in openPrint() — the preview DOM only mounts
+  // once printLoading is false, so measurement must come after the finally.
+  await nextTick()
+  await new Promise((r) => requestAnimationFrame(r))
+  await waitForImages(document.getElementById('lab-print-area'))
+  computeEffectivePaper()
+  remeasurePreview()
+}
+
+async function onBranchEmail(row) {
+  await openBranchReport(row)
+  // Patient email isn't carried in the branch mock payload, so the
+  // "Resend to patient" button in the print modal stays disabled until the
+  // real backend fills it in. Nudge the user with the existing toast system.
+  if (!printReport.value?.patient_email) {
+    flashError(new Error('Patient email is not on file for this branch report. Open the print preview and use "Resend to patient" once an email is attached.'), '')
+  } else {
+    await resendResultEmail()
+  }
+}
 const toastTone = ref('emerald')
 let toastTimer = null
 function flash(m, tone = 'emerald') {
@@ -872,6 +953,9 @@ function publicLabUrl(token) {
 async function openPrint(r) {
   showPrint.value = true
   printReport.value = null
+  // Same-tenant print flow — ensure any prior branch override is cleared
+  // so the template falls back to `tenant.current` (staff's home tenant).
+  printReportTenant.value = null
   qrDataUrl.value = ''
   accessLogs.value = null
   accessLogsError.value = ''
@@ -1487,9 +1571,24 @@ function ageFromBirthdate(v) {
 function patientDisplay(r) {
   const parts = []
   if (r.patient_number)  parts.push(r.patient_number)
-  const name = [r.patient_first_name, r.patient_last_name].filter(Boolean).join(' ')
+  const name = formatPatientNameLastFirst(r)
   if (name) parts.push(name)
   return parts.join(' · ') || '—'
+}
+
+// Patient display name formatted as "Lastname, Firstname M. Suffix" so the
+// dashboard sorts/scans by surname (same convention as the printed lab
+// report). Falls back to just the given name when there's no surname, and
+// returns '—' when both are empty.
+function formatPatientNameLastFirst(r) {
+  const first  = String(r?.patient_first_name  || '').trim()
+  const mi     = String(r?.patient_middle_name || '').trim().charAt(0).toUpperCase()
+  const suffix = String(r?.patient_suffix      || '').trim()
+  const last   = String(r?.patient_last_name   || '').trim()
+  const firstPart = [first, mi ? `${mi}.` : '', suffix].filter(Boolean).join(' ')
+  if (!last)      return firstPart || '—'
+  if (!firstPart) return last
+  return `${last}, ${firstPart}`
 }
 </script>
 
@@ -1583,6 +1682,19 @@ function patientDisplay(r) {
               <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
             </svg>
           </button>
+          <button
+            v-if="hasBranches"
+            class="btn-secondary !border-amber-300 !text-amber-700 hover:!bg-amber-50"
+            @click="showBranchSearch = true"
+            title="Search FINAL lab reports across the other branches of your lab chain"
+          >
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Branch search
+          </button>
           <template #action>
             <button v-if="canLabAdd" class="btn-primary" @click="openAdd">+ Add Laboratory</button>
           </template>
@@ -1635,7 +1747,7 @@ function patientDisplay(r) {
               </td>
               <td class="text-sm text-slate-700 dark:text-slate-200">
                 <div class="font-medium">
-                  {{ [r.patient_first_name, r.patient_last_name].filter(Boolean).join(' ') || '—' }}
+                  {{ formatPatientNameLastFirst(r) }}
                   <span v-if="ageFromBirthdate(r.patient_birthdate) !== '' || r.patient_sex"
                         class="text-[11px] font-normal text-slate-500 dark:text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">
                     · {{ ageFromBirthdate(r.patient_birthdate) !== '' ? `${ageFromBirthdate(r.patient_birthdate)} y/o` : '' }}<span
@@ -1661,13 +1773,11 @@ function patientDisplay(r) {
                 <div>
                   <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Created:</span>
                   {{ formatDateTime(r.created_at) }}
-                  <span v-if="r.created_by" class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500"> · {{ r.created_by }}</span>
                 </div>
                 <div>
                   <span class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500">Final:</span>
                   <template v-if="r.finalized_at">
                     {{ formatDateTime(r.finalized_at) }}
-                    <span v-if="r.pathologist_name" class="text-slate-400 dark:text-slate-500 dark:text-slate-400 dark:text-slate-500"> · {{ r.pathologist_name }}</span>
                   </template>
                   <template v-else>—</template>
                 </div>
@@ -2144,6 +2254,20 @@ function patientDisplay(r) {
       </template>
     </Modal>
 
+    <!-- Phase 3: branch result search drawer. Rendered BEFORE the Print
+         Preview modal so when a drawer row is opened, the Print Preview
+         paints on top (same z-index, DOM order breaks the tie) while the
+         drawer stays visible underneath. Closing the preview reveals the
+         drawer again — no re-search needed. View & Print both pipe through
+         openBranchReport; Email does the same, then resend-emails. -->
+    <BranchSearchDrawer
+      :show="showBranchSearch"
+      @close="showBranchSearch = false"
+      @view="openBranchReport"
+      @print="openBranchReport"
+      @email="onBranchEmail"
+    />
+
     <!-- ─── Print preview (draft w/ watermark, final w/ signatures) ─── -->
     <Modal :show="showPrint" :title="`Print Preview — ${printReport?.lab_number || ''}`" size="2xl"
            @close="showPrint = false">
@@ -2226,7 +2350,7 @@ function patientDisplay(r) {
                :style="`width: ${previewPaperPx.w}px;
                         transform: scale(${previewScale});
                         transform-origin: top left;`">
-            <LabReportPrintable :report="printReport" :tenant="tenant.current"
+            <LabReportPrintable :report="printReport" :tenant="effectivePrintTenant"
                                 :qr-data-url="qrDataUrl"
                                 :paper-height="previewPaperPx.h" />
           </div>

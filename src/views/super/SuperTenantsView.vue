@@ -17,8 +17,28 @@ import { formatDate, formatDateTime, money } from '../../utils/format'
 import { randomPassword, makeAdminUsername } from '../../utils/generate'
 import { assetUrl } from '../../api/client'
 import { allTimezones, DEFAULT_TIMEZONE } from '../../utils/timezones'
+import * as ownersApi from '../../api/owners'
 
 const TIMEZONES = allTimezones()
+
+// Backend attaches a lightweight `owner` snapshot to each tenant row via
+// TenantService.listDashboard's left-join on owner_tenants. See
+// src/app/tenant/tenant.service.ts (`attach owner snapshot` block).
+function ownerForTenant(t) {
+  return t?.owner || null
+}
+
+// Owner list for the filter dropdown + the Create-Tenant "Assign to Owner"
+// field. Loaded once on mount; refreshed on refresh-button click.
+const ownersList = ref([])
+async function loadOwners() {
+  try {
+    const res = await ownersApi.listOwners({ status: ['active'], page_size: 500 })
+    ownersList.value = Array.isArray(res?.results) ? res.results : (Array.isArray(res) ? res : [])
+  } catch (_) {
+    ownersList.value = []
+  }
+}
 
 const tenants = useTenantStore()
 const users   = useUsersStore()
@@ -27,6 +47,7 @@ const accessTemplate = useAccessTemplateStore()
 
 const search       = ref('')
 const statusFilter = ref('')
+const ownerFilter  = ref('') // '' = all, '__none__' = unassigned, otherwise owner uuid
 
 // Mobile-only collapse — hide the filter row by default on phones so the
 // tenants table lands above the fold. Tablet/desktop always show it inline.
@@ -35,6 +56,11 @@ const filtersSummary = computed(() => {
   const parts = []
   if (search.value.trim()) parts.push(`"${search.value.trim()}"`)
   if (statusFilter.value)  parts.push(statusFilter.value === 'active' ? 'Active' : 'Inactive')
+  if (ownerFilter.value === '__none__') parts.push('Unassigned')
+  else if (ownerFilter.value) {
+    const o = ownersList.value.find(x => x.uuid === ownerFilter.value)
+    if (o) parts.push(`Owner: ${o.name}`)
+  }
   return parts.length ? parts.join(' · ') : 'All tenants'
 })
 const loading      = ref(false)
@@ -46,7 +72,8 @@ async function loadTenants() {
   try {
     await tenants.fetchAllFromApi({
       keywords: search.value.trim() || undefined,
-      status: statusFilter.value ? [statusFilter.value] : []
+      status: statusFilter.value ? [statusFilter.value] : [],
+      owner_uuid: ownerFilter.value || undefined,
     })
   } catch (e) {
     listError.value = e?.message || 'Failed to load tenants'
@@ -57,13 +84,17 @@ async function loadTenants() {
 
 onMounted(() => {
   loadTenants()
+  loadOwners()
   // Best-effort — needed by the "Alter subscription plan" modal's plan picker.
   plans.fetchAll({ status: ['active'] }).catch(() => {})
 })
 
 function onSearchEnter()  { loadTenants() }
 function onFilterChange() { loadTenants() }
+watch(ownerFilter, () => loadTenants())
 
+// Server side now filters by owner_uuid (see loadTenants), so the local
+// list is already scoped — no need to re-filter in the view.
 const filtered = computed(() => tenants.all)
 
 const flashMsg = ref('')
@@ -78,6 +109,7 @@ const emptyForm = () => ({
   display_name: '',
   legal_name: '',
   owner_name: '',
+  owner_uuid: '',
   store_code: '',
   branch: '',
   terminal_id: '',
@@ -146,6 +178,7 @@ function openEdit(t) {
     display_name:      t.display_name       || '',
     legal_name:        t.legal_name         || '',
     owner_name:        t.owner_name         || '',
+    owner_uuid:        t.owner?.uuid || '',
     store_code:        t.store_code         || '',
     branch:            t.branch             || '',
     terminal_id:       t.terminal_id        || '',
@@ -267,7 +300,12 @@ async function submit() {
       show_tin_on_receipt:!!form.value.show_tin_on_receipt,
       receipt_header:    form.value.receipt_header.trim(),
       receipt_footer:    form.value.receipt_footer.trim(),
-      receipt_show_logo:  !!form.value.receipt_show_logo
+      receipt_show_logo:  !!form.value.receipt_show_logo,
+      // Owner assignment is applied server-side on create via
+      // OwnerService.assignTenant (see TenantController.create). On update
+      // the field is ignored by the controller — super-admin re-assigns
+      // from Owner Details instead.
+      ...(editing.value ? {} : { owner_uuid: form.value.owner_uuid || undefined })
     }
 
     if (editing.value) {
@@ -687,7 +725,7 @@ function onMigrationDone(payload) {
 
       <div
         id="super-tenants-filters"
-        class="gap-2 border-b border-slate-100 p-4 grid-cols-1 sm:grid-cols-2"
+        class="gap-2 border-b border-slate-100 p-4 grid-cols-1 sm:grid-cols-3"
         :class="filtersOpen ? 'grid' : 'hidden sm:grid'"
       >
         <input
@@ -700,6 +738,13 @@ function onMigrationDone(payload) {
           <option value="">All statuses</option>
           <option value="active">Active only</option>
           <option value="inactive">Inactive only</option>
+        </select>
+        <select v-model="ownerFilter" class="input" title="Filter by owner">
+          <option value="">All owners</option>
+          <option value="__none__">— Unassigned —</option>
+          <option v-for="o in ownersList" :key="o.uuid" :value="o.uuid">
+            {{ o.name }}{{ o.business_name ? ' · ' + o.business_name : '' }}
+          </option>
         </select>
       </div>
 
@@ -723,10 +768,11 @@ function onMigrationDone(payload) {
           <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th>Store</th>
+              <th class="hidden lg:table-cell">Owner</th>
               <th class="hidden md:table-cell">Contact</th>
               <th>Subscription</th>
-              <th class="hidden lg:table-cell">Created</th>
-              <th class="hidden lg:table-cell">Last active</th>
+              <th class="hidden xl:table-cell">Created</th>
+              <th class="hidden xl:table-cell">Last active</th>
               <th>Status</th>
               <th class="w-14 text-right">Actions</th>
             </tr>
@@ -751,6 +797,17 @@ function onMigrationDone(payload) {
                     </div>
                   </div>
                 </div>
+              </td>
+              <td class="hidden lg:table-cell text-slate-700">
+                <template v-if="ownerForTenant(t)">
+                  <div class="text-sm font-medium">{{ ownerForTenant(t).name }}</div>
+                  <div v-if="ownerForTenant(t).business_name" class="text-[11px] text-slate-500">
+                    {{ ownerForTenant(t).business_name }}
+                  </div>
+                </template>
+                <span v-else class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                  — unassigned —
+                </span>
               </td>
               <td class="hidden md:table-cell text-slate-700">
                 <div v-if="t.email_address" class="text-sm">{{ t.email_address }}</div>
@@ -824,8 +881,8 @@ function onMigrationDone(payload) {
                   </div>
                 </div>
               </td>
-              <td class="hidden lg:table-cell text-xs text-slate-500">{{ formatDateTime(t.created_at) }}</td>
-              <td class="hidden lg:table-cell text-xs text-slate-500">
+              <td class="hidden xl:table-cell text-xs text-slate-500">{{ formatDateTime(t.created_at) }}</td>
+              <td class="hidden xl:table-cell text-xs text-slate-500">
                 {{ formatDateTime(t.last_active_at || t.last_active || t.last_used_at || t.last_login_at) }}
               </td>
               <td>
@@ -918,6 +975,19 @@ function onMigrationDone(payload) {
                 <label class="label">Owner name</label>
                 <input v-model="form.owner_name" autocomplete="name" class="input"
                        placeholder="Full name of the store owner" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="label">Assign to Owner</label>
+                <select v-model="form.owner_uuid" class="input">
+                  <option value="">— No owner (platform-managed) —</option>
+                  <option v-for="o in ownersList" :key="o.uuid" :value="o.uuid">
+                    {{ o.name }}{{ o.business_name ? ' · ' + o.business_name : '' }}
+                  </option>
+                </select>
+                <p class="mt-1 text-[11px] text-slate-500">
+                  Optional. Owners manage their tenants from
+                  <span class="font-mono">/owner</span> and see consolidated reports across their branches.
+                </p>
               </div>
               <div>
                 <label class="label">Branch</label>

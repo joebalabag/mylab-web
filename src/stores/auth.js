@@ -1,13 +1,17 @@
 import { defineStore } from 'pinia'
 import { setToken } from '../api/client'
 import * as authApi from '../api/auth'
+import * as labBranchesApi from '../api/labBranches'
 import { sendForget as sendPresenceForget } from '../api/presence'
 import { useTenantStore } from './tenant'
 import { useSubscriptionGuardStore } from './subscriptionGuard'
 import { clearTenantTheme } from '../theme/apply'
 
-const TOKEN_KEY = 'pos_token'
-const USER_KEY  = 'pos_user'
+const TOKEN_KEY    = 'pos_token'
+const USER_KEY     = 'pos_user'
+// Cache the sibling-branch list across page refreshes so LaboratoryView
+// doesn't have to re-probe /lab-report/branches every mount.
+const BRANCHES_KEY = 'pos_branches'
 
 // Boot token into the API client before any request goes out.
 setToken(localStorage.getItem(TOKEN_KEY) || null)
@@ -15,12 +19,19 @@ setToken(localStorage.getItem(TOKEN_KEY) || null)
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: JSON.parse(localStorage.getItem(USER_KEY) || 'null'),
-    token: localStorage.getItem(TOKEN_KEY) || null
+    token: localStorage.getItem(TOKEN_KEY) || null,
+    // Sibling-branch tenants under the same owner as the signed-in user's
+    // home tenant. Populated on login (and optionally re-probed). Drives
+    // the "Branch search" button visibility in the Laboratory dashboard.
+    branches: JSON.parse(localStorage.getItem(BRANCHES_KEY) || '[]'),
   }),
   getters: {
     isAuthenticated: (s) => !!s.token,
     role:            (s) => s.user?.role || null,
     tenantUuid:      (s) => s.user?.tenant_uuid || null,
+    // True when this user's home tenant has at least one sibling branch
+    // (same owner) — enables the Branch Search affordance.
+    hasBranches:     (s) => Array.isArray(s.branches) && s.branches.length > 0,
     // All access rows the login server sent for this user, filtered to the
     // ones that are actually granted (has_access === true).
     myAccessRows: (s) => {
@@ -71,9 +82,28 @@ export const useAuthStore = defineStore('auth', {
           // the fetch fails the user still has a valid token.
           try { await tenant.loadCurrentFromApi() } catch (_) { /* ignore */ }
         }
+
+        // Probe sibling branches once per login and cache the result. The
+        // Laboratory dashboard reads `auth.hasBranches` instead of re-calling
+        // /lab-report/branches on every mount.
+        this.refreshBranches().catch(() => {})
         return { ok: true }
       } catch (e) {
         return { ok: false, message: e?.message || 'Login failed' }
+      }
+    },
+
+    // Re-fetch the sibling-branch list. Call after login, or explicitly if
+    // the owner's tenant assignments change mid-session.
+    async refreshBranches() {
+      try {
+        const rows = await labBranchesApi.listBranches()
+        const list = Array.isArray(rows) ? rows : []
+        this.branches = list
+        localStorage.setItem(BRANCHES_KEY, JSON.stringify(list))
+      } catch (_) {
+        this.branches = []
+        localStorage.setItem(BRANCHES_KEY, '[]')
       }
     },
 
@@ -136,9 +166,11 @@ export const useAuthStore = defineStore('auth', {
       }
       this.user = null
       this.token = null
+      this.branches = []
       setToken(null)
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
+      localStorage.removeItem(BRANCHES_KEY)
       // Clear the forced-expired flag so re-logging in doesn't immediately
       // reshow the gate before the new session's snapshot loads.
       try { useSubscriptionGuardStore().reset() } catch (_) {}

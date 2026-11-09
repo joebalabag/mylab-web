@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSuperAdminStore } from '../stores/superAdmin'
+import { useOwnerStore } from '../stores/owner'
 import { useTenantStore } from '../stores/tenant'
+import { setReportsTenantOverride } from '../api/reports'
 
 const routes = [
   {
@@ -83,6 +85,8 @@ const routes = [
       { path: '',          redirect: '/super/dashboard' },
       { path: 'dashboard', name: 'super-dashboard', component: () => import('../views/super/SuperDashboardView.vue') },
       { path: 'tenants',   name: 'super-tenants',   component: () => import('../views/super/SuperTenantsView.vue') },
+      { path: 'owners',    name: 'super-owners',    component: () => import('../views/super/SuperOwnersView.vue') },
+      { path: 'owners/:uuid', name: 'super-owner-details', component: () => import('../views/super/SuperOwnerDetailsView.vue') },
       { path: 'plans',     name: 'super-plans',     component: () => import('../views/super/SuperPlansView.vue') },
       { path: 'subscription-payments', name: 'super-subscription-payments',
         component: () => import('../views/super/SuperSubscriptionPaymentsView.vue') },
@@ -97,6 +101,30 @@ const routes = [
       { path: 'users',     name: 'super-users',     component: () => import('../views/super/SuperUsersView.vue') },
       { path: 'audit-logs', name: 'super-audit-logs',
         component: () => import('../views/super/SuperAuditLogsView.vue') }
+    ]
+  },
+
+  // ─── Owner Console (Phase 2) ───
+  {
+    path: '/owner/login',
+    name: 'owner-login',
+    component: () => import('../views/owner/OwnerLoginView.vue'),
+    meta: { public: true, owner: true }
+  },
+  {
+    path: '/owner',
+    component: () => import('../layouts/OwnerLayout.vue'),
+    meta: { owner: true },
+    children: [
+      { path: '',                  redirect: '/owner/dashboard' },
+      { path: 'dashboard',         name: 'owner-dashboard',        component: () => import('../views/owner/OwnerDashboardView.vue') },
+      { path: 'tenants',           name: 'owner-tenants',          component: () => import('../views/owner/OwnerTenantsView.vue') },
+      { path: 'tenant-reports',    name: 'owner-tenant-reports',   component: () => import('../views/owner/OwnerTenantReportsView.vue') },
+      { path: 'migrations',        name: 'owner-migrations',       component: () => import('../views/owner/OwnerMigrationsView.vue') },
+      { path: 'catalog',           name: 'owner-catalog',          component: () => import('../views/owner/OwnerCatalogView.vue') },
+      { path: 'catalog/compare',   name: 'owner-catalog-compare',  component: () => import('../views/owner/OwnerPriceComparisonView.vue') },
+      { path: 'users',             name: 'owner-users',            component: () => import('../views/owner/OwnerUsersView.vue') },
+      { path: 'settings',          name: 'owner-settings',         component: () => import('../views/owner/OwnerSettingsView.vue') }
     ]
   },
 
@@ -212,6 +240,7 @@ router.afterEach(() => {
 
 router.beforeEach((to) => {
   const isSuperRoute = to.matched.some(r => r.meta?.super) || to.path.startsWith('/super')
+  const isOwnerRoute = to.matched.some(r => r.meta?.owner) || to.path.startsWith('/owner')
 
   if (isSuperRoute) {
     const superAdmin = useSuperAdminStore()
@@ -221,6 +250,20 @@ router.beforeEach((to) => {
     if (to.name === 'super-login' && superAdmin.isAuthenticated) {
       return { name: 'super-dashboard' }
     }
+    return
+  }
+
+  if (isOwnerRoute) {
+    const owner = useOwnerStore()
+    if (!to.meta.public && !owner.isAuthenticated) {
+      return { name: 'owner-login', query: { redirect: to.fullPath } }
+    }
+    if (to.name === 'owner-login' && owner.isAuthenticated) {
+      return { name: 'owner-dashboard' }
+    }
+    // Clear any lingering reports override when navigating away from the
+    // tenant-reports view (the view sets it itself when a tenant is picked).
+    if (to.name !== 'owner-tenant-reports') setReportsTenantOverride(null)
     return
   }
 
