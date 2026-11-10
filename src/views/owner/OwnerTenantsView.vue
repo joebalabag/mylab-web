@@ -162,7 +162,10 @@ function onTenantCreated(t) {
               <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
             </svg>
           </button>
-          <button class="btn-primary" @click="openNewTenant" title="Create a new branch under your owner account">
+          <!-- New-tenant creation is intentionally hidden for now — the modal
+               + handler stay in this file (openNewTenant, closeNewTenant, the
+               `<Modal>` below) and can be re-exposed by removing `v-if="false"`. -->
+          <button v-if="false" class="btn-primary" @click="openNewTenant" title="Create a new branch under your owner account">
             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"/>
