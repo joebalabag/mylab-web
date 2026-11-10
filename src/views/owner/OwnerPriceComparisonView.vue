@@ -53,54 +53,113 @@ const rows = computed(() => {
         || r.name.toLowerCase().includes(term)
         || r.category?.toLowerCase().includes(term)
         || r.item_group?.toLowerCase().includes(term)
-  })
+  }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }))
 })
 
 const gapsCount = computed(() => data.value.rows.filter(r => r.has_gap).length)
 
 /* ─── Edit prices modal ─── */
-const edit = ref({ show: false, row: null, draft: {}, saving: false, error: '' })
+// `addEnabled[tenant_uuid]` tracks the "add this listing" checkboxes for
+// tenants that currently have no row for this item — unchecked means the
+// price input stays disabled and the tenant is skipped on save.
+const edit = ref({ show: false, row: null, draft: {}, addEnabled: {}, saving: false, error: '' })
 function openEdit(row) {
-  // Seed draft prices per tenant — blank means "no listing for this tenant"
-  // and the owner can either leave it blank (skip) or type a price to add it.
+  // Seed draft prices per tenant. Tenants without an existing listing
+  // start disabled; the owner must tick the checkbox to opt into the
+  // clone-and-add path.
   const draft = {}
+  const addEnabled = {}
   for (const t of data.value.tenants) {
     const v = row.prices[t.tenant_uuid]
     draft[t.tenant_uuid] = v != null ? String(v) : ''
+    if (v == null) addEnabled[t.tenant_uuid] = false
   }
-  edit.value = { show: true, row, draft, saving: false, error: '' }
+  edit.value = { show: true, row, draft, addEnabled, saving: false, error: '' }
 }
 function closeEdit() {
   if (edit.value.saving) return
-  edit.value = { show: false, row: null, draft: {}, saving: false, error: '' }
+  edit.value = { show: false, row: null, draft: {}, addEnabled: {}, saving: false, error: '' }
+}
+// Tenants in the modal that currently list this item — used both to pick a
+// clone source server-side and to decide whether the "add" checkboxes have
+// anything to copy from.
+const sourceTenantCount = computed(() => {
+  if (!edit.value.row) return 0
+  return data.value.tenants.filter(t => edit.value.row.prices[t.tenant_uuid] != null).length
+})
+const anyAddChecked = computed(() => Object.values(edit.value.addEnabled || {}).some(Boolean))
+function isNotListed(uuid) {
+  return edit.value.row && edit.value.row.prices[uuid] == null
+}
+function isInputEnabled(uuid) {
+  if (!isNotListed(uuid)) return true
+  return !!edit.value.addEnabled[uuid]
 }
 async function saveEdit() {
-  const { row, draft } = edit.value
+  const { row, draft, addEnabled } = edit.value
   if (!row) return
   // Guard against junk input before touching storage
   for (const [uuid, v] of Object.entries(draft)) {
     if (v === '' || v == null) continue
+    // Ignore not-listed tenants whose checkbox is off — they won't be sent.
+    if (isNotListed(uuid) && !addEnabled[uuid]) continue
     const n = Number(v)
     if (!Number.isFinite(n) || n < 0) {
       edit.value.error = `Price for ${data.value.tenants.find(t => t.tenant_uuid === uuid)?.store_code || uuid} is not a valid non-negative number.`
       return
     }
   }
+  // Checked-to-add tenants must also have a price typed in.
+  for (const [uuid, enabled] of Object.entries(addEnabled || {})) {
+    if (!enabled) continue
+    const v = draft[uuid]
+    if (v === '' || v == null) {
+      edit.value.error = `Type a price for ${data.value.tenants.find(t => t.tenant_uuid === uuid)?.store_code || uuid} or uncheck "Add this item" for that tenant.`
+      return
+    }
+  }
+  // Build the two maps up-front so we can short-circuit an empty save
+  // without firing a wasted PATCH.
+  const prices = {}
+  const add = {}
+  for (const [uuid, v] of Object.entries(draft)) {
+    if (v === '' || v == null) continue
+    const num = Number(v)
+    if (isNotListed(uuid)) {
+      if (addEnabled[uuid]) add[uuid] = num
+    } else {
+      prices[uuid] = num
+    }
+  }
+  if (Object.keys(prices).length === 0 && Object.keys(add).length === 0) {
+    edit.value.error = 'Nothing to save. Edit at least one price or tick an "add" checkbox.'
+    return
+  }
   edit.value.saving = true
   edit.value.error = ''
   try {
-    const payload = {}
-    for (const [uuid, v] of Object.entries(draft)) {
-      if (v === '' || v == null) continue
-      payload[uuid] = Number(v)
-    }
-    const result = await ownerMeApi.bulkPriceEdit(row.item_code, payload)
+    const result = await ownerMeApi.bulkPriceEdit(row.item_code, prices, add)
     // Reload the pivot so min/max/gap flags refresh from truth.
     data.value = await ownerMeApi.compareCatalog()
-    const touched = Number(result?.touched || 0)
-    flash(touched
-      ? `Updated ${touched} price${touched === 1 ? '' : 's'} for ${row.item_code}`
-      : `No changes saved for ${row.item_code}`)
+    const touched  = Number(result?.touched || 0)
+    const added    = Number(result?.added   || 0)
+    const sig      = Array.isArray(result?.new_group_needs_signatory) ? result.new_group_needs_signatory : []
+    const skipped  = Array.isArray(result?.skipped) ? result.skipped : []
+    const parts = []
+    if (touched) parts.push(`updated ${touched} price${touched === 1 ? '' : 's'}`)
+    if (added)   parts.push(`added listing to ${added} tenant${added === 1 ? '' : 's'}`)
+    if (sig.length) {
+      const names = sig.map(uuid => data.value.tenants.find(t => t.tenant_uuid === uuid)?.store_code || uuid)
+      const label = names.length === 1
+        ? `signatory not set for ${names[0]}`
+        : `signatory not set for ${names.length} new branches`
+      parts.push(label)
+    }
+    if (skipped.length) parts.push(`${skipped.length} skipped`)
+    flash(parts.length
+      ? `${row.item_code}: ${parts.join(', ')}`
+      : `No changes saved for ${row.item_code}`,
+      (sig.length || skipped.length) ? 6000 : 2500)
     closeEdit()
   } catch (e) {
     edit.value.error = e?.message || 'Failed to save prices'
@@ -111,10 +170,10 @@ async function saveEdit() {
 
 const flashMsg = ref('')
 let flashTimer = null
-function flash(m) {
+function flash(m, ms = 2500) {
   flashMsg.value = m
   if (flashTimer) clearTimeout(flashTimer)
-  flashTimer = setTimeout(() => flashMsg.value = '', 2500)
+  flashTimer = setTimeout(() => flashMsg.value = '', ms)
 }
 
 function cellClass(row, tenant_uuid) {
@@ -307,12 +366,24 @@ function quote(v) {
           <div class="text-xs font-bold uppercase tracking-widest text-slate-500">Price per tenant</div>
           <div class="space-y-2">
             <div v-for="t in data.tenants" :key="t.tenant_uuid"
-                 class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+                 class="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
+                 :class="isNotListed(t.tenant_uuid) && !edit.addEnabled[t.tenant_uuid] ? 'opacity-60' : ''">
+              <label v-if="isNotListed(t.tenant_uuid)"
+                     class="flex shrink-0 items-center"
+                     :title="sourceTenantCount ? 'Add this item to this tenant' : 'No other tenant has this item to copy from'">
+                <input
+                  type="checkbox"
+                  v-model="edit.addEnabled[t.tenant_uuid]"
+                  :disabled="!sourceTenantCount"
+                  class="h-4 w-4 rounded border-slate-300"
+                />
+              </label>
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-semibold text-slate-800">{{ t.display_name }}</div>
                 <div class="text-[11px] text-slate-500">
                   <span class="font-mono">{{ t.store_code }}</span>
                   <span v-if="t.branch"> · {{ t.branch }}</span>
+                  <span v-if="isNotListed(t.tenant_uuid)" class="ml-1 italic text-slate-400">· not listed</span>
                 </div>
               </div>
               <div class="flex items-center gap-1">
@@ -322,14 +393,18 @@ function quote(v) {
                   type="number"
                   step="0.01"
                   min="0"
-                  class="input w-32 text-right font-mono"
-                  :placeholder="edit.row.prices[t.tenant_uuid] == null ? 'Not listed' : ''"
+                  class="input w-32 text-right font-mono disabled:bg-slate-50 disabled:text-slate-400"
+                  :disabled="!isInputEnabled(t.tenant_uuid)"
+                  :placeholder="isNotListed(t.tenant_uuid) ? (edit.addEnabled[t.tenant_uuid] ? 'New price' : 'Not listed') : ''"
                 />
               </div>
             </div>
           </div>
-          <p class="text-[11px] text-slate-500">
-            Leave a tenant blank to skip; a tenant without a current price is marked <b>Not listed</b> and will be added if you type one.
+          <p v-if="anyAddChecked" class="rounded-md border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] text-sky-800">
+            For every checked tenant above, the item's details (components, plus category &amp; group if missing) will be copied from the owned tenant whose listing for <span class="font-mono">{{ edit.row.item_code }}</span> was <b>most recently modified</b>, then stamped with the price you typed.
+          </p>
+          <p v-else class="text-[11px] text-slate-500">
+            Leave a tenant blank to skip. For a tenant marked <b>not listed</b>, tick the checkbox to add this item; details will be copied from the owned tenant whose listing was most recently modified.
           </p>
         </div>
 

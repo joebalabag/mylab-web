@@ -3,6 +3,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { useOwnerStore } from '../stores/owner'
 import { assetUrl } from '../api/client'
 import MyLabLogo from '../assets/MyLab-icon.png'
+import { version as appVersion } from '../../package.json'
 
 defineProps({
   open: Boolean,
@@ -143,6 +144,10 @@ function logout() {
         </svg>
         <span :class="collapsed && 'md:hidden'">Sign out</span>
       </button>
+      <div class="pt-1 text-center text-[10px] font-medium text-slate-500"
+           :title="`MyLab Owner Console · v${appVersion}`">
+        v{{ appVersion }}
+      </div>
     </div>
   </aside>
 </template>

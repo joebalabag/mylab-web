@@ -53,8 +53,10 @@ export function compareCatalog() {
   return api.get('/owner/me/catalog/compare')
 }
 
-export function bulkPriceEdit(item_code, pricesByTenant) {
-  return api.patch(`/owner/me/catalog/${encodeURIComponent(item_code)}/prices`, { prices: pricesByTenant })
+export function bulkPriceEdit(item_code, pricesByTenant, addsByTenant) {
+  const body = { prices: pricesByTenant }
+  if (addsByTenant && Object.keys(addsByTenant).length) body.add = addsByTenant
+  return api.patch(`/owner/me/catalog/${encodeURIComponent(item_code)}/prices`, body)
 }
 
 /* Users across owner's tenants */
