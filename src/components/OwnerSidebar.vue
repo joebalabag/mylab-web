@@ -56,7 +56,7 @@ function logout() {
            class="h-9 w-9 shrink-0 rounded-lg bg-white/10 object-contain p-1" />
       <div :class="collapsed && 'md:hidden'">
         <div class="text-sm font-bold text-white">MyLab</div>
-        <div class="text-[10px] uppercase tracking-widest text-amber-300">Owner Console</div>
+        <div class="text-[10px] uppercase tracking-widest text-teal-300">Owner Console</div>
       </div>
 
       <button
@@ -80,7 +80,7 @@ function logout() {
       <RouterLink
         to="/owner/dashboard"
         :title="collapsed ? (owner.currentUser?.business_name || 'Owner') : ''"
-        class="flex items-center gap-3 rounded-lg bg-slate-900/60 p-2 ring-1 ring-inset ring-slate-800 hover:ring-amber-500/30"
+        class="flex items-center gap-3 rounded-lg bg-slate-900/60 p-2 ring-1 ring-inset ring-slate-800 hover:ring-teal-500/30"
         :class="collapsed && 'md:justify-center md:p-1.5'"
       >
         <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white"
@@ -99,7 +99,7 @@ function logout() {
           <div class="truncate text-sm font-semibold text-white">
             {{ owner.currentUser?.business_name || owner.currentUser?.name }}
           </div>
-          <div class="truncate text-[10px] uppercase tracking-widest text-amber-300">
+          <div class="truncate text-[10px] uppercase tracking-widest text-teal-300">
             Your branches
           </div>
         </div>
@@ -116,9 +116,9 @@ function logout() {
         class="mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300
                hover:bg-slate-800 hover:text-white"
         :class="collapsed && 'md:justify-center md:px-0'"
-        active-class="!bg-amber-500/10 !text-amber-300 ring-1 ring-inset ring-amber-500/30"
+        active-class="!bg-teal-500/10 !text-teal-300 ring-1 ring-inset ring-teal-500/30"
       >
-        <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center text-amber-300" v-html="iconSvg(item.icon)"></span>
+        <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center text-teal-300" v-html="iconSvg(item.icon)"></span>
         <span :class="collapsed && 'md:hidden'">{{ item.label }}</span>
       </RouterLink>
     </nav>
@@ -129,7 +129,7 @@ function logout() {
         <div class="mt-0.5 truncate text-sm font-semibold text-slate-100">
           {{ owner.currentUser?.name }}
         </div>
-        <div class="truncate text-xs text-amber-300">{{ owner.currentUser?.business_name || 'Owner' }}</div>
+        <div class="truncate text-xs text-teal-300">{{ owner.currentUser?.business_name || 'Owner' }}</div>
       </div>
       <button
         class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import MyLabLoginLogo from '../assets/MyLab-logo-login.png'
 import { verifyResetToken, submitNewPassword } from '../api/auth'
+import { verifyOwnerResetToken, resetOwnerPassword } from '../api/ownerAuth'
 
 // Landing page for the ${appUrl}/reset-password?token=... link sent by the
 // forgot-password flow. Four render states so the user always sees what's
@@ -21,6 +22,9 @@ const pw2    = ref('')
 const showPw = ref(false)
 
 const token = computed(() => String(route.query.token || '').trim())
+// Owner-reset emails append ?type=owner so the same page can serve both flows:
+// owner tokens hit /auth/owner/reset-password/*, user tokens hit /auth/reset-password/*.
+const isOwner = computed(() => String(route.query.type || '').toLowerCase() === 'owner')
 
 onMounted(async () => {
   if (!token.value) {
@@ -29,7 +33,9 @@ onMounted(async () => {
     return
   }
   try {
-    const res = await verifyResetToken(token.value)
+    const res = isOwner.value
+      ? await verifyOwnerResetToken(token.value)
+      : await verifyResetToken(token.value)
     username.value = res?.username || ''
     state.value = STATE.READY
   } catch (e) {
@@ -54,7 +60,11 @@ async function submit() {
   if (pw1.value !== pw2.value) { errorMsg.value = 'Passwords do not match.'; return }
   state.value = STATE.SUBMITTING
   try {
-    await submitNewPassword(token.value, pw1.value)
+    if (isOwner.value) {
+      await resetOwnerPassword(token.value, pw1.value)
+    } else {
+      await submitNewPassword(token.value, pw1.value)
+    }
     state.value = STATE.DONE
   } catch (e) {
     // Token could have expired between verify and submit — surface the
@@ -65,7 +75,7 @@ async function submit() {
 }
 
 function goToLogin() {
-  router.push({ name: 'login' })
+  router.push({ name: isOwner.value ? 'owner-login' : 'login' })
 }
 </script>
 
@@ -103,7 +113,7 @@ function goToLogin() {
           </div>
           <div class="text-base font-semibold text-slate-800">Reset link isn't usable</div>
           <p class="mx-auto max-w-sm text-sm text-slate-600">{{ errorMsg }}</p>
-          <RouterLink :to="{ name: 'login' }"
+          <RouterLink :to="{ name: isOwner ? 'owner-login' : 'login' }"
                       class="btn-primary mt-4 inline-flex">
             Back to sign in
           </RouterLink>

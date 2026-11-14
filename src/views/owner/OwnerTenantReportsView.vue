@@ -154,9 +154,9 @@ const slotKey = computed(() => `${selectedUuid.value || '-'}::${activeKey.value}
           </select>
         </div>
 
-        <div v-if="selectedTenant" class="min-w-0 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <div v-if="selectedTenant" class="min-w-0 rounded-lg border border-teal-100 bg-teal-50 px-3 py-2 text-xs text-teal-800">
           <div class="font-semibold truncate">{{ selectedTenant.display_name }}</div>
-          <div class="font-mono text-[10px] text-amber-600">
+          <div class="font-mono text-[10px] text-teal-700">
             {{ selectedTenant.store_code || selectedTenant.tenant_uuid }}
           </div>
         </div>
@@ -181,7 +181,7 @@ const slotKey = computed(() => `${selectedUuid.value || '-'}::${activeKey.value}
           </button>
         </div>
       </div>
-      <div v-if="tenantsLoading" class="border-t border-slate-100 bg-slate-50 px-4 py-1.5 text-xs text-amber-700">Loading tenants…</div>
+      <div v-if="tenantsLoading" class="border-t border-slate-100 bg-slate-50 px-4 py-1.5 text-xs text-teal-700">Loading tenants…</div>
       <div v-if="tenantsError" class="border-t border-rose-100 bg-rose-50 px-4 py-2 text-sm text-rose-700">
         {{ tenantsError }}
       </div>
@@ -194,7 +194,7 @@ const slotKey = computed(() => `${selectedUuid.value || '-'}::${activeKey.value}
           <button v-for="r in REPORTS" :key="r.key"
                   class="border-b-2 py-3 text-sm font-medium whitespace-nowrap"
                   :class="activeKey === r.key
-                          ? 'border-amber-500 text-amber-700'
+                          ? 'border-teal-500 text-teal-700'
                           : 'border-transparent text-slate-500 hover:text-slate-700'"
                   :disabled="!selectedUuid"
                   @click="selectReport(r.key)">

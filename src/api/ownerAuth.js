@@ -18,8 +18,11 @@ export function verifyOwnerResetToken(token) {
   return api.get('/auth/owner/reset-password/verify', { query: { token } })
 }
 
-export function resetOwnerPassword(token, new_password, confirm_password) {
-  return api.post('/auth/owner/reset-password', { token, new_password, confirm_password })
+// confirm_password is a client-side-only check — the backend DTO only accepts
+// token + new_password (whitelist strips extras), so callers verify match
+// before invoking this function.
+export function resetOwnerPassword(token, new_password) {
+  return api.post('/auth/owner/reset-password', { token, new_password })
 }
 
 export function getMe() {

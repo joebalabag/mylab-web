@@ -219,7 +219,7 @@ async function doResetPassword() {
           <div class="text-sm font-semibold text-slate-800">Users across my branches</div>
           <div class="text-xs text-slate-500">
             {{ filtered.length }} shown
-            <span v-if="loading" class="ml-1 text-amber-600">· loading…</span>
+            <span v-if="loading" class="ml-1 text-teal-700">· loading…</span>
           </div>
         </div>
         <button class="btn-primary" @click="openAdd" :disabled="!tenants.length">

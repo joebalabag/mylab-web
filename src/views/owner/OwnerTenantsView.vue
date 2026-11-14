@@ -7,7 +7,7 @@ import EmptyState from '../../components/EmptyState.vue'
 import SkeletonRows from '../../components/SkeletonRows.vue'
 import RowActionMenu from '../../components/RowActionMenu.vue'
 import TenantCreateModal from '../../components/TenantCreateModal.vue'
-import { money, formatDateTime } from '../../utils/format'
+import { money, formatDate, formatDateTime } from '../../utils/format'
 import * as ownerMeApi from '../../api/ownerMe'
 
 const owner = useOwnerStore()
@@ -37,6 +37,29 @@ async function load() {
 }
 onMounted(load)
 
+/* ─── Per-row subscription snapshot helpers (mirrors SuperTenantsView) ─── */
+function subscriptionDaysRemaining(t) {
+  const exp = t?.current_subscription_expiry
+  if (!exp) return null
+  const d = new Date(String(exp).replace(' ', 'T'))
+  if (isNaN(d.getTime())) return null
+  return Math.ceil((d.getTime() - Date.now()) / 86_400_000)
+}
+function subscriptionState(t) {
+  if (!t?.current_subscription_plan_uuid) return 'none'
+  const remain = subscriptionDaysRemaining(t)
+  if (remain == null) return 'active'
+  if (remain < 0) return 'expired'
+  const warn = Number(t.current_subscription_expiry_warning_days) || 0
+  return warn && remain <= warn ? 'expiring-soon' : 'active'
+}
+function subscriptionPlanLabel(t) {
+  return {
+    code: t?.current_subscription_plan_code || '',
+    name: t?.current_subscription_plan_name || ''
+  }
+}
+
 const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
   return tenants.value.filter(t => {
@@ -45,7 +68,10 @@ const filtered = computed(() => {
     return (
       t.display_name?.toLowerCase().includes(term) ||
       t.store_code?.toLowerCase().includes(term) ||
-      t.branch?.toLowerCase().includes(term)
+      t.city?.toLowerCase().includes(term) ||
+      t.province?.toLowerCase().includes(term) ||
+      t.address_street1?.toLowerCase().includes(term) ||
+      t.address_street2?.toLowerCase().includes(term)
     )
   })
 })
@@ -150,7 +176,7 @@ function onTenantCreated(t) {
           <div class="text-sm font-semibold text-slate-800">My Tenants</div>
           <div class="text-xs text-slate-500">
             {{ filtered.length }} shown
-            <span v-if="loading" class="ml-1 text-amber-600">· loading…</span>
+            <span v-if="loading" class="ml-1 text-teal-700">· loading…</span>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -177,7 +203,7 @@ function onTenantCreated(t) {
       </div>
 
       <div class="grid gap-2 border-b border-slate-100 p-4 grid-cols-1 sm:grid-cols-2">
-        <input v-model="search" class="input" placeholder="Search by name, code, branch…" />
+        <input v-model="search" class="input" placeholder="Search by name, code, city, address…" />
         <select v-model="statusFilter" class="input">
           <option value="">All statuses</option>
           <option value="active">Active only</option>
@@ -202,10 +228,12 @@ function onTenantCreated(t) {
           <thead class="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_theme(colors.slate.100)]">
             <tr>
               <th class="text-left">Tenant</th>
-              <th class="text-left hidden md:table-cell">Branch</th>
-              <th class="text-right hidden sm:table-cell">Today</th>
-              <th class="text-right hidden md:table-cell">Active Users</th>
-              <th class="text-right hidden lg:table-cell">MTD Revenue</th>
+              <th class="text-left hidden md:table-cell">Location</th>
+              <th class="text-left hidden md:table-cell">Contact</th>
+              <th class="text-left hidden sm:table-cell">Subscription</th>
+              <th class="text-right hidden lg:table-cell">Today</th>
+              <th class="text-right hidden lg:table-cell">Active Users</th>
+              <th class="text-right hidden xl:table-cell">MTD Revenue</th>
               <th class="text-left">Status</th>
               <th class="text-right">Actions</th>
             </tr>
@@ -216,10 +244,92 @@ function onTenantCreated(t) {
                 <div class="font-semibold text-slate-800">{{ t.display_name }}</div>
                 <div class="text-[11px] text-slate-500 font-mono">{{ t.store_code }}</div>
               </td>
-              <td class="hidden md:table-cell">{{ t.branch || '—' }}</td>
-              <td class="text-right tabular-nums hidden sm:table-cell">{{ t.today_tests || 0 }}</td>
-              <td class="text-right tabular-nums hidden md:table-cell">{{ t.active_users || 0 }}</td>
-              <td class="text-right font-semibold tabular-nums hidden lg:table-cell">{{ money(t.mtd_revenue || 0) }}</td>
+              <td class="hidden md:table-cell text-slate-700">
+                <div v-if="t.city || t.province" class="text-sm font-semibold text-slate-800">
+                  {{ [t.city, t.province].filter(Boolean).join(', ') }}
+                </div>
+                <div v-if="t.address_street1 || t.address_street2"
+                     class="text-xs text-slate-500">
+                  {{ [t.address_street1, t.address_street2].filter(Boolean).join(', ') }}
+                </div>
+                <div v-if="!t.city && !t.province && !t.address_street1 && !t.address_street2"
+                     class="text-xs text-slate-400">—</div>
+              </td>
+              <td class="hidden md:table-cell text-slate-700">
+                <div v-if="t.email_address" class="text-sm">{{ t.email_address }}</div>
+                <div v-if="t.contact_number" class="text-xs text-slate-500">{{ t.contact_number }}</div>
+                <div v-if="!t.email_address && !t.contact_number" class="text-xs text-slate-400">—</div>
+              </td>
+              <td class="hidden sm:table-cell">
+                <template v-if="subscriptionState(t) === 'none'">
+                  <span class="badge-muted">No plan</span>
+                </template>
+                <template v-else>
+                  <div class="flex items-center gap-1.5">
+                    <span v-if="subscriptionState(t) === 'active'" class="badge-success">Active</span>
+                    <span v-else-if="subscriptionState(t) === 'expiring-soon'" class="badge-warn">Expiring soon</span>
+                    <span v-else class="badge-danger">Expired</span>
+                    <span v-if="subscriptionPlanLabel(t).code"
+                          class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700"
+                          :title="subscriptionPlanLabel(t).name || ''">
+                      {{ subscriptionPlanLabel(t).code }}
+                    </span>
+                  </div>
+                  <div class="mt-0.5 text-[11px]"
+                       :class="subscriptionState(t) === 'expired' ? 'text-rose-700'
+                                : subscriptionState(t) === 'expiring-soon' ? 'text-amber-700'
+                                : 'text-slate-500'">
+                    <span>{{ formatDate(t.current_subscription_expiry) }}</span>
+                    <span v-if="subscriptionDaysRemaining(t) != null">
+                      · <template v-if="subscriptionDaysRemaining(t) < 0">
+                          expired {{ -subscriptionDaysRemaining(t) }}d ago
+                        </template>
+                        <template v-else>
+                          {{ subscriptionDaysRemaining(t) }}d left
+                        </template>
+                    </span>
+                  </div>
+                  <div v-if="t.current_subscription_plan_amount != null"
+                       class="text-[10px] text-slate-500">
+                    {{ money(t.current_subscription_plan_amount) }}
+                    <span v-if="t.current_subscription_days">
+                      · {{ t.current_subscription_days }}d
+                    </span>
+                  </div>
+                </template>
+                <!-- Next subscription queued (from tenant_subscription_history
+                     where status='scheduled'). Attached to the row by
+                     listTenantsWithMetrics. -->
+                <div v-if="t.next_subscription"
+                     class="mt-1 flex items-start gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-1 text-[11px] text-indigo-800">
+                  <svg viewBox="0 0 24 24" class="mt-0.5 h-3 w-3 shrink-0"
+                       fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                    <polyline points="9 16 11 18 15 14"/>
+                  </svg>
+                  <div class="min-w-0">
+                    <div class="font-semibold">
+                      Next: {{ t.next_subscription.subscription_plan_name || t.next_subscription.subscription_plan_code }}
+                    </div>
+                    <div class="text-[10px]">
+                      Activates {{ formatDate(t.next_subscription.subscription_start) }}
+                      <span v-if="t.next_subscription.subscription_plan_amount != null">
+                        · {{ money(t.next_subscription.subscription_plan_amount) }}
+                      </span>
+                      <span v-if="t.next_subscription.subscription_days">
+                        · {{ t.next_subscription.subscription_days }}d
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="text-right tabular-nums hidden lg:table-cell">{{ t.today_tests || 0 }}</td>
+              <td class="text-right tabular-nums hidden lg:table-cell">{{ t.active_users || 0 }}</td>
+              <td class="text-right font-semibold tabular-nums hidden xl:table-cell">{{ money(t.mtd_revenue || 0) }}</td>
               <td>
                 <span v-if="t.status === 'active'" class="badge-success">Active</span>
                 <span v-else class="badge-muted">Inactive</span>

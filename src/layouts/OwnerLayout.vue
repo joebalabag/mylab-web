@@ -57,7 +57,25 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <template>
-  <div class="flex h-full bg-slate-100">
+  <!-- Scope-override --brand-* to Tailwind's teal palette so all `bg-brand-*`
+       / `btn-primary` / focus rings inside the Owner Console render in the
+       editorial teal theme, without disturbing per-tenant theming set on
+       <html> by applyTenantTheme(). -->
+  <div
+    class="flex h-full bg-slate-100"
+    style="
+      --brand-50:  240 253 250;
+      --brand-100: 204 251 241;
+      --brand-200: 153 246 228;
+      --brand-300:  94 234 212;
+      --brand-400:  45 212 191;
+      --brand-500:  20 184 166;
+      --brand-600:  13 148 136;
+      --brand-700:  15 118 110;
+      --brand-800:  17  94  89;
+      --brand-900:  19  78  74;
+    "
+  >
     <OwnerSidebar
       :open="sidebarOpen"
       :collapsed="collapsed"
@@ -95,7 +113,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         </button>
 
         <div>
-          <div class="text-[10px] font-bold uppercase tracking-widest text-amber-600">MyLab Owner</div>
+          <div class="text-[10px] font-bold uppercase tracking-widest text-teal-700">MyLab Owner</div>
           <div class="text-base font-semibold text-slate-800">{{ pageTitle }}</div>
         </div>
 
@@ -109,7 +127,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
           <div id="owner-user-menu" class="relative">
             <button
-              class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-sm font-bold text-white"
+              class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-700 text-sm font-semibold text-white ring-1 ring-inset ring-white/10"
               @click.stop="menuOpen = !menuOpen"
               aria-label="Account menu"
             >

@@ -56,14 +56,14 @@ function openTenantReports(t) {
         <div class="card p-4">
           <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Tenants</div>
           <div class="mt-1 text-2xl font-bold text-slate-800 tabular-nums">{{ summary.tenant_count }}</div>
-          <RouterLink to="/owner/tenants" class="mt-1 inline-block text-[11px] font-semibold text-amber-600 hover:underline">
+          <RouterLink to="/owner/tenants" class="mt-1 inline-block text-[11px] font-semibold text-teal-700 hover:underline">
             Manage →
           </RouterLink>
         </div>
         <div class="card p-4">
           <div class="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Active Users</div>
           <div class="mt-1 text-2xl font-bold text-slate-800 tabular-nums">{{ summary.active_users }}</div>
-          <RouterLink to="/owner/users" class="mt-1 inline-block text-[11px] font-semibold text-amber-600 hover:underline">
+          <RouterLink to="/owner/users" class="mt-1 inline-block text-[11px] font-semibold text-teal-700 hover:underline">
             View users →
           </RouterLink>
         </div>

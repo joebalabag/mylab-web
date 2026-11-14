@@ -188,10 +188,11 @@ watch(tenantUuid, () => {
 /* ─── Summary counts ─── */
 const pendingCount = computed(() => pendingRows.value.length)
 const historyCounts = computed(() => {
-  const c = { total: historyRows.value.length, pending: 0, approved: 0, rejected: 0, amount: 0 }
+  const c = { total: historyRows.value.length, pending: 0, approved: 0, rejected: 0, voided: 0, amount: 0 }
   for (const p of historyRows.value) {
     if (p.payment_status === 'approved') { c.approved++; c.amount += Number(p.amount_paid) || 0 }
     else if (p.payment_status === 'rejected') c.rejected++
+    else if (p.payment_status === 'voided') c.voided++
     else c.pending++
   }
   return c
@@ -227,6 +228,22 @@ function emptyRecordForm() {
 }
 const recordForm = ref(emptyRecordForm())
 
+// Optional manual overrides on the chained auto-approve. Each is independently
+// toggleable. Providing either triggers the admin-override path on the backend:
+// it bypasses the >5-days-remaining block and (for subscription_end) overrides
+// plan.days_duration as a hard override.
+const overrideStartEnabled = ref(false)
+const overrideStartDate    = ref('')
+const overrideEndEnabled   = ref(false)
+const overrideEndDate      = ref('')
+
+function resetRecordOverrides() {
+  overrideStartEnabled.value = false
+  overrideStartDate.value    = ''
+  overrideEndEnabled.value   = false
+  overrideEndDate.value      = ''
+}
+
 // Receipt + AI extraction state. Mirrors the pattern in SubscriptionView.vue.
 const recordFile              = ref(null)
 const recordFileUrl           = ref('')
@@ -239,6 +256,7 @@ const recordExtractionPayload = ref(null)
 
 function openRecord() {
   recordForm.value = emptyRecordForm()
+  resetRecordOverrides()
   recordError.value = ''
   discardRecordReceiptPick()
   recordShow.value = true
@@ -247,6 +265,7 @@ function closeRecord() {
   recordShow.value = false
   recordError.value = ''
   recordForm.value = emptyRecordForm()
+  resetRecordOverrides()
   discardRecordReceiptPick()
 }
 
@@ -462,6 +481,20 @@ async function submitRecord() {
     recordError.value = 'Receipt upload didn\'t complete. Re-pick the image or discard it.'
     return
   }
+  if (overrideStartEnabled.value && !overrideStartDate.value) {
+    recordError.value = 'Pick the subscription start date, or turn the override off.'
+    return
+  }
+  if (overrideEndEnabled.value && !overrideEndDate.value) {
+    recordError.value = 'Pick the new expiry date, or turn the override off.'
+    return
+  }
+  if (overrideStartEnabled.value && overrideEndEnabled.value
+      && overrideEndDate.value && overrideStartDate.value
+      && overrideEndDate.value <= overrideStartDate.value) {
+    recordError.value = 'New expiry must be after the subscription start date.'
+    return
+  }
 
   recordSaving.value = true
   try {
@@ -488,11 +521,14 @@ async function submitRecord() {
     }
 
     // Chain the auto-approve. If it fails (most commonly: "Current plan still
-    // has X days remaining; can only approve within 5 days of expiry"), the
-    // record is already saved and shows up in the pending list — surface the
-    // error so the admin knows why it didn't activate.
+    // has X days remaining; can only approve within 5 days of expiry" — which
+    // the admin-override bypasses), the record is already saved and shows up
+    // in the pending list — surface the error so the admin knows why.
     try {
-      await paymentsApi.approvePayment(uuid)
+      await paymentsApi.approvePayment(uuid, {
+        subscription_start: overrideStartEnabled.value ? overrideStartDate.value : undefined,
+        subscription_end:   overrideEndEnabled.value   ? overrideEndDate.value   : undefined
+      })
       flash('Payment recorded and approved ✓')
     } catch (approveErr) {
       flash(`Payment recorded as pending — ${approveErr?.message || 'auto-approve failed'}`, 'rose')
@@ -531,7 +567,9 @@ function closeView() {
   detail.value      = null
   detailError.value = ''
   approveStart.value = ''
+  approveEnd.value   = ''
   rejectReason.value = ''
+  voidReason.value   = ''
 }
 
 const receiptZoom = ref(1)
@@ -543,15 +581,25 @@ function zoomOut()   { receiptZoom.value = Math.max(ZOOM_MIN, +(receiptZoom.valu
 function zoomReset() { receiptZoom.value = 1 }
 
 const approveStart = ref('')
+const approveEnd   = ref('')
 const confirmApprove = ref({ show: false })
 const acting = ref(false)
 
-function askApprove() { confirmApprove.value = { show: true } }
+function askApprove() {
+  if (approveStart.value && approveEnd.value && approveEnd.value <= approveStart.value) {
+    flash('New expiry must be after the subscription start date.', 'rose')
+    return
+  }
+  confirmApprove.value = { show: true }
+}
 async function doApprove() {
   if (!detail.value?.uuid) return
   acting.value = true
   try {
-    await paymentsApi.approvePayment(detail.value.uuid, approveStart.value || undefined)
+    await paymentsApi.approvePayment(detail.value.uuid, {
+      subscription_start: approveStart.value || undefined,
+      subscription_end:   approveEnd.value   || undefined
+    })
     flash('Payment approved ✓')
     confirmApprove.value = { show: false }
     closeView()
@@ -588,14 +636,41 @@ async function doReject() {
   }
 }
 
+const voidReason    = ref('')
+const confirmVoid   = ref({ show: false })
+function askVoid() {
+  if (!voidReason.value.trim()) {
+    flash('Please enter a reason for voiding first.', 'rose')
+    return
+  }
+  confirmVoid.value = { show: true }
+}
+async function doVoid() {
+  if (!detail.value?.uuid) return
+  acting.value = true
+  try {
+    await paymentsApi.voidPayment(detail.value.uuid, voidReason.value.trim())
+    flash('Payment voided ✓')
+    confirmVoid.value = { show: false }
+    closeView()
+    await Promise.all([loadPending(), loadHistory()])
+  } catch (e) {
+    flash(e?.message || 'Failed to void payment', 'rose')
+  } finally {
+    acting.value = false
+  }
+}
+
 function statusBadgeClass(s) {
   if (s === 'approved') return 'badge-success'
   if (s === 'rejected') return 'badge-danger'
+  if (s === 'voided')   return 'badge-muted'
   return 'badge-warn'
 }
 function statusLabel(s) {
   if (s === 'approved') return 'Approved'
   if (s === 'rejected') return 'Rejected'
+  if (s === 'voided')   return 'Voided'
   return 'Pending'
 }
 
@@ -750,6 +825,7 @@ const filtersSummary = computed(() => {
             · <span class="text-emerald-700">{{ historyCounts.approved }} approved</span>
             · <span class="text-rose-700">{{ historyCounts.rejected }} rejected</span>
             · <span class="text-amber-700">{{ historyCounts.pending }} pending</span>
+            · <span class="text-slate-500">{{ historyCounts.voided }} voided</span>
             <span v-if="historyCounts.approved > 0"
                   class="ml-2 text-slate-700">Total approved: <b>{{ money(historyCounts.amount) }}</b></span>
             <span v-if="historyLoading" class="ml-1 text-indigo-600">· loading…</span>
@@ -847,6 +923,7 @@ const filtersSummary = computed(() => {
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
+            <option value="voided">Voided</option>
           </select>
         </div>
 
@@ -1068,16 +1145,25 @@ const filtersSummary = computed(() => {
             </div>
           </div>
 
-          <div v-if="detail.payment_status !== 'approved' && detail.payment_status !== 'rejected'"
+          <div v-if="detail.payment_status === 'pending'"
                class="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
             <div class="text-xs font-semibold text-slate-700">Review this payment</div>
 
-            <div>
-              <label class="label">Subscription start (optional)</label>
-              <input v-model="approveStart" type="date" class="input" />
-              <p class="text-[11px] text-slate-500">
-                Leave blank to start today (or right after the current plan expires).
-              </p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label class="label">Subscription start (optional)</label>
+                <input v-model="approveStart" type="date" class="input" />
+                <p class="text-[11px] text-slate-500">
+                  Blank = start today (or right after the current plan expires).
+                </p>
+              </div>
+              <div>
+                <label class="label">New expiry (optional)</label>
+                <input v-model="approveEnd" type="date" class="input" />
+                <p class="text-[11px] text-slate-500">
+                  Blank = start + plan duration. Setting this bypasses the 5-day block.
+                </p>
+              </div>
             </div>
 
             <div>
@@ -1091,10 +1177,30 @@ const filtersSummary = computed(() => {
               <button class="btn-primary" :disabled="acting" @click="askApprove">Approve</button>
             </div>
           </div>
+          <div v-else-if="detail.payment_status === 'approved'"
+               class="space-y-3 rounded-lg border border-amber-100 bg-amber-50/40 p-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-semibold text-slate-700">Approved payment</div>
+              <span class="text-[11px] text-slate-500">
+                Voiding is book-keeping only — the active subscription is not rolled back.
+              </span>
+            </div>
+            <div>
+              <label class="label">Void reason (required to void)</label>
+              <textarea v-model="voidReason" rows="2" class="input"
+                        placeholder="e.g. Duplicate payment / recorded on the wrong tenant"></textarea>
+            </div>
+            <div class="flex flex-wrap justify-end gap-2">
+              <button class="btn-danger" :disabled="acting" @click="askVoid">Void payment</button>
+            </div>
+          </div>
           <div v-else class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-            This payment has already been {{ detail.payment_status }}.
-            <span v-if="detail.payment_status === 'approved' && detail.subscription_start">
-              Subscription started {{ formatDate(detail.subscription_start) }}.
+            This payment has already been {{ statusLabel(detail.payment_status).toLowerCase() }}.
+            <span v-if="detail.payment_status === 'voided' && detail.void_reason" class="mt-1 block text-slate-700">
+              Reason: {{ detail.void_reason }}
+            </span>
+            <span v-if="detail.payment_status === 'voided' && detail.payment_voided_datetime" class="mt-0.5 block text-[11px] text-slate-500">
+              Voided {{ formatDateTime(detail.payment_voided_datetime) }}<span v-if="detail.payment_voided_by_name"> by {{ detail.payment_voided_by_name }}</span>.
             </span>
           </div>
 
@@ -1113,7 +1219,7 @@ const filtersSummary = computed(() => {
       :show="confirmApprove.show"
       title="Approve payment?"
       :message="detail
-        ? `Approving will activate the ${detail.subscription_plan_name || detail.subscription_plan_code || 'subscription'} plan for ${detail.tenant_display_name || tenantLabel(detail.tenant_uuid)}${approveStart ? ' starting ' + approveStart : ''}.`
+        ? `Approving will activate the ${detail.subscription_plan_name || detail.subscription_plan_code || 'subscription'} plan for ${detail.tenant_display_name || tenantLabel(detail.tenant_uuid)}${approveStart ? ' starting ' + approveStart : ''}${approveEnd ? ' and expiring ' + approveEnd : ''}.`
         : ''"
       confirm-text="Approve"
       :danger="false"
@@ -1129,6 +1235,16 @@ const filtersSummary = computed(() => {
       confirm-text="Reject"
       @close="confirmReject = { show: false }"
       @confirm="doReject"
+    />
+    <ConfirmDialog
+      :show="confirmVoid.show"
+      title="Void this payment?"
+      :message="detail
+        ? `The payment will be marked as voided. The tenant's active subscription will NOT be rolled back. Reason: “${voidReason.trim()}”.`
+        : ''"
+      confirm-text="Void"
+      @close="confirmVoid = { show: false }"
+      @confirm="doVoid"
     />
 
     <!-- ─── Record Payment modal (admin logs an off-platform tenant payment) ─── -->
@@ -1249,6 +1365,42 @@ const filtersSummary = computed(() => {
               <div class="text-xs text-slate-700">
                 New expiration: <b>{{ formatDate(newSubscriptionPreview.end?.toISOString()) || '—' }}</b>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subscription date overrides (optional) -->
+        <div class="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <div class="text-xs font-semibold text-slate-700">Subscription date overrides</div>
+              <div class="text-[11px] text-slate-500">
+                Optional. Setting either bypasses the 5-day auto-approve block.
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                <input v-model="overrideStartEnabled" type="checkbox" class="h-3.5 w-3.5" />
+                Override subscription start
+              </label>
+              <input v-model="overrideStartDate" type="date" class="input mt-1"
+                     :disabled="!overrideStartEnabled" />
+              <p class="text-[11px] text-slate-500">
+                Explicit day the new plan should start.
+              </p>
+            </div>
+            <div>
+              <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                <input v-model="overrideEndEnabled" type="checkbox" class="h-3.5 w-3.5" />
+                Override new expiry
+              </label>
+              <input v-model="overrideEndDate" type="date" class="input mt-1"
+                     :disabled="!overrideEndEnabled" />
+              <p class="text-[11px] text-slate-500">
+                Hard override of plan duration — expires on this date.
+              </p>
             </div>
           </div>
         </div>
