@@ -39,16 +39,19 @@ app.config.warnHandler = (msg, instance, trace) => {
   console.warn(`[vue warn] in <${name}>: ${msg}${trace ? '\n' + trace : ''}`)
 }
 
-// Two consoles share the same bundle. Resolve the API bearer per request
-// from the URL — /super/** uses the super-admin token, everything else
-// uses the staff token — so opening two tabs (one staff, one super-admin)
-// no longer clobbers the shared client state.
+// Three consoles share the same bundle. Resolve the API bearer per request
+// from the URL — /super/** uses the super-admin token, /owner/** uses the
+// owner token, everything else uses the staff token — so opening multiple
+// tabs across consoles doesn't clobber the shared client state.
 setTokenProvider(() => {
   try {
     const path = router.currentRoute.value?.path
       || (typeof window !== 'undefined' ? window.location.pathname : '')
     if (path && path.startsWith('/super')) {
       return localStorage.getItem('pos_super_token') || null
+    }
+    if (path && path.startsWith('/owner')) {
+      return localStorage.getItem('pos_owner_token') || null
     }
     return localStorage.getItem('pos_token') || null
   } catch (_) {

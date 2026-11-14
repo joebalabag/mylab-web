@@ -366,6 +366,33 @@ export const useTenantStore = defineStore('tenant', {
       if (t) this.hydrateFromApi(t)
       return t
     },
+
+    /**
+     * Fetch a tenant by uuid and return it in the store-shaped form
+     * (same mapping as `hydrateFromApi`) WITHOUT mutating `this.current`
+     * or localStorage. Used by the Branch result-search / Print Preview
+     * path to render a sibling tenant's header on top of the signed-in
+     * user's own session. Returns null if the fetch fails.
+     */
+    async fetchTenantSnapshot(uuid) {
+      if (!uuid) return null
+      try {
+        const t = await tenantApi.viewTenant(uuid)
+        if (!t?.uuid) return null
+        // Reuse hydrateFromApi's mapping by snapshot + revert: apply, pull
+        // the mapped shape out, restore the previous `current`. Since this
+        // runs in a single microtask and we don't call persistCurrent, no
+        // other consumer observes the swap.
+        const prior = this.current
+        this.hydrateFromApi(t)
+        const snapshot = { ...this.current }
+        this.current = prior
+        persistCurrent(this.current)
+        return snapshot
+      } catch (_) {
+        return null
+      }
+    },
     async updateCurrentViaApi(apiPayload, file) {
       if (!this.current?.uuid) throw new Error('No tenant loaded')
       const updated = await tenantApi.updateTenant(this.current.uuid, apiPayload, file)

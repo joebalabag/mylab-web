@@ -45,14 +45,32 @@ export function uploadPayment(payload) {
 }
 
 // Admin only.
-export function approvePayment(uuid, subscription_start) {
-  return api.patch(`/tenant-subscription-payment/approve/${uuid}`,
-    subscription_start ? { subscription_start } : {})
+// opts: { subscription_start?, subscription_end? } — ISO date strings, both
+// optional. Providing either triggers the admin-override path on the backend
+// (bypasses the >5-days-remaining block; explicit end wins over plan days).
+export function approvePayment(uuid, opts) {
+  const body = {}
+  if (opts && typeof opts === 'object') {
+    if (opts.subscription_start) body.subscription_start = opts.subscription_start
+    if (opts.subscription_end)   body.subscription_end   = opts.subscription_end
+  } else if (typeof opts === 'string' && opts) {
+    // Back-compat with callers that pass a bare subscription_start string.
+    body.subscription_start = opts
+  }
+  return api.patch(`/tenant-subscription-payment/approve/${uuid}`, body)
 }
 
 // Admin only.
 export function rejectPayment(uuid, rejection_reason) {
   return api.patch(`/tenant-subscription-payment/reject/${uuid}`, { rejection_reason })
+}
+
+// Admin only. Book-keeping void — flips an approved payment's status to
+// `voided` and records who/when/why. Does NOT roll back the tenant's active
+// subscription; use the Record Payment modal's "Adjust current expiry"
+// override if a subscription rollback is also needed.
+export function voidPayment(uuid, void_reason) {
+  return api.patch(`/tenant-subscription-payment/void/${uuid}`, { void_reason })
 }
 
 // Ask the backend to prepare a PayPal Order for a plan. Returns
